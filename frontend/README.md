@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# ChitChat Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 
-Currently, two official plugins are available:
+The modern, responsive web client for ChitChat. Features a WhatsApp-like interface with support for rich messaging, media sharing, and high-quality voice/video calls.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## React Compiler
+- **Real-time Chat**: Zero-latency messaging with read receipts and typing indicators.
+- **Voice & Video Calls**: Integrated WebRTC calling with crystal clear audio/video.
+- **Rich Media**: Send images, videos, audio messages, and documents.
+- **Group Chats**: Create groups, manage members, and chat with multiple people.
+- **Responsive Design**: Fully optimized for desktop, tablet, and mobile devices.
+- **Emoji Picker**: Built-in emoji support for expressive conversations.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠 Tech Stack
 
-## Expanding the ESLint configuration
+- **Core**: [React 18](https://reactjs.org/), [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [TailwindCSS](https://tailwindcss.com/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Data Fetching**: [TanStack Query (React Query)](https://tanstack.com/query/latest)
+- **Real-time**: [Socket.IO Client](https://socket.io/)
+- **WebRTC**: [Simple-Peer](https://github.com/feross/simple-peer)
+- **Icons**: [Lucide React](https://lucide.dev/)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## ⚙️ Environment Variables
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Create a `.env` file in the frontend directory:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+```env
+# Backend API URL (for authentication & REST)
+VITE_API_URL=http://localhost:3000/api
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# WebSocket URL (for real-time chat & signaling)
+VITE_SOCKET_URL=http://localhost:3000/chat
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🏃‍♂️ Getting Started
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Prerequisites
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js (v18+)
+
+### Installation
+
+1.  Navigate to the frontend directory:
+
+    ```bash
+    cd chitchat/frontend
+    ```
+
+2.  Install dependencies:
+
+    ```bash
+    npm install
+    ```
+
+3.  Run the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+4.  Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## 🏗️ Build for Production
+
+To create an optimized production build:
+
+```bash
+npm run build
 ```
+
+The output will be in the `dist` folder, ready to be deployed to **Vercel**, **Netlify**, or **Render Static Sites**.
+
+## 📱 Mobile Support
+
+The UI is built with a mobile-first approach using responsive Tailwind classes, ensuring a native-app-like experience on smaller screens.
+
+---
+
+Made with ❤️ by Sudipta Pramanik
