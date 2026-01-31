@@ -6,7 +6,7 @@ import { authApi } from '../api';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+91');
   const [isLoading, setIsLoading] = useState(false);
 
   const formatPhoneNumber = (value: string) => {
@@ -28,7 +28,7 @@ export const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!phone || phone.length < 10) {
+    if (!phone || phone.length < 12) {
       toast.error('Please enter a valid phone number');
       return;
     }
@@ -137,22 +137,22 @@ export const LoginPage = () => {
 
           <button
             type="submit"
-            disabled={isLoading || phone.length < 10}
+            disabled={isLoading || phone.length < 12}
             style={{
               width: '100%',
-              backgroundColor: isLoading || phone.length < 10 ? '#1a5c3e' : '#25d366',
+              backgroundColor: isLoading || phone.length < 12 ? '#1a5c3e' : '#25d366',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
               padding: '16px',
               fontSize: '16px',
               fontWeight: '600',
-              cursor: isLoading || phone.length < 10 ? 'not-allowed' : 'pointer',
+              cursor: isLoading || phone.length < 12 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              opacity: isLoading || phone.length < 10 ? 0.6 : 1,
+              opacity: isLoading || phone.length < 12 ? 0.6 : 1,
               transition: 'all 0.2s ease'
             }}
           >

@@ -133,23 +133,43 @@ export class OtpService {
   }
 
   private async sendSms(phone: string, otp: string): Promise<void> {
-    if (this.smsProvider === 'console') {
-      // Development mode - log to console
-      this.logger.log(`📱 OTP for ${phone}: ${otp}`);
-      this.logger.warn('⚠️  Using console SMS provider - for development only!');
-      return;
+    // Switch based on provider
+    if (this.smsProvider === 'twilio') {
+       await this.sendViaTwilio(phone, otp);
+       return;
     }
 
-    // TODO: Integrate with actual SMS provider (Twilio, AWS SNS, etc.)
-    // switch (this.smsProvider) {
-    //   case 'twilio':
-    //     await this.sendViaTwilio(phone, otp);
-    //     break;
-    //   case 'aws-sns':
-    //     await this.sendViaAwsSns(phone, otp);
-    //     break;
-    // }
+    // Default/Console fallback
+    this.logger.log(`📱 OTP for ${phone}: ${otp}`);
+    this.logger.warn('⚠️  Using console SMS provider - for development only!');
+  }
 
-    this.logger.log(`SMS sent to ${phone}`);
+  private async sendViaTwilio(phone: string, otp: string): Promise<void> {
+    const accountSid = this.configService.get<string>('otp.twilio.accountSid');
+    const authToken = this.configService.get<string>('otp.twilio.authToken');
+    const fromNumber = this.configService.get<string>('otp.twilio.phoneNumber');
+
+    if (!accountSid || !authToken || !fromNumber) {
+      this.logger.error('Missing Twilio credentials in configuration');
+      throw new Error('SMS service not configured properly');
+    }
+
+    try {
+      // Lazy load twilio to avoid startup errors if not installed
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const twilio = require('twilio');
+      const client = twilio(accountSid, authToken);
+
+      await client.messages.create({
+        body: `Your ChitChat verification code is: ${otp}`,
+        from: fromNumber,
+        to: phone,
+      });
+      
+      this.logger.log(`Twilio SMS sent to ${phone}`);
+    } catch (error) {
+      this.logger.error(`Failed to send SMS via Twilio: ${error}`);
+      throw new Error('Failed to send verification code');
+    }
   }
 }
