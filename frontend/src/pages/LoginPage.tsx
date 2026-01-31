@@ -1,13 +1,43 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Phone, ArrowRight, Loader2 } from 'lucide-react';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { authApi } from '../api';
+import { useAuthStore } from '../stores';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuthStore();
   const [phone, setPhone] = useState('+91');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      toast.error('Google Sign-In failed: No credential');
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    try {
+      const response = await authApi.googleAuth(credentialResponse.credential);
+      login(response.accessToken, response.refreshToken, response.user, response.isNewUser);
+      toast.success('Logged in with Google!');
+      
+      if (response.isNewUser || !response.user.profile?.displayName) {
+        navigate('/setup-profile');
+      } else {
+        navigate('/');
+      }
+    } catch (error: unknown) {
+      console.error(error);
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Google Auth failed');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits except +
@@ -56,9 +86,26 @@ export const LoginPage = () => {
         alignItems: 'center', 
         justifyContent: 'center', 
         padding: '16px',
-        backgroundColor: '#111b21'
+        backgroundColor: '#111b21',
+        position: 'relative'
       }}
     >
+      {/* Google Loading Overlay */}
+      {isGoogleLoading && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(17, 27, 33, 0.9)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50
+        }}>
+          <Loader2 size={40} style={{ animation: 'spin 1s linear infinite', color: '#25d366' }} />
+          <p style={{ color: '#e9edef', marginTop: '16px', fontSize: '18px' }}>Signing in with Google...</p>
+        </div>
+      )}
       {/* Logo */}
       <div style={{ marginBottom: '32px', textAlign: 'center' }} className="animate-fade-in">
         <div 
@@ -173,6 +220,24 @@ export const LoginPage = () => {
         <p style={{ color: '#8696a0', fontSize: '14px', textAlign: 'center', marginTop: '24px' }}>
           We'll send you a verification code via SMS
         </p>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#2a3942' }}></div>
+          <span style={{ color: '#8696a0', fontSize: '14px' }}>OR</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#2a3942' }}></div>
+        </div>
+
+        {/* Google Login */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => toast.error('Google Sign-In failed')}
+            theme="filled_black"
+            shape="circle"
+            width="300px" // This might be ignored by the component if specific sizes are enforced, but good to try
+          />
+        </div>
       </div>
 
       {/* Footer */}

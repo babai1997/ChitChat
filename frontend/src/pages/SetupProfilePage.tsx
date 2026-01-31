@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { profileApi } from '../api';
 import { useAuthStore } from '../stores';
@@ -13,6 +13,11 @@ export const SetupProfilePage = () => {
   const [displayName, setDisplayName] = useState(user?.profile?.displayName || '');
   const [about, setAbout] = useState(user?.profile?.about || 'Hey there! I am using ChitChat');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleBack = () => {
+    // Log out and go back to login
+    navigate('/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,9 +70,30 @@ export const SetupProfilePage = () => {
         alignItems: 'center', 
         justifyContent: 'center', 
         padding: '16px',
-        backgroundColor: '#111b21'
+        backgroundColor: '#111b21',
+        position: 'relative'
       }}
     >
+      {/* Back Button */}
+      <button
+        onClick={handleBack}
+        style={{
+          position: 'absolute',
+          top: '24px',
+          left: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#8696a0',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '14px'
+        }}
+      >
+        <ArrowLeft size={20} />
+        Back
+      </button>
       {/* Header */}
       <div style={{ marginBottom: '32px', textAlign: 'center' }} className="animate-fade-in">
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#e9edef', marginBottom: '8px' }}>
