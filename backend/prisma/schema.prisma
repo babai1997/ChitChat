@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Authentication Models
+// ============================================
+
+model User {
+  id          String    @id @default(uuid())
+  phone       String?   @unique
+  email       String?   @unique
+  isVerified  Boolean   @default(false) @map("is_verified")
+  lastSeen    DateTime? @map("last_seen")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  authProviders AuthProvider[]
+  profile       Profile?
+  chatMembers   ChatMember[]
+  messages      Message[]
+  createdChats  Chat[]         @relation("ChatCreator")
+
+  @@index([phone])
+  @@index([email])
+  @@index([lastSeen])
+  @@map("users")
+}
+
+enum AuthProviderType {
+  otp
+  google
+}
+
+model AuthProvider {
+  id         String           @id @default(uuid())
+  userId     String           @map("user_id")
+  provider   AuthProviderType
+  providerId String?          @map("provider_id")
+  metadata   Json             @default("{}")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@index([provider, providerId])
+  @@map("auth_providers")
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  displayName String?  @map("display_name") @db.VarChar(100)
+  avatarUrl   String?  @map("avatar_url")
+  about       String   @default("Hey there! I am using ChitChat") @db.VarChar(500)
+  isOnline    Boolean  @default(false) @map("is_online")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isOnline])
+  @@map("profiles")
+}
+
+// OTP storage for authentication
+model OtpCode {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String   // Hashed OTP
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, verified])
+  @@map("otp_codes")
+}
+
+// ============================================
+// Chat & Messaging Models
+// ============================================
+
+enum ChatType {
+  direct
+  group
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  type      ChatType
+  name      String?  @db.VarChar(100)
+  avatarUrl String?  @map("avatar_url")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  creator  User?        @relation("ChatCreator", fields: [createdBy], references: [id])
+  members  ChatMember[]
+  messages Message[]
+
+  @@index([type])
+  @@index([createdBy])
+  @@map("chats")
+}
+
+enum ChatMemberRole {
+  admin
+  member
+}
+
+model ChatMember {
+  id         String         @id @default(uuid())
+  chatId     String         @map("chat_id")
+  userId     String         @map("user_id")
+  role       ChatMemberRole @default(member)
+  joinedAt   DateTime       @default(now()) @map("joined_at")
+  lastReadAt DateTime?      @map("last_read_at")
+
+  // Relations
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([chatId])
+  @@index([userId])
+  @@map("chat_members")
+}
+
+enum MessageType {
+  text
+  image
+  file
+  audio
+  video
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
+model Message {
+  id        String        @id @default(uuid())
+  chatId    String        @map("chat_id")
+  senderId  String        @map("sender_id")
+  content   String?
+  type      MessageType   @default(text)
+  status    MessageStatus @default(sent)
+  replyToId String?       @map("reply_to")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  chat        Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender      User         @relation(fields: [senderId], references: [id])
+  replyTo     Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies     Message[]    @relation("MessageReplies")
+  attachments Attachment[]
+
+  // Critical: Composite index for chat message pagination
+  @@index([chatId, createdAt(sort: Desc)])
+  @@index([senderId])
+  @@index([status])
+  @@map("messages")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  fileName  String   @map("file_name") @db.VarChar(255)
+  fileType  String   @map("file_type") @db.VarChar(100)
+  fileSize  BigInt   @map("file_size")
+  url       String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("attachments")
+}
+
+// ============================================
+// Refresh Token Model
+// ============================================
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}

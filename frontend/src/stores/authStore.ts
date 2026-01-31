@@ -1,0 +1,101 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface User {
+  id: string;
+  phone: string | null;
+  email: string | null;
+  isVerified: boolean;
+  profile: {
+    displayName: string | null;
+    avatarUrl: string | null;
+    about: string | null;
+  } | null;
+}
+
+interface AuthState {
+  // State
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  isNewUser: boolean;
+
+  // Actions
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  setUser: (user: User) => void;
+  setIsNewUser: (isNewUser: boolean) => void;
+  login: (accessToken: string, refreshToken: string, user: User, isNewUser: boolean) => void;
+  logout: () => void;
+  updateProfile: (profile: Partial<User['profile']>) => void;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      isAuthenticated: false,
+      isNewUser: false,
+
+      // Actions
+      setTokens: (accessToken, refreshToken) => {
+        set({ accessToken, refreshToken, isAuthenticated: true });
+      },
+
+      setUser: (user) => {
+        set({ user });
+      },
+
+      setIsNewUser: (isNewUser) => {
+        set({ isNewUser });
+      },
+
+      login: (accessToken, refreshToken, user, isNewUser) => {
+        set({
+          accessToken,
+          refreshToken,
+          user,
+          isAuthenticated: true,
+          isNewUser,
+        });
+      },
+
+      logout: () => {
+        set({
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          isAuthenticated: false,
+          isNewUser: false,
+        });
+      },
+
+      updateProfile: (profile) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: {
+              ...currentUser,
+              profile: {
+                ...currentUser.profile,
+                ...profile,
+              } as User['profile'],
+            },
+          });
+        }
+      },
+    }),
+    {
+      name: 'chitchat-auth',
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+);
