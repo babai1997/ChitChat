@@ -282,6 +282,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const answerCall = async () => {
     if (!incomingCall) return;
 
+    // Stop ringtone immediately when answering
+    ringtoneManager.stopRingtone();
+
     try {
       setCallStatus('connected'); // Immediately show connected UI
       setIsCallActive(true);

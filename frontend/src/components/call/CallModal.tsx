@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCall } from '../../contexts/CallContext';
-import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, Minimize2, Maximize2 } from 'lucide-react';
+import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, Minimize2, Maximize2, GripHorizontal } from 'lucide-react';
 
 export const CallModal = () => {
   const { 
@@ -20,6 +20,55 @@ export const CallModal = () => {
     isVideoEnabled,
     isMinimized
   } = useCall();
+
+  // PiP drag state
+  const [pipPosition, setPipPosition] = useState({ x: window.innerWidth - 200, y: window.innerHeight - 280 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const pipRef = useRef<HTMLDivElement>(null);
+
+  // Handle drag start
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragOffset({
+      x: clientX - pipPosition.x,
+      y: clientY - pipPosition.y
+    });
+  }, [pipPosition]);
+
+  // Handle drag move
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      // Keep within window bounds
+      const newX = Math.max(0, Math.min(window.innerWidth - 180, clientX - dragOffset.x));
+      const newY = Math.max(0, Math.min(window.innerHeight - 240, clientY - dragOffset.y));
+      
+      setPipPosition({ x: newX, y: newY });
+    };
+
+    const handleEnd = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove);
+    window.addEventListener('touchend', handleEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDragging, dragOffset]);
 
   // --- Active Call UI ---
   const isVideo = callType === 'video';
@@ -138,21 +187,46 @@ export const CallModal = () => {
     const firstRemoteStream = remoteStreamsArray[0];
 
     return (
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        width: '180px',
-        height: '240px',
-        backgroundColor: '#202c33',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        zIndex: 9999,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div style={{flex: 1, position: 'relative', overflow: 'hidden'}}>
+      <div 
+        ref={pipRef}
+        style={{
+          position: 'fixed',
+          left: `${pipPosition.x}px`,
+          top: `${pipPosition.y}px`,
+          width: '180px',
+          height: '240px',
+          backgroundColor: '#202c33',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          zIndex: 9999,
+          boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.7)' : '0 4px 12px rgba(0,0,0,0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          cursor: isDragging ? 'grabbing' : 'default',
+          transition: isDragging ? 'none' : 'box-shadow 0.2s ease'
+        }}>
+        {/* Drag Handle */}
+        <div 
+          onMouseDown={handleDragStart}
+          onTouchStart={handleDragStart}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '32px',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'grab',
+            zIndex: 10
+          }}
+        >
+          <GripHorizontal size={16} color="#8696a0" />
+        </div>
+
+        <div style={{flex: 1, position: 'relative', overflow: 'hidden', marginTop: '32px'}}>
           {firstRemoteStream && isVideo ? (
              <VideoTile stream={firstRemoteStream} isVideo={true} />
           ) : (
