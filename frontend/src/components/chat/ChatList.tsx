@@ -63,10 +63,10 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
           onClick={() => onChatSelect(chat)}
           style={{
             width: '100%',
-            padding: '12px 16px',
+            padding: '14px 16px', // Increased padding for touch
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
+            gap: '16px', // Increased gap
             backgroundColor: activeChat?.id === chat.id ? '#2a3942' : 'transparent',
             border: 'none',
             borderBottom: '1px solid #202c33',
@@ -83,7 +83,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
         >
           {/* Avatar */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {getChatAvatar(chat) ? (
                 <img 
                   src={getChatAvatar(chat)!} 

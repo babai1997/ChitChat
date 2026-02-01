@@ -17,6 +17,7 @@ interface SidebarProps {
     avatarUrl: string | null;
     displayName: string | null;
   } | null;
+  onSettingsClick?: () => void;
 }
 
 
@@ -59,7 +60,7 @@ const NavItem = ({ id, icon: Icon, isActive, onClick }: NavItemProps) => (
   </button>
 );
 
-export const Sidebar = ({ activeTab, onTabChange, userProfile }: SidebarProps) => {
+export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }: SidebarProps) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const { logout } = useAuthStore();
   const navigate = useNavigate();
@@ -74,11 +75,11 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile }: SidebarProps) =
       width: '60px', 
       backgroundColor: '#202c33', 
       borderRight: '1px solid #2a3942',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '12px 0',
-      justifyContent: 'space-between',
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      padding: '12px 0', 
+      justifyContent: 'space-between', 
       zIndex: 20
     }}>
       {/* Top Navigation */}
@@ -92,7 +93,13 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile }: SidebarProps) =
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button 
           title="Settings"
-          onClick={() => navigate('/setup-profile')}
+          onClick={() => {
+             if (onSettingsClick) {
+                onSettingsClick();
+             } else {
+                navigate('/settings');
+             }
+          }}
           style={{ 
             width: '100%', 
             height: '48px', 
@@ -161,7 +168,14 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile }: SidebarProps) =
                     </div>
                  </div>
                  <button
-                    onClick={() => { navigate('/setup-profile'); setShowProfileMenu(false); }}
+                    onClick={() => { 
+                        if (onSettingsClick) {
+                            onSettingsClick();
+                        } else {
+                            navigate('/settings');
+                        }
+                        setShowProfileMenu(false); 
+                    }}
                     style={{
                       width: '100%',
                       padding: '12px 16px',

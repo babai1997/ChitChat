@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { OtpService } from './otp.service';
 import { SendOtpDto, VerifyOtpDto, GoogleAuthDto, RefreshTokenDto } from './dto';
 import { User, AuthProviderType } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface TokenPair {
   accessToken: string;
@@ -304,6 +305,7 @@ export class AuthService {
       sub: user.id,
       phone: user.phone,
       email: user.email,
+      jti: uuidv4(), // Add unique identifier to prevent collisions
     };
 
     const [accessToken, refreshToken] = await Promise.all([

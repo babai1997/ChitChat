@@ -52,7 +52,20 @@ export class ChatsService {
       },
     });
 
-    return chatMembers.map((cm) => this.formatChat(cm.chat, userId, cm.lastReadAt));
+    const formattedChats = await Promise.all(
+      chatMembers.map(async (cm) => {
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            chatId: cm.chatId,
+            createdAt: { gt: cm.lastReadAt || cm.joinedAt },
+            senderId: { not: userId },
+          },
+        });
+        return this.formatChat(cm.chat, userId, cm.lastReadAt, unreadCount);
+      }),
+    );
+
+    return formattedChats;
   }
 
   async getChatById(chatId: string, userId: string) {
@@ -84,7 +97,17 @@ export class ChatsService {
     }
 
     const member = chat.members.find((m) => m.userId === userId);
-    return this.formatChat(chat, userId, member?.lastReadAt || null);
+
+    // Calculate unread count
+    const unreadCount = await this.prisma.message.count({
+      where: {
+        chatId,
+        createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
+        senderId: { not: userId },
+      },
+    });
+
+    return this.formatChat(chat, userId, member?.lastReadAt || null, unreadCount);
   }
 
   async getUserChatIds(userId: string): Promise<string[]> {
@@ -146,7 +169,14 @@ export class ChatsService {
 
     if (existingChat) {
       const member = existingChat.members.find((m) => m.userId === userId);
-      return this.formatChat(existingChat, userId, member?.lastReadAt || null);
+      const unreadCount = await this.prisma.message.count({
+        where: {
+          chatId: existingChat.id,
+          createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
+          senderId: { not: userId },
+        },
+      });
+      return this.formatChat(existingChat, userId, member?.lastReadAt || null, unreadCount);
     }
 
     // Create new direct chat
@@ -170,7 +200,7 @@ export class ChatsService {
       },
     });
 
-    const formattedChat = this.formatChat(chat, userId, null);
+    const formattedChat = this.formatChat(chat, userId, null, 0);
     
     // Emit event for real-time updates
     this.eventEmitter.emit('chat.created', { chat: formattedChat, userIds: [userId, dto.participantId] });
@@ -214,7 +244,7 @@ export class ChatsService {
       },
     });
 
-    const formattedChat = this.formatChat(chat, userId, null);
+    const formattedChat = this.formatChat(chat, userId, null, 0);
 
     // Emit event for real-time updates
     this.eventEmitter.emit('chat.created', {
@@ -247,7 +277,16 @@ export class ChatsService {
       },
     });
 
-    return this.formatChat(updated, userId, null);
+    const member = updated.members.find(m => m.userId === userId);
+    const unreadCount = await this.prisma.message.count({
+        where: {
+          chatId,
+          createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
+          senderId: { not: userId },
+        },
+    });
+
+    return this.formatChat(updated, userId, null, unreadCount);
   }
 
   // ============================================
@@ -255,7 +294,7 @@ export class ChatsService {
   // ============================================
 
   async addMember(chatId: string, userId: string, dto: AddMemberDto) {
-    await this.getChatWithMemberCheck(chatId, userId, true);
+    const chat = await this.getChatWithMemberCheck(chatId, userId, true);
 
     // Check if user to add exists
     const userToAdd = await this.prisma.user.findUnique({
@@ -306,14 +345,12 @@ export class ChatsService {
     };
 
     // Emit event to the new member to add the chat to their list
+    // Ensure we fetch the updated chat state for the notification
     const updatedChat = await this.getChatById(chatId, dto.userId);
     this.eventEmitter.emit('chat.created', {
       chat: updatedChat,
       userIds: [dto.userId],
     });
-    
-    // Ideally we would also emit 'chat.member_added' to the group
-    // this.eventEmitter.emit('chat.member_added', { chatId, member: formattedMember });
 
     return formattedMember;
   }
@@ -438,6 +475,7 @@ export class ChatsService {
     },
     currentUserId: string,
     lastReadAt: Date | null,
+    unreadCount: number,
   ) {
     const lastMessage = chat.messages?.[0];
     const otherMembers = chat.members.filter((m) => m.userId !== currentUserId);
@@ -454,13 +492,6 @@ export class ChatsService {
         otherUser.user.email ||
         'Unknown';
       avatarUrl = otherUser.user.profile?.avatarUrl || null;
-    }
-
-    // Count unread messages
-    let unreadCount = 0;
-    if (lastReadAt && lastMessage) {
-      // In a real app, you'd count messages after lastReadAt
-      unreadCount = lastMessage.createdAt > lastReadAt ? 1 : 0;
     }
 
     return {
