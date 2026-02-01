@@ -221,7 +221,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Update the message in the store
       store.updateMessage(data.chatId, data.messageId, {
         isDeleted: true,
-        content: null, // Clear content for deleted messages
+        content: '', // Clear content for deleted messages
       });
 
       // Update last message if needed
