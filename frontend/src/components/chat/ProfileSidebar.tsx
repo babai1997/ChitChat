@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { ArrowLeft, User, Edit2, Info, Check, Loader2, Camera } from 'lucide-react';
+import { ArrowLeft, User, Edit2, Check, Camera } from 'lucide-react';
 import { useAuthStore } from '../../stores';
 import { profileApi } from '../../api';
 import toast from 'react-hot-toast';
-import { AvatarUpload } from '../../features/profile/components/AvatarUpload';
 
 interface ProfileSidebarProps {
   onBack: () => void;

@@ -11,7 +11,6 @@ import {
   HelpCircle, 
   Users,
   QrCode,
-  CheckCircle,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores';
 import { useNavigate } from 'react-router-dom';

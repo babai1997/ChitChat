@@ -22,6 +22,7 @@ import { SettingsSidebar } from '../components/chat/SettingsSidebar';
 import { EmptyState } from '../components/common/EmptyState';
 import { Sidebar } from '../components/common/Sidebar';
 import type { Chat } from '../types';
+import { ChatListSkeleton } from '../components/chat/ChatListSkeleton';
 
 
 interface BottomNavProps {
@@ -106,34 +107,29 @@ export const HomePage = () => {
   useSocket();
 
   // Screen size detection for responsive layout
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Fetch chats
-  const { isLoading, refetch } = useQuery({
-    queryKey: ['chats'],
+  const { data: chatsData, isLoading, refetch } = useQuery({
+    queryKey: ['chats', user?.id],
     queryFn: chatApi.getChats,
     staleTime: 30000,
     refetchOnWindowFocus: true,
+    enabled: !!user?.id,
   });
 
   // Update store when query succeeds
   useEffect(() => {
-    const fetchChats = async () => {
-      try {
-        const data = await chatApi.getChats();
-        setChats(data);
-      } catch (error) {
-        console.error('Failed to fetch chats:', error);
-      }
-    };
-    fetchChats();
-  }, [setChats]);
+    if (chatsData) {
+      setChats(chatsData);
+    }
+  }, [chatsData, setChats]);
 
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
@@ -362,9 +358,7 @@ export const HomePage = () => {
             {/* Chat List */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {isLoading ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '128px', color: '#8696a0' }}>
-                  Loading chats...
-                </div>
+                <ChatListSkeleton />
               ) : filteredChats.length > 0 ? (
                 <ChatList 
                   chats={filteredChats} 
@@ -430,7 +424,7 @@ export const HomePage = () => {
       </div>
 
       <style>{`
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .md-flex {
             display: flex !important;
           }
@@ -441,7 +435,7 @@ export const HomePage = () => {
             display: flex !important;
           }
         }
-        @media (max-width: 767px) {
+        @media (max-width: 1023px) {
           .hidden-mobile {
             display: none !important;
           }

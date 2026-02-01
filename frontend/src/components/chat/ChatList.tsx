@@ -22,9 +22,11 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
   };
 
   const getChatAvatar = (chat: Chat) => {
-    if (chat.avatarUrl) return chat.avatarUrl;
-    const otherMember = chat.members.find((m) => m.userId !== currentUserId);
-    return otherMember?.user.profile?.avatarUrl || null;
+    if (chat.type === 'direct') {
+      const otherMember = chat.members.find((m) => m.userId !== currentUserId);
+      return otherMember?.user.profile?.avatarUrl || null;
+    }
+    return chat.avatarUrl || null;
   };
 
   const isOnline = (chat: Chat) => {

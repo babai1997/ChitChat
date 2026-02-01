@@ -64,6 +64,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Clear chat data
+        import('./chatStore').then(({ useChatStore }) => {
+          useChatStore.getState().clearChatData();
+        });
+
         set({
           accessToken: null,
           refreshToken: null,

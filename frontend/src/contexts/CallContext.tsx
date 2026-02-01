@@ -13,10 +13,12 @@ interface CallContextType {
   callType: 'audio' | 'video';
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
+  remoteStreams: Map<string, MediaStream>;
   startCall: (chatId: string, type: 'audio' | 'video') => void;
   answerCall: () => void;
   rejectCall: () => void;
+  toggleMinimize: () => void;
+  isMinimized: boolean;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -29,28 +31,99 @@ interface IncomingCallData {
   callerId: string;
   callerName: string;
   callerAvatar?: string;
-  offer: any;
+  offer?: any;
   type: 'audio' | 'video';
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { socket } = useSocket(); // Need direct socket access
+  const { socket } = useSocket();
   
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
   
+  const [isMinimized, setIsMinimized] = useState(false);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  // Replaced single remoteStream with Map of streams
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
-  const peerRef = useRef<Instance | null>(null);
+  // Replaced single peerRef with Map of peers
+  const peersRef = useRef<Map<string, Instance>>(new Map());
   const activeChatIdRef = useRef<string | null>(null);
+
+  const cleanupCall = useCallback(() => {
+    console.log('Cleaning up call...');
+    // Destroy all peers
+    peersRef.current.forEach(peer => peer.destroy());
+    peersRef.current.clear();
+
+    if (localStreamRef.current) {
+        console.log('Stopping local tracks:', localStreamRef.current.id);
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+    }
+    setLocalStream(null);
+    setRemoteStreams(new Map());
+    setIncomingCall(null);
+    setCallStatus('idle');
+    setIsCallActive(false);
+    setIsMinimized(false);
+    activeChatIdRef.current = null;
+  }, []);
+
+  const createPeer = (targetUserId: string, initiator: boolean, stream: MediaStream) => {
+    console.log(`Creating peer for ${targetUserId} (initiator: ${initiator})`);
+    const peer = new SimplePeer({
+      initiator,
+      trickle: false,
+      stream,
+    });
+
+    peer.on('signal', (signal) => {
+      // type is generic 'signal' here effectively, but we can infer role
+      socket?.emit('call:signal', {
+        targetUserId,
+        type: initiator ? 'offer' : 'answer', // Hint for clarity
+        signal,
+        chatId: activeChatIdRef.current
+      });
+    });
+
+    peer.on('stream', (stream) => {
+      console.log(`Received stream from ${targetUserId}`);
+      setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.set(targetUserId, stream);
+          return newMap;
+      });
+    });
+
+    peer.on('close', () => {
+        console.log(`Peer connection closed: ${targetUserId}`);
+        peersRef.current.delete(targetUserId);
+        setRemoteStreams(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(targetUserId);
+            return newMap;
+        });
+    });
+
+    peer.on('error', (err) => {
+        console.error(`Peer error with ${targetUserId}:`, err);
+        // Potentially cleanup specific peer?
+    });
+
+    peersRef.current.set(targetUserId, peer);
+    return peer;
+  };
 
   // --- Socket Event Listeners ---
   useEffect(() => {
@@ -59,7 +132,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('call:incoming', (data: IncomingCallData) => {
       console.log('Incoming call:', data);
       if (callStatus !== 'idle') {
-        // Busy - auto reject or show busy?
+        // Busy
         socket.emit('call:reject', { chatId: data.chatId, callerId: data.callerId });
         return;
       }
@@ -68,54 +141,87 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallType(data.type);
     });
 
-    socket.on('call:accepted', (data: { answer: any; responderId: string }) => {
-      console.log('Call accepted by:', data.responderId);
-      if (callStatus === 'calling' && peerRef.current) {
-        setCallStatus('connected');
-        peerRef.current.signal(data.answer);
+    // Handle new user joining the call (Mesh: initiate connection)
+    socket.on('call:user-joined', (data: { userId: string, chatId: string }) => {
+        console.log('User joined call:', data.userId);
+        if (isCallActive && localStreamRef.current && data.userId !== socket.id) { // Should check vs self? userId is usually DB id, assume socket.user.id
+            // Initiate connection to the new joiner
+            // Note: we need to ensure we don't connect to self if broadcast includes self.
+            // But we don't have our own userId easily accessible here unless we store it.
+            // Assuming backend doesn't send to self or we handle duplicate safely.
+            
+            if (!peersRef.current.has(data.userId)) {
+                createPeer(data.userId, true, localStreamRef.current);
+            }
+        }
+    });
+
+    // Handle signals (Offer, Answer, Candidate)
+    socket.on('call:signal', (data: { senderId: string, type: string, signal: any }) => {
+        console.log(`Received signal from ${data.senderId} (${data.type})`);
+        const { senderId, signal } = data;
+        
+        let peer = peersRef.current.get(senderId);
+
+        if (!peer) {
+            // If we receive an offer and don't have a peer, we are the receiver (non-initiator)
+            if (isCallActive && localStreamRef.current) {
+                 peer = createPeer(senderId, false, localStreamRef.current);
+            } else {
+                console.warn('Received signal but call not active or no stream');
+                return;
+            }
+        }
+
+        peer.signal(signal);
+    });
+
+    // Legacy/Global end
+    socket.on('call:ended', (data: { enderId: string }) => {
+      // Logic change: in usage, if someone ends, they leave.
+      // If we want "End for everyone", that's different.
+      // For now, if "enderId" is the one we are talking to, we might close that peer.
+      // But 'call:ended' event currently is broadcast to close the whole call or just notify?
+      // Code says "Notify everyone... call ended".
+      // Mesh: usually one person leaving doesn't end call for others.
+      // We'll treat this as "Someone left", verify if it was the last one?
+      // For simplicity/requirement "Group Call", we just remove that peer.
+      
+      console.log(`User left call: ${data.enderId}`);
+      const peer = peersRef.current.get(data.enderId);
+      if (peer) {
+          peer.destroy();
+          peersRef.current.delete(data.enderId);
+          setRemoteStreams(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(data.enderId);
+              return newMap;
+          });
+      }
+      
+      // If everyone left?
+      if (peersRef.current.size === 0 && callStatus === 'connected') {
+          // toast('All participants left');
+          // cleanupCall(); // Optional: auto-end?
       }
     });
 
-    socket.on('call:rejected', () => {
-      toast.error('Call rejected');
-      cleanupCall();
-    });
-
-    socket.on('call:ended', () => {
-      toast('Call ended');
-      cleanupCall();
-    });
-
-    socket.on('call:ice-candidate', (data: { candidate: any }) => {
-      if (peerRef.current) {
-        peerRef.current.signal(data.candidate);
-      }
+    // Rejections
+    socket.on('call:rejected', (_: { rejectorId: string }) => {
+         toast.error('User rejected call');
+         // Just remove that peer potential?
     });
 
     return () => {
       socket.off('call:incoming');
-      socket.off('call:accepted');
-      socket.off('call:rejected');
+      socket.off('call:user-joined');
+      socket.off('call:signal');
       socket.off('call:ended');
-      socket.off('call:ice-candidate');
+      socket.off('call:rejected');
     };
-  }, [socket, callStatus]);
+  }, [socket, callStatus, isCallActive]); // Deps need careful management
 
-  const cleanupCall = useCallback(() => {
-    if (peerRef.current) {
-      peerRef.current.destroy();
-      peerRef.current = null;
-    }
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        setLocalStream(null);
-    }
-    setRemoteStream(null);
-    setIncomingCall(null);
-    setCallStatus('idle');
-    setIsCallActive(false);
-    activeChatIdRef.current = null;
-  }, [localStream]);
+  const toggleMinimize = () => setIsMinimized(prev => !prev);
 
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
@@ -130,46 +236,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       setLocalStream(stream);
+      localStreamRef.current = stream;
       setIsVideoEnabled(type === 'video');
       setIsMuted(false);
 
-      const peer = new SimplePeer({
-        initiator: true,
-        trickle: false,
-        stream: stream,
-      });
-
-      peer.on('signal', (data) => {
-        socket!.emit('call:start', {
-          chatId,
-          offer: data,
-          type
-        });
-      });
-
-      peer.on('stream', (currentRemoteStream) => {
-        setRemoteStream(currentRemoteStream);
+      // Emit start (Advertises presence/invitation). No offer sent here.
+      socket!.emit('call:start', {
+        chatId,
+        offer: null, // No initial offer in Mesh
+        type
       });
       
-      peer.on('close', () => {
-          cleanupCall();
-      });
-
-      peer.on('error', (err) => {
-          console.error('Peer error:', err);
-          cleanupCall();
-      });
-
-      peerRef.current = peer;
+      // Now we wait for 'call:user-joined' (when they accept)
 
     } catch (err: any) {
       console.error('Failed to start call:', err);
-      let errorMessage = 'Could not access camera/microphone';
-      if (err.name === 'NotAllowedError') errorMessage = 'Permission denied. Please allow access.';
-      if (err.name === 'NotFoundError') errorMessage = 'No camera or microphone found.';
-      if (err.name === 'NotReadableError') errorMessage = 'Camera/Microphone is already in use.';
-      
-      toast.error(`${errorMessage} (${err.name})`);
+      toast.error('Could not access camera/microphone');
       cleanupCall();
     }
   };
@@ -178,7 +260,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!incomingCall) return;
 
     try {
-      setCallStatus('connected');
+      setCallStatus('connected'); // Immediately show connected UI
       setIsCallActive(true);
       activeChatIdRef.current = incomingCall.chatId;
 
@@ -188,48 +270,21 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       setLocalStream(stream);
+      localStreamRef.current = stream;
       setIsVideoEnabled(incomingCall.type === 'video');
       setIsMuted(false);
 
-      const peer = new SimplePeer({
-        initiator: false,
-        trickle: false,
-        stream: stream,
+      // Announce join to the room.
+      // Existing participants (including caller) will receive this and initiate connection.
+      socket!.emit('call:join', {
+          chatId: incomingCall.chatId
       });
 
-      peer.on('signal', (data) => {
-        socket!.emit('call:answer', {
-          chatId: incomingCall.chatId,
-          callerId: incomingCall.callerId,
-          answer: data
-        });
-      });
-
-      peer.on('stream', (currentRemoteStream) => {
-        setRemoteStream(currentRemoteStream);
-      });
-      
-      peer.on('close', () => {
-          cleanupCall();
-      });
-
-      peer.on('error', (err) => {
-          console.error('Peer error:', err);
-          cleanupCall();
-      });
-
-      peer.signal(incomingCall.offer);
-      peerRef.current = peer;
       setIncomingCall(null);
 
     } catch (err: any) {
       console.error('Failed to answer call:', err);
-      let errorMessage = 'Could not access camera/microphone';
-      if (err.name === 'NotAllowedError') errorMessage = 'Permission denied. Please allow access.';
-      if (err.name === 'NotFoundError') errorMessage = 'No camera or microphone found.';
-      if (err.name === 'NotReadableError') errorMessage = 'Camera/Microphone is already in use.';
-
-      toast.error(`${errorMessage} (${err.name})`);
+      toast.error('Could not access camera/microphone');
       cleanupCall();
     }
   };
@@ -246,6 +301,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const endCall = () => {
     if (activeChatIdRef.current) {
+        // We just emit 'call:end' to notify we are leaving?
+        // Or generic "I left". backend `handleCallEnd` notifies others.
         socket!.emit('call:end', { chatId: activeChatIdRef.current });
     }
     cleanupCall();
@@ -273,7 +330,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callType,
         incomingCall,
         localStream,
-        remoteStream,
+        remoteStreams, // Map
         startCall,
         answerCall,
         rejectCall,
@@ -281,7 +338,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleMute,
         toggleVideo,
         isMuted,
-        isVideoEnabled
+        isVideoEnabled,
+        toggleMinimize,
+        isMinimized
       }}
     >
       {children}

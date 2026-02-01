@@ -13,7 +13,6 @@ import {
   Users,
   QrCode,
   CheckCircle,
-  ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '../stores';
 

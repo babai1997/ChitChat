@@ -15,6 +15,7 @@ import { chatApi } from '../../api';
 import { useChatStore } from '../../stores';
 import { useSocket } from '../../hooks';
 import { MessageBubble } from './MessageBubble';
+import { ChatViewSkeleton } from './ChatViewSkeleton';
 import { ContactInfoModal } from './ContactInfoModal';
 import { GroupInfoModal } from './GroupInfoModal';
 import { useCall } from '../../contexts/CallContext';
@@ -260,9 +261,11 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   };
 
   const getChatAvatar = () => {
-    if (chat.avatarUrl) return chat.avatarUrl;
-    const otherMember = chat.members.find((m) => m.userId !== currentUserId);
-    return otherMember?.user.profile?.avatarUrl || null;
+    if (chat.type === 'direct') {
+      const otherMember = chat.members.find((m) => m.userId !== currentUserId);
+      return otherMember?.user.profile?.avatarUrl || null;
+    }
+    return chat.avatarUrl || null;
   };
 
   const getTypingText = () => {
@@ -446,9 +449,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         }}
       >
         {isLoading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8696a0' }}>
-            Loading messages...
-          </div>
+          <ChatViewSkeleton />
         ) : (
           <>
             {hasNextPage && (
@@ -637,7 +638,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
       </div>
       
       <style>{`
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .md-hidden {
             display: none !important;
           }

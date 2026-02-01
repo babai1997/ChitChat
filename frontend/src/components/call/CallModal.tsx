@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useCall } from '../../contexts/CallContext';
-import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff } from 'lucide-react';
+import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, Minimize2, Maximize2 } from 'lucide-react';
 
 export const CallModal = () => {
   const { 
@@ -9,59 +9,35 @@ export const CallModal = () => {
     callType, 
     incomingCall, 
     localStream, 
-    remoteStream, 
+    remoteStreams, 
     answerCall, 
     rejectCall, 
     endCall,
     toggleMute,
     toggleVideo,
+    toggleMinimize,
     isMuted,
-    isVideoEnabled
+    isVideoEnabled,
+    isMinimized
   } = useCall();
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-
-  // Handle local stream
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream]);
-
-  // Handle remote stream
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
+  // --- Active Call UI ---
+  const isVideo = callType === 'video';
+  const remoteStreamsArray = Array.from(remoteStreams.values());
 
   // Handle ringtone
   useEffect(() => {
       if (callStatus === 'incoming') {
           // Ideally use a real audio file
-          // ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
-          // ringtoneRef.current.loop = true;
-          // ringtoneRef.current.play().catch(e => console.log('Autoplay blocked', e));
-      } else {
-          // if (ringtoneRef.current) {
-          //     ringtoneRef.current.pause();
-          //     ringtoneRef.current = null;
-          // }
-      }
-      return () => {
-          // if (ringtoneRef.current) {
-          //     ringtoneRef.current.pause();
-          //     ringtoneRef.current = null;
-          // }
-      };
+      } 
+      return () => {};
   }, [callStatus]);
 
   if (!isCallActive && callStatus === 'idle') return null;
 
   // --- Incoming Call UI ---
   if (callStatus === 'incoming' && incomingCall) {
-    return (
+     return (
       <div style={{
         position: 'fixed',
         top: 0,
@@ -156,8 +132,101 @@ export const CallModal = () => {
     );
   }
 
-  // --- Active Call UI ---
-  const isVideo = callType === 'video';
+  // --- Active Call UI (Minimized) ---
+  if (isMinimized) {
+    // Show first remote stream or placeholder
+    const firstRemoteStream = remoteStreamsArray[0];
+
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        width: '180px',
+        height: '240px',
+        backgroundColor: '#202c33',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        zIndex: 9999,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{flex: 1, position: 'relative', overflow: 'hidden'}}>
+          {firstRemoteStream && isVideo ? (
+             <VideoTile stream={firstRemoteStream} isVideo={true} />
+          ) : (
+            <div style={{
+              width: '100%', 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              backgroundColor: '#2a3942'
+            }}>
+              <span style={{fontSize: '48px'}}>👤</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          padding: '8px', 
+          display: 'flex', 
+          justifyContent: 'space-around', 
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0
+        }}>
+           <button onClick={toggleMinimize} style={{background: 'none', border: 'none', color: 'white', cursor: 'pointer'}}>
+             <Maximize2 size={20} />
+           </button>
+           <button onClick={endCall} style={{background: 'none', border: 'none', color: '#ea4335', cursor: 'pointer'}}>
+             <PhoneOff size={20} />
+           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Active Call UI (Full Screen Grid) ---
+  
+  const getGridStyle = (count: number) => {
+      if (count <= 1) return { display: 'flex', width: '100%', height: '100%' };
+      if (count === 2) return { display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', height: '100%' };
+      return { 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gridTemplateRows: 'repeat(auto-fit, minmax(200px, 1fr))',
+          width: '100%', 
+          height: '100%' 
+      };
+  };
+
+  const gridStyle = getGridStyle(remoteStreamsArray.length);
+
+  // Local video ref
+  const LocalVideo = () => {
+      const videoRef = useRef<HTMLVideoElement>(null);
+      useEffect(() => {
+          if (videoRef.current && localStream) {
+              videoRef.current.srcObject = localStream;
+          }
+      }, [localStream]);
+
+      if (!localStream) return null;
+
+      return (
+        <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            style={{width: '100%', height: '100%', objectFit: 'cover'}} 
+        />
+      );
+  };
 
   return (
     <div style={{
@@ -171,21 +240,51 @@ export const CallModal = () => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Video/Audio Area */}
-      <div style={{flex: 1, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
+      {/* Top Bar for Minimize */}
+      <div style={{
+        position: 'absolute', 
+        top: '20px', 
+        left: '20px', 
+        zIndex: 10
+      }}>
+        <button 
+           onClick={toggleMinimize}
+           style={{
+               padding: '10px',
+               borderRadius: '50%',
+               backgroundColor: 'rgba(0,0,0,0.3)',
+               color: 'white',
+               border: 'none',
+               cursor: 'pointer'
+           }}
+        >
+          <Minimize2 size={24} />
+        </button>
+      </div>
+
+      {/* Video Grid Area */}
+      <div style={{flex: 1, position: 'relative', overflow: 'hidden', padding: '10px'}}>
         
-        {/* Remote Video */}
-        {remoteStream && isVideo ? (
-           <video 
-             ref={remoteVideoRef} 
-             autoPlay 
-             playsInline 
-             style={{width: '100%', height: '100%', objectFit: 'contain'}} 
-           />
+        {remoteStreamsArray.length > 0 ? (
+            <div style={gridStyle}>
+                {remoteStreamsArray.map((stream, i) => (
+                    <div key={stream.id || i} style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
+                         <VideoTile stream={stream} isVideo={isVideo} />
+                    </div>
+                ))}
+            </div>
         ) : (
-            // Placeholder for audio call or no video
-           <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px'}}>
-              <div style={{
+            // Placeholder for Waiting
+            <div style={{
+                  width: '100%', 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '20px'
+            }}>
+               <div style={{
                   width: '120px',
                   height: '120px', 
                   borderRadius: '50%', 
@@ -195,13 +294,13 @@ export const CallModal = () => {
                   justifyContent: 'center',
                   fontSize: '48px',
                   color: '#8696a0'
-              }}>
-                {callStatus === 'connected' ? '👤' : '...'}
-              </div>
-              <p style={{color: '#e9edef', fontSize: '20px'}}>
-                 {callStatus === 'calling' ? 'Calling...' : 'Connected'}
-              </p>
-           </div>
+               }}>
+                 ...
+               </div>
+               <p style={{color: '#e9edef', fontSize: '20px'}}>
+                  {callStatus === 'calling' ? 'Calling...' : 'Waiting for others...'}
+               </p>
+            </div>
         )}
 
         {/* Local Video (PiP) */}
@@ -215,15 +314,10 @@ export const CallModal = () => {
                 borderRadius: '8px',
                 overflow: 'hidden',
                 boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                backgroundColor: '#202c33'
+                backgroundColor: '#202c33',
+                zIndex: 20
             }}>
-                <video 
-                  ref={localVideoRef} 
-                  autoPlay 
-                  playsInline 
-                  muted 
-                  style={{width: '100%', height: '100%', objectFit: 'cover'}} 
-                />
+                <LocalVideo />
             </div>
         )}
       </div>
@@ -283,4 +377,37 @@ export const CallModal = () => {
       </div>
     </div>
   );
+};
+
+// --- Helper Component ---
+
+const VideoTile = ({ stream, isVideo }: { stream: MediaStream, isVideo: boolean }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
+
+    useEffect(() => {
+        if (isVideo && videoRef.current) {
+            videoRef.current.srcObject = stream;
+             videoRef.current.play().catch(e => console.error('Error playing video:', e));
+        } else if (!isVideo && audioRef.current) {
+            audioRef.current.srcObject = stream;
+             audioRef.current.play().catch(e => console.error('Error playing audio:', e));
+        }
+    }, [stream, isVideo]);
+
+    return (
+        <div style={{ width: '100%', height: '100%', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {isVideo ? (
+                <video 
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+            ) : (
+                <div style={{ fontSize: '48px' }}>👤</div>
+            )}
+            <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
+        </div>
+    );
 };
