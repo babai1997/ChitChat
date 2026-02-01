@@ -1,4 +1,4 @@
-import { User } from 'lucide-react';
+import { User, Check, CheckCheck, Clock } from 'lucide-react';
 import type { Chat } from '../../types';
 
 interface ChatListProps {
@@ -51,10 +51,19 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
     }
   };
 
-  const getMessagePreview = (chat: Chat) => {
-    if (!chat.lastMessage) return 'No messages yet';
-    const prefix = chat.lastMessage.senderId === currentUserId ? 'You: ' : '';
-    return prefix + chat.lastMessage.content;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'sending':
+        return <Clock size={16} color="#8696a0" />;
+      case 'sent':
+        return <Check size={16} color="#8696a0" />;
+      case 'delivered':
+        return <CheckCheck size={16} color="#8696a0" />;
+      case 'read':
+        return <CheckCheck size={16} color="#53bdeb" />;
+      default:
+        return <Check size={16} color="#8696a0" />;
+    }
   };
 
   return (
@@ -65,10 +74,10 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
           onClick={() => onChatSelect(chat)}
           style={{
             width: '100%',
-            padding: '14px 16px', // Increased padding for touch
+            padding: '14px 16px',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px', // Increased gap
+            gap: '16px',
             backgroundColor: activeChat?.id === chat.id ? '#2a3942' : 'transparent',
             border: 'none',
             borderBottom: '1px solid #202c33',
@@ -114,9 +123,24 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: '14px', color: '#8696a0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, margin: 0 }}>
-                {getMessagePreview(chat)}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, color: '#8696a0', fontSize: '14px' }}>
+                {chat.lastMessage ? (
+                    <>
+                        {chat.lastMessage.senderId === currentUserId && (
+                           <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
+                               {getStatusIcon(chat.lastMessage.status)}
+                           </span>
+                        )}
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                           {chat.lastMessage.senderId === currentUserId ? '' : (chat.type === 'group' ? (chat.lastMessage.senderName ? `${chat.lastMessage.senderName}: ` : '') : '')}
+                           {chat.lastMessage.content}
+                        </span>
+                    </>
+                ) : (
+                    <span>No messages yet</span>
+                )}
+              </div>
+              
               {chat.unreadCount > 0 && (
                 <span style={{ marginLeft: '8px', minWidth: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#25d366', color: 'white', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', fontWeight: 600 }}>
                   {chat.unreadCount > 99 ? '99+' : chat.unreadCount}

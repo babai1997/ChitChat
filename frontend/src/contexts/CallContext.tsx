@@ -208,8 +208,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Rejections
     socket.on('call:rejected', (_: { rejectorId: string }) => {
-         toast.error('User rejected call');
-         // Just remove that peer potential?
+      console.log('[Call] Call rejected by recipient');
+      toast.error('Call was declined');
+      cleanupCall(); // End the call on caller's side
     });
 
     return () => {
@@ -251,7 +252,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (err: any) {
       console.error('Failed to start call:', err);
-      toast.error('Could not access camera/microphone');
+      
+      // More specific error messages
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error('Camera/microphone permission denied. Please allow access in browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        toast.error('No camera or microphone found. Please connect a device.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        toast.error('Camera/microphone is already in use by another application.');
+      } else if (err.name === 'OverconstrainedError') {
+        toast.error('Camera/microphone settings are not supported.');
+      } else if (err.name === 'TypeError') {
+        toast.error('Invalid media constraints.');
+      } else {
+        toast.error(`Could not access camera/microphone: ${err.message || err.name}`);
+      }
+      
       cleanupCall();
     }
   };
@@ -284,7 +300,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (err: any) {
       console.error('Failed to answer call:', err);
-      toast.error('Could not access camera/microphone');
+      
+      // More specific error messages
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error('Camera/microphone permission denied. Please allow access in browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        toast.error('No camera or microphone found. Please connect a device.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        toast.error('Camera/microphone is already in use by another application.');
+      } else if (err.name === 'OverconstrainedError') {
+        toast.error('Camera/microphone settings are not supported.');
+      } else if (err.name === 'TypeError') {
+        toast.error('Invalid media constraints.');
+      } else {
+        toast.error(`Could not access camera/microphone: ${err.message || err.name}`);
+      }
+      
       cleanupCall();
     }
   };

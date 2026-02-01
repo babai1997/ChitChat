@@ -46,7 +46,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const attachMenuRef = useRef<HTMLDivElement>(null);
   
   const { messages, setMessages, addMessage, typingUsers, onlineUsers, lastSeen } = useChatStore();
-  const { startTyping, stopTyping, joinChat, leaveChat } = useSocket();
+  const { startTyping, stopTyping, joinChat } = useSocket();
   const { startCall } = useCall();
   
   const chatMessages = messages[chat.id] || [];
@@ -103,10 +103,10 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
 
   useEffect(() => {
     joinChat(chat.id);
-    return () => {
-      leaveChat(chat.id);
-    };
-  }, [chat.id, joinChat, leaveChat]);
+    // Note: We intentionally do NOT leave the chat room when unmounting.
+    // Users should remain in all their chat rooms to receive real-time updates
+    // even when viewing the homepage or other chats.
+  }, [chat.id, joinChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

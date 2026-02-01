@@ -72,6 +72,7 @@ export interface LastMessage {
   createdAt: string;
   senderId: string;
   senderName: string | null;
+  status: MessageStatus;
 }
 
 export interface Chat {

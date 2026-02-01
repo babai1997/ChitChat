@@ -6,203 +6,257 @@ import type { Message } from '../types';
 import { SocketContext, SOCKET_URL } from './SocketContextShared';
 import { chatApi } from '../api';
 
-// Re-export specific items if needed, but the Fast Refresh warning suggests avoiding this for non-components if mixed
-// So we will NOT export them here. They should be imported from SocketContextShared.
-
-
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const { accessToken, isAuthenticated, user } = useAuthStore();
-  const { addMessage, updateMessage, setTypingUser, setUserOnline, setOnlineUsers, updateChat, addChat } = useChatStore();
+  const [isConnected, setIsConnected] = useState(false);
+  const { accessToken, isAuthenticated } = useAuthStore();
 
-  const isConnected = React.useSyncExternalStore(
-    useCallback(
-      (callback) => {
-        if (!socket) return () => {};
-        socket.on('connect', callback);
-        socket.on('disconnect', callback);
-        socket.on('connect_error', callback);
-        return () => {
-          socket.off('connect', callback);
-          socket.off('disconnect', callback);
-          socket.off('connect_error', callback);
-        };
-      },
-      [socket]
-    ),
-    () => socket?.connected ?? false,
-    () => false // Server snapshot
-  );
-
-  // Manage Socket Connection
+  // Single useEffect for socket lifecycle management
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       console.log('[Socket] Not authenticated or no token:', { isAuthenticated, hasToken: !!accessToken });
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+      }
       return;
     }
 
-    let isMounted = true;
+    // Don't recreate if already connected
+    if (socket?.connected) {
+      console.log('[Socket] Already connected, skipping reconnection');
+      return;
+    }
+
+    // Disconnect existing socket if any before creating new one
+    if (socket) {
+      socket.disconnect();
+    }
+
     console.log('[Socket] Initializing connection to:', SOCKET_URL);
 
     const newSocket = io(SOCKET_URL, {
       path: '/socket.io',
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
     });
 
-    // Use setTimeout to avoid synchronous setState warning
-    setTimeout(() => {
-      if (isMounted) {
-        setSocket(newSocket);
-      }
-    }, 0);
-
-    // Debug listeners for connection lifecycle
-    const onConnect = () => console.log('🔌 Connected to WebSocket');
-    const onDisconnect = (reason: string) => console.log('🔌 Disconnected from WebSocket:', reason);
-    const onConnectError = (error: Error) => console.error('🔌 Connection error:', error.message);
-
-    newSocket.on('connect', onConnect);
-    newSocket.on('disconnect', onDisconnect);
-    newSocket.on('connect_error', onConnectError);
-
-    return () => {
-      isMounted = false;
-      newSocket.off('connect', onConnect);
-      newSocket.off('disconnect', onDisconnect);
-      newSocket.off('connect_error', onConnectError);
-      newSocket.disconnect();
-      setSocket(null);
+    // Connection lifecycle handlers
+    const onConnect = () => {
+      console.log('🔌 Connected to WebSocket, socket ID:', newSocket.id);
+      setIsConnected(true);
     };
-  }, [isAuthenticated, accessToken]);
 
-  // Manage Application Event Listeners
-  useEffect(() => {
-    if (!socket) return;
+    const onDisconnect = (reason: string) => {
+      console.log('🔌 Disconnected from WebSocket:', reason);
+      setIsConnected(false);
+    };
 
+    const onConnectError = (error: Error) => {
+      console.error('🔌 Connection error:', error.message);
+      setIsConnected(false);
+    };
+
+    // Message handlers - use getState() to avoid stale closures
     const handleNewMessage = async (message: Message) => {
-        console.log('[Socket] message:new received:', message);
-        const store = useChatStore.getState();
-        const existingChat = store.chats.find(c => c.id === message.chatId);
-        console.log('[Socket] Existing chat found:', existingChat ? 'Yes' : 'No', existingChat?.id);
+      console.log('[Socket] message:new received:', message);
+      const store = useChatStore.getState();
+      const authStore = useAuthStore.getState();
+      const currentUserId = authStore.user?.id;
+      
+      const existingChat = store.chats.find(c => c.id === message.chatId);
+      console.log('[Socket] Existing chat found?', !!existingChat, 'ChatID:', message.chatId);
 
-        if (existingChat) {
-            console.log('[Socket] Processing message for existing chat');
-            addMessage(message.chatId, message);
-            
-            // Calculate unread count
-            const isActive = store.activeChat?.id === message.chatId;
-            const isOwnMessage = message.senderId === user?.id; // Use authenticated user ID
-            
-            let newUnreadCount = existingChat.unreadCount || 0;
-            if (!isActive && !isOwnMessage) {
-                 newUnreadCount += 1;
-            }
-            
-            updateChat(message.chatId, {
-              lastMessage: {
-                id: message.id,
-                content: message.content,
-                type: message.type,
-                createdAt: message.createdAt,
-                senderId: message.senderId,
-                senderName: message.sender.displayName,
-              },
-              updatedAt: message.createdAt,
-              unreadCount: newUnreadCount,
-            });
-        } else {
-             // New chat - fetch and add
-            try {
-                const newChat = await chatApi.getChat(message.chatId);
-                // Ensure unread count is set to 1 if we just received a message and it's not active
-                if (message.senderId !== user?.id) {
-                    newChat.unreadCount = (newChat.unreadCount || 0) > 0 ? newChat.unreadCount : 1;
-                }
-                addChat(newChat);
-                addMessage(message.chatId, message); 
-            } catch (error) {
-                console.error("Failed to fetch new chat details", error);
-            }
+      if (existingChat) {
+        console.log('[Socket] Processing message for existing chat');
+        store.addMessage(message.chatId, message);
+        
+        const isActive = store.activeChat?.id === message.chatId;
+        const isOwnMessage = message.senderId === currentUserId;
+        
+        let newUnreadCount = existingChat.unreadCount || 0;
+        if (!isActive && !isOwnMessage) {
+          newUnreadCount += 1;
         }
+        
+        store.updateChat(message.chatId, {
+          lastMessage: {
+            id: message.id,
+            content: message.content,
+            type: message.type,
+            createdAt: message.createdAt,
+            senderId: message.senderId,
+            senderName: message.sender.displayName,
+            status: message.status,
+          },
+          updatedAt: message.createdAt,
+          unreadCount: newUnreadCount,
+        });
+      } else {
+        console.log('[Socket] Chat not found in store, fetching details...');
+        try {
+          const newChat = await chatApi.getChat(message.chatId);
+          console.log('[Socket] Chat details fetched:', newChat.id);
+          const authStore = useAuthStore.getState();
+          if (message.senderId !== authStore.user?.id) {
+            newChat.unreadCount = (newChat.unreadCount || 0) > 0 ? newChat.unreadCount : 1;
+          }
+          useChatStore.getState().addChat(newChat);
+          useChatStore.getState().addMessage(message.chatId, message);
+          console.log('[Socket] New chat and message added to store');
+        } catch (error) {
+          console.error("[Socket] Failed to fetch new chat details", error);
+        }
+      }
     };
 
     const handleMessageSent = (data: { tempId: string; message: Message }) => {
-      updateMessage(data.message.chatId, data.tempId, {
+      console.log('[Socket] message:sent received:', data.tempId, '->', data.message.id);
+      const store = useChatStore.getState();
+      store.updateMessage(data.message.chatId, data.tempId, {
         ...data.message,
         status: 'sent',
       });
+
+      const chat = store.chats.find(c => c.id === data.message.chatId);
+      if (chat && chat.lastMessage?.id === data.tempId) {
+        store.updateChat(chat.id, {
+          lastMessage: {
+            ...chat.lastMessage,
+            id: data.message.id,
+            status: 'sent',
+            createdAt: data.message.createdAt,
+          },
+        });
+      }
     };
 
-    const handleMessageDelivered = (data: { chatId: string; messageId: string }) => {
-      updateMessage(data.chatId, data.messageId, { status: 'delivered' });
+    const handleMessageDelivered = (data: { chatId: string; messageId: string; tempId?: string }) => {
+      console.log('[Socket] message:delivered received:', data.chatId, data.messageId, 'tempId:', data.tempId);
+      const store = useChatStore.getState();
+      
+      // Try updating by messageId first
+      store.updateMessage(data.chatId, data.messageId, { status: 'delivered' });
+      
+      // Also try updating by tempId (in case message:sent hasn't processed yet)
+      if (data.tempId) {
+        store.updateMessage(data.chatId, data.tempId, { 
+          id: data.messageId, // Update the id too
+          status: 'delivered' 
+        });
+      }
+
+      // Update lastMessage status - check by both messageId and tempId
+      const chat = store.chats.find(c => c.id === data.chatId);
+      if (chat && chat.lastMessage) {
+        if (chat.lastMessage.id === data.messageId || chat.lastMessage.id === data.tempId) {
+          store.updateChat(chat.id, {
+            lastMessage: {
+              ...chat.lastMessage,
+              id: data.messageId,
+              status: 'delivered',
+            },
+          });
+        }
+      }
     };
 
     const handleMessageRead = (data: { chatId: string; messageIds: string[] }) => {
+      console.log('[Socket] message:read received:', data.chatId, data.messageIds);
+      const store = useChatStore.getState();
       data.messageIds.forEach((messageId) => {
-        updateMessage(data.chatId, messageId, { status: 'read' });
+        store.updateMessage(data.chatId, messageId, { status: 'read' });
       });
+      
+      // Update lastMessage status if it's among the read messages
+      const chat = store.chats.find(c => c.id === data.chatId);
+      if (chat && chat.lastMessage && data.messageIds.includes(chat.lastMessage.id)) {
+        store.updateChat(chat.id, {
+          lastMessage: {
+            ...chat.lastMessage,
+            status: 'read',
+          },
+        });
+      }
     };
-    
+
     const handleNewChat = (chat: any) => {
-        console.log('New chat received via socket:', chat);
-        addChat(chat);
+      console.log('[Socket] chat:new received:', chat.id);
+      useChatStore.getState().addChat(chat);
     };
 
     const handleTypingStart = (data: { chatId: string; userId: string }) => {
-      setTypingUser(data.chatId, data.userId, true);
+      useChatStore.getState().setTypingUser(data.chatId, data.userId, true);
     };
 
     const handleTypingStop = (data: { chatId: string; userId: string }) => {
-      setTypingUser(data.chatId, data.userId, false);
+      useChatStore.getState().setTypingUser(data.chatId, data.userId, false);
     };
 
     const handleUserOnline = (data: { userId: string }) => {
-      setUserOnline(data.userId, true);
+      useChatStore.getState().setUserOnline(data.userId, true);
     };
 
     const handleUserOffline = (data: { userId: string; lastSeen?: string }) => {
-      setUserOnline(data.userId, false, data.lastSeen);
+      useChatStore.getState().setUserOnline(data.userId, false, data.lastSeen);
     };
 
     const handleUsersOnline = (userIds: string[]) => {
-      console.log('Initial online users list:', userIds);
-      setOnlineUsers(userIds);
+      console.log('[Socket] users:online received:', userIds.length, 'users');
+      useChatStore.getState().setOnlineUsers(userIds);
     };
 
     const handleError = (error: { message: string }) => {
-      console.error('Socket error:', error.message);
+      console.error('[Socket] error:', error.message);
     };
 
-    socket.on('message:new', handleNewMessage);
-    socket.on('message:sent', handleMessageSent);
-    socket.on('message:delivered', handleMessageDelivered);
-    socket.on('message:read', handleMessageRead);
-    socket.on('chat:new', handleNewChat);
-    socket.on('typing:start', handleTypingStart);
-    socket.on('typing:stop', handleTypingStop);
-    socket.on('user:online', handleUserOnline);
-    socket.on('user:offline', handleUserOffline);
-    socket.on('users:online', handleUsersOnline);
-    socket.on('error', handleError);
+    // Attach all listeners
+    newSocket.on('connect', onConnect);
+    newSocket.on('disconnect', onDisconnect);
+    newSocket.on('connect_error', onConnectError);
+    newSocket.on('message:new', handleNewMessage);
+    newSocket.on('message:sent', handleMessageSent);
+    newSocket.on('message:delivered', handleMessageDelivered);
+    newSocket.on('message:read', handleMessageRead);
+    newSocket.on('chat:new', handleNewChat);
+    newSocket.on('typing:start', handleTypingStart);
+    newSocket.on('typing:stop', handleTypingStop);
+    newSocket.on('user:online', handleUserOnline);
+    newSocket.on('user:offline', handleUserOffline);
+    newSocket.on('users:online', handleUsersOnline);
+    newSocket.on('error', handleError);
+
+    console.log('[Socket] Event listeners attached');
+    setSocket(newSocket);
 
     return () => {
-      socket.off('message:new', handleNewMessage);
-      socket.off('message:sent', handleMessageSent);
-      socket.off('message:delivered', handleMessageDelivered);
-      socket.off('message:read', handleMessageRead);
-      socket.off('chat:new', handleNewChat);
-      socket.off('typing:start', handleTypingStart);
-      socket.off('typing:stop', handleTypingStop);
-      socket.off('user:online', handleUserOnline);
-      socket.off('user:offline', handleUserOffline);
-      socket.off('users:online', handleUsersOnline);
-      socket.off('error', handleError);
+      console.log('[Socket] Cleaning up socket connection');
+      newSocket.off('connect', onConnect);
+      newSocket.off('disconnect', onDisconnect);
+      newSocket.off('connect_error', onConnectError);
+      newSocket.off('message:new', handleNewMessage);
+      newSocket.off('message:sent', handleMessageSent);
+      newSocket.off('message:delivered', handleMessageDelivered);
+      newSocket.off('message:read', handleMessageRead);
+      newSocket.off('chat:new', handleNewChat);
+      newSocket.off('typing:start', handleTypingStart);
+      newSocket.off('typing:stop', handleTypingStop);
+      newSocket.off('user:online', handleUserOnline);
+      newSocket.off('user:offline', handleUserOffline);
+      newSocket.off('users:online', handleUsersOnline);
+      newSocket.off('error', handleError);
+      newSocket.disconnect();
     };
-  }, [socket, addMessage, updateMessage, setTypingUser, setUserOnline, setOnlineUsers, updateChat, addChat, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, accessToken]);
 
   const joinChat = useCallback((chatId: string) => {
     if (socket?.connected) {
+      console.log('[Socket] Joining chat room:', chatId);
       socket.emit('chat:join', { chatId });
     }
   }, [socket]);
@@ -217,6 +271,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (chatId: string, content: string, type: string = 'text', replyToId?: string) => {
       if (socket?.connected) {
         const tempId = `temp-${Date.now()}`;
+        console.log('[Socket] Sending message:', tempId);
         socket.emit('message:send', {
           chatId,
           content,
@@ -226,6 +281,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
         return tempId;
       }
+      console.warn('[Socket] Cannot send message - not connected');
       return null;
     },
     [socket]
@@ -250,19 +306,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [socket]);
 
   return (
-    <SocketContext.Provider value={{ 
-        socket, 
-        isConnected, 
-        joinChat, 
+    <SocketContext.Provider
+      value={{
+        socket,
+        isConnected,
+        joinChat,
         leaveChat,
         sendMessage,
         markAsRead,
         startTyping,
-        stopTyping
-    }}>
+        stopTyping,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );
 };
-
-

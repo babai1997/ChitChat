@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { Socket } from 'socket.io-client';
 
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000/chat';
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '/chat';
 
 export interface SocketContextType {
   socket: Socket | null;
