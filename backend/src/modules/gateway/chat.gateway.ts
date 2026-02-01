@@ -403,11 +403,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { chatId, callerId } = data;
     const rejectorId = socket.user.id;
 
+    this.logger.log(`[Call Reject] User ${rejectorId} rejecting call from ${callerId} in chat ${chatId}`);
+    this.logger.log(`[Call Reject] Caller sockets: ${JSON.stringify(Array.from(this.userSockets.get(callerId) || []))}`);
+    
     this.emitToUser(callerId, 'call:rejected', {
       chatId,
       rejectorId,
       rejectorName: socket.user.profile?.displayName || 'Unknown',
     });
+    
+    this.logger.log(`[Call Reject] Emitted call:rejected to caller ${callerId}`);
   }
 
   @SubscribeMessage('call:end')

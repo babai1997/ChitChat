@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { Instance } from 'simple-peer';
 import SimplePeer from 'simple-peer';
 import { useSocket } from '../hooks';
-
+import { ringtoneManager } from '../utils/ringtone';
 import toast from 'react-hot-toast';
 
 
@@ -61,6 +61,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const cleanupCall = useCallback(() => {
     console.log('Cleaning up call...');
+    // Stop all ringtones
+    ringtoneManager.stopAll();
+    
     // Destroy all peers
     peersRef.current.forEach(peer => peer.destroy());
     peersRef.current.clear();
@@ -136,6 +139,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.emit('call:reject', { chatId: data.chatId, callerId: data.callerId });
         return;
       }
+      // Play ringtone for incoming call
+      ringtoneManager.playRingtone();
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
@@ -144,6 +149,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Handle new user joining the call (Mesh: initiate connection)
     socket.on('call:user-joined', (data: { userId: string, chatId: string }) => {
         console.log('User joined call:', data.userId);
+        // Stop calling tone when someone answers
+        ringtoneManager.stopCallingTone();
+        
         if (isCallActive && localStreamRef.current && data.userId !== socket.id) { // Should check vs self? userId is usually DB id, assume socket.user.id
             // Initiate connection to the new joiner
             // Note: we need to ensure we don't connect to self if broadcast includes self.
@@ -178,16 +186,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Legacy/Global end
     socket.on('call:ended', (data: { enderId: string }) => {
-      // Logic change: in usage, if someone ends, they leave.
-      // If we want "End for everyone", that's different.
-      // For now, if "enderId" is the one we are talking to, we might close that peer.
-      // But 'call:ended' event currently is broadcast to close the whole call or just notify?
-      // Code says "Notify everyone... call ended".
-      // Mesh: usually one person leaving doesn't end call for others.
-      // We'll treat this as "Someone left", verify if it was the last one?
-      // For simplicity/requirement "Group Call", we just remove that peer.
-      
-      console.log(`User left call: ${data.enderId}`);
+      console.log(`[Call] User left call: ${data.enderId}`);
       const peer = peersRef.current.get(data.enderId);
       if (peer) {
           peer.destroy();
@@ -199,10 +198,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
       }
       
-      // If everyone left?
-      if (peersRef.current.size === 0 && callStatus === 'connected') {
-          // toast('All participants left');
-          // cleanupCall(); // Optional: auto-end?
+      // If everyone left, end the call
+      if (peersRef.current.size === 0) {
+        console.log('[Call] All participants left, ending call');
+        if (callStatus === 'calling') {
+          toast.error('Call was not answered');
+        } else {
+          toast('Call ended');
+        }
+        cleanupCall();
       }
     });
 
@@ -240,6 +244,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStreamRef.current = stream;
       setIsVideoEnabled(type === 'video');
       setIsMuted(false);
+
+      // Play calling tone (dial tone) while waiting for answer
+      ringtoneManager.playCallingTone();
 
       // Emit start (Advertises presence/invitation). No offer sent here.
       socket!.emit('call:start', {
@@ -321,13 +328,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const rejectCall = () => {
+    console.log('[Call] Rejecting call, incomingCall:', incomingCall);
     if (incomingCall) {
       socket!.emit('call:reject', { 
         chatId: incomingCall.chatId, 
         callerId: incomingCall.callerId 
       });
     }
+    setIncomingCall(null); // Explicitly clear incoming call
     cleanupCall();
+    console.log('[Call] Call rejected and cleaned up');
   };
 
   const endCall = () => {
