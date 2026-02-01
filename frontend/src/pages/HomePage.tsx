@@ -197,7 +197,7 @@ export const HomePage = () => {
                 height: '40px', // Decreased height
                 borderBottom: '1px solid #2a3942'
               }}>
-                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8696a0' }}>WhatsApp</h1>
+                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8696a0' }}>ChitChat</h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                    <button style={{ background: 'none', border: 'none', color: '#aebac1', padding: 0 }}><Camera size={22} /></button>

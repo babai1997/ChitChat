@@ -175,7 +175,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
             </div>
             {!isEditingName && (
                 <div style={{ fontSize: '14px', color: '#8696a0', lineHeight: '20px' }}>
-                    This is not your username or pin. This name will be visible to your WhatsApp contacts.
+                    This is not your username or pin. This name will be visible to your ChitChat contacts.
                 </div>
             )}
         </div>

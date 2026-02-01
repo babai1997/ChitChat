@@ -105,7 +105,7 @@ export const SetupProfilePage = () => {
             <Edit2 size={18} color="#00a884" />
         </div>
         <p style={{ fontSize: '12px', color: '#8696a0', marginTop: '8px' }}>
-          This is not your username or pin. This name will be visible to your WhatsApp contacts.
+          This is not your username or pin. This name will be visible to your ChitChat contacts.
         </p>
       </div>
 
