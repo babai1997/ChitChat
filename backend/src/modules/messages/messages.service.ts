@@ -205,6 +205,30 @@ export class MessagesService {
     });
   }
 
+  async markAllAsDeliveredForChats(chatIds: string[], userId: string) {
+    // Find messages to update
+    const pendingMessages = await this.prisma.message.findMany({
+      where: {
+        chatId: { in: chatIds },
+        senderId: { not: userId },
+        status: MessageStatus.sent,
+      },
+      select: { id: true, senderId: true, chatId: true },
+    });
+
+    if (pendingMessages.length === 0) return [];
+
+    const messageIds = pendingMessages.map((m) => m.id);
+
+    // Update status
+    await this.prisma.message.updateMany({
+      where: { id: { in: messageIds } },
+      data: { status: MessageStatus.delivered },
+    });
+
+    return pendingMessages;
+  }
+
   async markAsRead(messageIds: string[], userId: string) {
     // Only mark messages from other users as read
     await this.prisma.message.updateMany({

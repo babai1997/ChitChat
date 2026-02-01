@@ -76,6 +76,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`User ${user.id} joining rooms: ${userChatIds.map(id => `chat:${id}`).join(', ')}`);
       userChatIds.forEach((chatId) => socket.join(`chat:${chatId}`));
 
+      // Update pending messages to delivered and notify senders
+      const deliveredMessages = await this.messagesService.markAllAsDeliveredForChats(
+        userChatIds,
+        user.id,
+      );
+
+      deliveredMessages.forEach((msg) => {
+        this.emitToUser(msg.senderId, 'message:delivered', {
+          messageId: msg.id,
+          chatId: msg.chatId,
+        });
+      });
+
       // Update online status
       await this.usersService.setOnlineStatus(user.id, true);
       await this.usersService.updateLastSeen(user.id);
@@ -173,6 +186,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         replyToId,
       });
 
+      // First, notify the sender that message was sent (for updating temp message)
+      socket.emit('message:sent', {
+        tempId,
+        message: {
+          ...message,
+          status: 'sent',
+        },
+      });
+
       // Emit to room (including sender for confirmation)
       this.logger.log(`Emitting message:new to room chat:${chatId}`);
       this.server.to(`chat:${chatId}`).emit('message:new', {
@@ -195,6 +217,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // Notify sender of delivery
         socket.emit('message:delivered', {
           messageId: message.id,
+          chatId,
           tempId,
           deliveredTo: onlineRecipients,
         });
@@ -399,6 +422,37 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket.to(`chat:${chatId}`).emit('call:ended', {
       chatId,
       enderId: senderId,
+    });
+  }
+
+  @SubscribeMessage('call:signal')
+  handleCallSignal(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { targetUserId: string; type: 'offer' | 'answer' | 'candidate'; signal: any; chatId: string },
+  ) {
+    const { targetUserId, type, signal, chatId } = data;
+    const senderId = socket.user.id;
+
+    this.emitToUser(targetUserId, 'call:signal', {
+      senderId,
+      type,
+      signal,
+      chatId,
+    });
+  }
+
+  @SubscribeMessage('call:join')
+  handleCallJoin(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string },
+  ) {
+    const { chatId } = data;
+    const userId = socket.user.id;
+    
+    // Broadcast to room so existing participants can initiate connection to this new user
+    socket.to(`chat:${chatId}`).emit('call:user-joined', {
+      userId,
+      chatId,
     });
   }
   // ============================================
