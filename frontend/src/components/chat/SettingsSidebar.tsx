@@ -40,24 +40,22 @@ export const SettingsSidebar = ({ onBack }: SettingsSidebarProps) => {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', color: '#e9edef' }}>
       {/* Header */}
       <div style={{ 
-        padding: '10px 16px', 
+        padding: '0 16px', 
         backgroundColor: '#202c33', 
         display: 'flex', 
-        alignItems: 'end', // Align text to bottom like WhatsApp
+        alignItems: 'center',
         gap: '20px', 
-        height: '108px', // Taller header to match WhatsApp
+        height: '56px',
         borderBottom: '1px solid #2a3942',
         flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingBottom: '4px' }}>
-             <button 
-                onClick={onBack}
-                style={{ background: 'none', border: 'none', color: '#e9edef', cursor: 'pointer', padding: 0 }}
-            >
-                <ArrowLeft size={24} />
-            </button>
-            <h1 style={{ fontSize: '19px', fontWeight: 600, margin: 0 }}>Settings</h1>
-        </div>
+        <button 
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: '#e9edef', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <h1 style={{ fontSize: '19px', fontWeight: 600, margin: 0 }}>Settings</h1>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>

@@ -12,6 +12,8 @@ export interface SocketContextType {
   markAsRead: (chatId: string, messageIds: string[]) => void;
   startTyping: (chatId: string) => void;
   stopTyping: (chatId: string) => void;
+  deleteMessage: (chatId: string, messageId: string, deleteForEveryone: boolean) => void;
+  editMessage: (chatId: string, messageId: string, content: string) => void;
 }
 
 export const SocketContext = createContext<SocketContextType | undefined>(undefined);

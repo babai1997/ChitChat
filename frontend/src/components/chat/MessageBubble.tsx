@@ -1,13 +1,21 @@
-import { Check, CheckCheck, Clock, FileText } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Check, CheckCheck, Clock, FileText, Pencil, Trash2, Ban } from 'lucide-react';
 import type { Message } from '../../types';
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   showSender?: boolean;
+  onEdit?: (messageId: string, currentContent: string) => void;
+  onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
 }
 
-export const MessageBubble = ({ message, isOwn, showSender }: MessageBubbleProps) => {
+export const MessageBubble = ({ message, isOwn, showSender, onEdit, onDelete }: MessageBubbleProps) => {
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
@@ -27,11 +35,118 @@ export const MessageBubble = ({ message, isOwn, showSender }: MessageBubbleProps
       case 'delivered':
         return <CheckCheck size={14} color="#8696a0" />;
       case 'read':
-        return <CheckCheck size={14} color="#53bdeb" />; // Blue double check
+        return <CheckCheck size={14} color="#53bdeb" />;
       default:
         return null;
     }
   };
+
+  // Handle right-click / long-press for context menu
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const rect = bubbleRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
+    setShowContextMenu(true);
+  };
+
+  // Handle touch for mobile (long press)
+  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchTimerRef.current = setTimeout(() => {
+      const touch = e.touches[0];
+      const rect = bubbleRef.current?.getBoundingClientRect();
+      if (rect) {
+        setMenuPosition({
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top
+        });
+      }
+      setShowContextMenu(true);
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+    }
+  };
+
+  // Close menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowContextMenu(false);
+      }
+    };
+    
+    if (showContextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showContextMenu]);
+
+  const handleEdit = () => {
+    if (onEdit && message.type === 'text') {
+      onEdit(message.id, message.content);
+    }
+    setShowContextMenu(false);
+  };
+
+  const handleDeleteForMe = () => {
+    if (onDelete) {
+      onDelete(message.id, false);
+    }
+    setShowContextMenu(false);
+  };
+
+  const handleDeleteForEveryone = () => {
+    if (onDelete) {
+      onDelete(message.id, true);
+    }
+    setShowContextMenu(false);
+  };
+
+  // If message is deleted, show special UI
+  if (message.isDeleted) {
+    return (
+      <div 
+        className="animate-slide-up"
+        style={{ 
+          display: 'flex', 
+          justifyContent: isOwn ? 'flex-end' : 'flex-start',
+          marginBottom: '4px'
+        }}
+      >
+        <div 
+          style={{
+            maxWidth: '85%',
+            padding: '6px 12px 8px 12px',
+            backgroundColor: isOwn ? '#005c4b' : '#202c33',
+            borderRadius: isOwn ? '8px 8px 0 8px' : '8px 8px 8px 0',
+            boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
+            opacity: 0.6
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Ban size={14} color="#8696a0" />
+            <span style={{ 
+              fontSize: '14px', 
+              fontStyle: 'italic',
+              color: '#8696a0'
+            }}>
+              This message was deleted
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -39,19 +154,24 @@ export const MessageBubble = ({ message, isOwn, showSender }: MessageBubbleProps
       style={{ 
         display: 'flex', 
         justifyContent: isOwn ? 'flex-end' : 'flex-start',
-        marginBottom: '4px'
+        marginBottom: '4px',
+        position: 'relative'
       }}
     >
       <div 
+        ref={bubbleRef}
+        onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchEnd}
         style={{
           maxWidth: '85%',
-          // On mobile max-width is 85%, ideally 65% on desktop
-          // We can use style prop with CSS variable or just stick to 85% for simplicity or add internal resizing logic
           padding: '6px 7px 8px 9px',
           backgroundColor: isOwn ? '#005c4b' : '#202c33',
           borderRadius: isOwn ? '8px 8px 0 8px' : '8px 8px 8px 0',
           boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
-          position: 'relative'
+          position: 'relative',
+          cursor: 'pointer'
         }}
       >
         {/* Sender name for group chats */}
@@ -122,14 +242,111 @@ export const MessageBubble = ({ message, isOwn, showSender }: MessageBubbleProps
             </span>
           )}
           
-          {/* Time and status */}
+          {/* Time, edited indicator, and status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '15px', marginLeft: 'auto' }}>
+            {message.isEdited && (
+              <span style={{ fontSize: '11px', color: 'rgba(233, 237, 239, 0.6)', marginRight: '3px' }}>
+                Edited
+              </span>
+            )}
             <span style={{ fontSize: '11px', color: 'rgba(233, 237, 239, 0.6)', lineHeight: '15px' }}>
               {formatTime(message.createdAt)}
             </span>
             {isOwn && getStatusIcon()}
           </div>
         </div>
+
+        {/* Context Menu */}
+        {showContextMenu && (
+          <div 
+            ref={menuRef}
+            style={{
+              position: 'absolute',
+              top: menuPosition.y,
+              left: isOwn ? 'auto' : menuPosition.x,
+              right: isOwn ? 0 : 'auto',
+              backgroundColor: '#233138',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              zIndex: 1000,
+              minWidth: '160px',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Edit - only for own text messages */}
+            {isOwn && message.type === 'text' && (
+              <button
+                onClick={handleEdit}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'none',
+                  color: '#e9edef',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2a3942')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Pencil size={18} color="#8696a0" />
+                Edit
+              </button>
+            )}
+            
+            {/* Delete for Me */}
+            <button
+              onClick={handleDeleteForMe}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '12px 16px',
+                border: 'none',
+                background: 'none',
+                color: '#e9edef',
+                fontSize: '14px',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2a3942')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            >
+              <Trash2 size={18} color="#8696a0" />
+              Delete for Me
+            </button>
+            
+            {/* Delete for Everyone - only for own messages */}
+            {isOwn && (
+              <button
+                onClick={handleDeleteForEveryone}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'none',
+                  color: '#ea4335',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2a3942')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Trash2 size={18} color="#ea4335" />
+                Delete for Everyone
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

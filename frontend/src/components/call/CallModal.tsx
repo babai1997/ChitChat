@@ -460,12 +460,22 @@ const VideoTile = ({ stream, isVideo }: { stream: MediaStream, isVideo: boolean 
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
+        const handlePlay = async (element: HTMLMediaElement) => {
+            try {
+                element.srcObject = stream;
+                await element.play();
+            } catch (e: any) {
+                // Ignore AbortError as it happens when play is interrupted by new load
+                if (e.name !== 'AbortError') {
+                    console.error('Error playing media:', e);
+                }
+            }
+        };
+
         if (isVideo && videoRef.current) {
-            videoRef.current.srcObject = stream;
-             videoRef.current.play().catch(e => console.error('Error playing video:', e));
+            handlePlay(videoRef.current);
         } else if (!isVideo && audioRef.current) {
-            audioRef.current.srcObject = stream;
-             audioRef.current.play().catch(e => console.error('Error playing audio:', e));
+            handlePlay(audioRef.current);
         }
     }, [stream, isVideo]);
 

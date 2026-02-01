@@ -9,7 +9,9 @@ import {
   Users,
   Phone,
   Camera,
-  ArrowLeft
+  ArrowLeft,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { chatApi } from '../api';
@@ -155,17 +157,65 @@ export const HomePage = () => {
   });
 
   return (
-    <div style={{ height: '100vh', display: 'flex', backgroundColor: '#111b21', overflow: 'hidden' }}>
-      {/* Sidebar Navigation */}
-      {/* Sidebar Navigation - Desktop/Tablet only */}
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', overflow: 'hidden' }}>
+      {/* Desktop Top Navigation Bar */}
       {!isMobile && (
-        <Sidebar 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
-          userProfile={user?.profile}
-          onSettingsClick={() => setSettingsOpen(true)}
-        />
+        <div style={{
+          height: '48px',
+          backgroundColor: '#202c33',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingLeft: '16px',
+          paddingRight: '24px',
+          borderBottom: '1px solid #2a3942',
+          flexShrink: 0
+        }}>
+          {/* Logo and Name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #00a884 0%, #25d366 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0, 168, 132, 0.3)'
+            }}>
+              <MessageCircle size={18} color="#ffffff" strokeWidth={2.5} />
+            </div>
+            <span style={{ 
+              fontSize: '18px', 
+              fontWeight: 600, 
+              color: '#e9edef',
+              letterSpacing: '-0.3px'
+            }}>
+              ChitChat
+            </span>
+          </div>
+
+          {/* Right side - could add user actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span style={{ fontSize: '13px', color: '#8696a0' }}>
+              {user?.profile?.displayName && `Welcome, ${user.profile.displayName}`}
+            </span>
+          </div>
+        </div>
       )}
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - Desktop/Tablet only */}
+        {!isMobile && (
+          <Sidebar 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            userProfile={user?.profile}
+            onSettingsClick={() => setSettingsOpen(true)}
+          />
+        )}
 
       {/* Secondary Sidebar (Chat List / Status / Communities / Settings) */}
       <div 
@@ -222,8 +272,8 @@ export const HomePage = () => {
                           zIndex: 50,
                           marginTop: '8px'
                         }}>
-                          <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '10px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer' }} className="hover:bg-[#111b21]">Settings</button>
-                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '10px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer' }} className="hover:bg-[#111b21]">Log out</button>
+                        <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[#111b21]"><Settings size={18} color="#8696a0" />Settings</button>
+                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[#111b21]"><LogOut size={18} color="#ea4335" />Log out</button>
                         </div>
                      )}
                    </div>
@@ -284,13 +334,16 @@ export const HomePage = () => {
             )}
 
             {/* Search (Desktop/Tablet or Mobile sub-header) */}
-            <div style={{ padding: '8px 12px', backgroundColor: isMobile ? '#111b21' : '#111b21' }}>
-              <div style={{ position: 'relative' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#111b21' }}>
+              <div style={{ 
+                position: 'relative',
+                transition: 'all 0.2s ease'
+              }}>
                 <button 
                   style={{
                     position: 'absolute', 
-                    left: '12px', 
-                    top: '50%', // Centers vertically relative to container
+                    left: '16px', 
+                    top: '50%',
                     transform: 'translateY(-50%)', 
                     zIndex: 10,
                     background: 'none',
@@ -299,13 +352,14 @@ export const HomePage = () => {
                     color: isSearchFocused || searchQuery ? '#00a884' : '#8696a0',
                     cursor: 'pointer',
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    transition: 'color 0.2s ease, transform 0.2s ease'
                   }}
                 >
                   {isSearchFocused || searchQuery ? (
-                    <ArrowLeft size={18} onClick={() => { setSearchQuery(''); setIsSearchFocused(false); }} />
+                    <ArrowLeft size={20} onClick={() => { setSearchQuery(''); setIsSearchFocused(false); }} />
                   ) : (
-                    <Search size={18} />
+                    <Search size={20} />
                   )}
                 </button>
                 <input
@@ -318,14 +372,15 @@ export const HomePage = () => {
                   style={{
                     width: '100%',
                     backgroundColor: '#202c33',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px 8px 65px', // Adjusted left padding for icon
+                    border: isSearchFocused ? '1px solid #00a884' : '1px solid transparent',
+                    borderRadius: '10px',
+                    padding: '14px 20px 14px 50px',
                     color: '#e9edef',
-                    fontSize: '14px',
+                    fontSize: '15px',
                     outline: 'none',
-                    height: '40px', // Increased height
-                    borderBottom: isSearchFocused ? '1px solid #00a884' : 'none' // Green border effect (bottom only, or could be full border)
+                    height: '48px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isSearchFocused ? '0 2px 8px rgba(0, 168, 132, 0.15)' : 'none'
                   }}
                 />
               </div>
@@ -449,6 +504,7 @@ export const HomePage = () => {
         onChatCreated={handleChatCreated}
         currentUserId={user?.id || ''}
       />
+      </div>
     </div>
   );
 };

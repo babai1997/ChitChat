@@ -489,6 +489,70 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // ============================================
+  // Message Edit/Delete Handlers
+  // ============================================
+
+  @SubscribeMessage('message:delete')
+  async handleMessageDelete(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { messageId: string; chatId: string; deleteForEveryone: boolean },
+  ) {
+    try {
+      const { messageId, chatId, deleteForEveryone } = data;
+      const userId = socket.user.id;
+
+      const result = await this.messagesService.deleteMessage(
+        messageId,
+        userId,
+        deleteForEveryone,
+      );
+
+      if (deleteForEveryone && result.success) {
+        // Emit to all users in the chat
+        this.server.to(`chat:${chatId}`).emit('message:deleted', {
+          messageId,
+          chatId,
+          deleteForEveryone: true,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      throw new WsException(error.message || 'Failed to delete message');
+    }
+  }
+
+  @SubscribeMessage('message:edit')
+  async handleMessageEdit(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { messageId: string; chatId: string; content: string },
+  ) {
+    try {
+      const { messageId, chatId, content } = data;
+      const userId = socket.user.id;
+
+      const result = await this.messagesService.editMessage(
+        messageId,
+        userId,
+        content,
+      );
+
+      if (result.success && result.message) {
+        // Emit to all users in the chat
+        this.server.to(`chat:${chatId}`).emit('message:edited', {
+          messageId,
+          chatId,
+          message: result.message,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      throw new WsException(error.message || 'Failed to edit message');
+    }
+  }
+
+  // ============================================
   // Utility Methods
   // ============================================
 

@@ -117,6 +117,8 @@ export interface Message {
   sender: MessageSender;
   replyTo: Message | null;
   attachments: MessageAttachment[];
+  isDeleted?: boolean;
+  isEdited?: boolean;
 }
 
 export interface MessagesResponse {

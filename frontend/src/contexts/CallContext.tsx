@@ -140,7 +140,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       // Play ringtone for incoming call
-      ringtoneManager.playRingtone();
+      ringtoneManager.playRingtone().catch(err => {
+         console.error('Failed to play ringtone:', err);
+         // If blocked by browser policy, we could show a stronger visual cue or specific toast
+         // But the incoming call UI should be visible regardless
+      });
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);

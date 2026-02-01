@@ -20,7 +20,7 @@ import { ContactInfoModal } from './ContactInfoModal';
 import { GroupInfoModal } from './GroupInfoModal';
 import { useCall } from '../../contexts/CallContext';
 import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
-import { Image, FileText, StopCircle, Trash2 } from 'lucide-react';
+import { Image, FileText, StopCircle, Trash2, CheckCheck, X } from 'lucide-react';
 import type { Chat, Message } from '../../types';
 
 interface ChatViewProps {
@@ -45,8 +45,10 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   
+  const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
+
   const { messages, setMessages, addMessage, typingUsers, onlineUsers, lastSeen } = useChatStore();
-  const { startTyping, stopTyping, joinChat } = useSocket();
+  const { startTyping, stopTyping, joinChat, deleteMessage, editMessage } = useSocket();
   const { startCall } = useCall();
   
   const chatMessages = messages[chat.id] || [];
@@ -121,6 +123,21 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     typingTimeoutRef.current = setTimeout(() => {
       stopTyping(chat.id);
     }, 2000);
+  };
+
+  const handleEditMessage = (messageId: string, currentContent: string) => {
+    setEditingMessage({ id: messageId, content: currentContent });
+    setMessage(currentContent);
+    fileInputRef.current?.focus();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setMessage('');
+  };
+
+  const handleDeleteMessage = (messageId: string, deleteForEveryone: boolean) => {
+    deleteMessage(chat.id, messageId, deleteForEveryone);
   };
 
   // Close menus on click outside
@@ -234,6 +251,15 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const handleSend = async () => {
     if (!message.trim() || isSending) return;
     const content = message.trim();
+    
+    if (editingMessage) {
+      editMessage(chat.id, editingMessage.id, content);
+      setEditingMessage(null);
+      setMessage('');
+      stopTyping(chat.id);
+      return;
+    }
+
     setMessage('');
     setIsSending(true);
     stopTyping(chat.id);
@@ -309,8 +335,6 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     return 'Offline';
   };
 
-  // ... (typing text logic)
-
   // Group messages by date
   const groupMessagesByDate = (msgs: Message[]) => {
     const groups: { date: string; messages: Message[] }[] = [];
@@ -340,8 +364,6 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     
     return groups;
   };
-
-
 
   const formatDateHeader = (dateStr: string) => {
     if (!dateStr || dateStr === 'Unknown') return '';
@@ -493,6 +515,8 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
                       message={msg}
                       isOwn={msg.senderId === currentUserId}
                       showSender={showSender}
+                      onEdit={handleEditMessage}
+                      onDelete={handleDeleteMessage}
                     />
                   );
                 })}
@@ -512,129 +536,157 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         alignItems: 'center', 
         gap: '8px', 
         borderTop: '1px solid #2a3942',
-        position: 'relative'
+        position: 'relative',
+        flexDirection: 'column'
       }}>
-        {/* Emoji Picker */}
-        {showEmojiPicker && (
-          <div ref={emojiPickerRef} style={{ position: 'absolute', bottom: '70px', left: '20px', zIndex: 10 }}>
-            <EmojiPicker 
-              onEmojiClick={handleEmojiClick} 
-              theme={Theme.DARK}
-              lazyLoadEmojis={true}
-            />
-          </div>
-        )}
-
-        {/* Attachment Menu */}
-        {showAttachMenu && (
-          <div ref={attachMenuRef} style={{ 
-            position: 'absolute', 
-            bottom: '70px', 
-            left: '60px', 
-            zIndex: 10,
-            backgroundColor: '#233138',
-            borderRadius: '8px',
-            padding: '8px',
+        {editingMessage && (
+          <div style={{
+            width: '100%',
+            padding: '8px 12px',
+            backgroundColor: '#1f2c34',
+            borderLeft: '4px solid #00a884',
+            borderRadius: '4px',
+            marginBottom: '4px',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
-             <button 
-               onClick={() => fileInputRef.current?.click()}
-               style={{ ...buttonStyle, borderRadius: '8px', justifyContent: 'flex-start', gap: '8px', width: '100%' }}
-             >
-               <Image size={20} color="#007bff" /> Photos & Videos
-             </button>
-             <button 
-               onClick={() => fileInputRef.current?.click()}
-               style={{ ...buttonStyle, borderRadius: '8px', justifyContent: 'flex-start', gap: '8px', width: '100%' }}
-             >
-               <FileText size={20} color="#7f66ff" /> Document
-             </button>
+            <div>
+              <p style={{ color: '#00a884', fontSize: '12px', fontWeight: 500, margin: 0 }}>Editing Message</p>
+              <p style={{ color: '#8696a0', fontSize: '12px', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
+                {editingMessage.content}
+              </p>
+            </div>
+            <button onClick={handleCancelEdit} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+               <X size={16} />
+            </button>
           </div>
         )}
 
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          onChange={handleFileSelect}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+          {/* Emoji Picker */}
+          {showEmojiPicker && (
+            <div ref={emojiPickerRef} style={{ position: 'absolute', bottom: '70px', left: '20px', zIndex: 10 }}>
+              <EmojiPicker 
+                onEmojiClick={handleEmojiClick} 
+                theme={Theme.DARK}
+                lazyLoadEmojis={true}
+              />
+            </div>
+          )}
 
-        {isRecording ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', color: '#e9edef' }}>
-            <span style={{ color: '#ff5252', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ff5252', animation: 'pulse 1s infinite' }} />
-              {formatDuration(recordingDuration)}
-            </span>
-            <span style={{ flex: 1, color: '#8696a0', fontSize: '14px' }}>Recording...</span>
-            <button onClick={() => stopRecording(true)} style={{ color: '#ff5252', background: 'none', border: 'none', cursor: 'pointer' }}>
-              <Trash2 size={24} />
-            </button>
-            <button onClick={() => stopRecording(false)} style={{ color: '#25d366', background: 'none', border: 'none', cursor: 'pointer' }}>
-              <StopCircle size={24} />
-            </button>
-          </div>
-        ) : (
-          <>
-            <button 
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-              style={{ ...buttonStyle, color: showEmojiPicker ? '#25d366' : '#8696a0' }}
-            >
-              <Smile size={24} />
-            </button>
-            <button 
-              onClick={() => setShowAttachMenu(!showAttachMenu)} 
-              style={{ ...buttonStyle, color: showAttachMenu ? '#25d366' : '#8696a0' }}
-            >
-              <Paperclip size={24} />
-            </button>
-            
-            <input
-              type="text"
-              value={message}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Type a message"
-              style={{
-                flex: 1,
-                backgroundColor: '#2a3942',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 16px',
-                color: '#e9edef',
-                fontSize: '15px',
-                outline: 'none',
-                height: '42px'
-              }}
-            />
-            
-            <button
-              onClick={message.trim() ? handleSend : startRecording}
-              disabled={isSending}
-              style={{
-                minWidth: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                backgroundColor: message.trim() || isRecording ? '#25d366' : '#2a3942', // Changing this logic to show green only for send
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                color: message.trim() ? 'white' : '#8696a0'
-              }}
-            >
-              {message.trim() ? (
-                <Send size={20} />
-              ) : (
-                <Mic size={20} />
-              )}
-            </button>
-          </>
-        )}
+          {/* Attachment Menu */}
+          {showAttachMenu && (
+            <div ref={attachMenuRef} style={{ 
+              position: 'absolute', 
+              bottom: '70px', 
+              left: '60px', 
+              zIndex: 10,
+              backgroundColor: '#233138',
+              borderRadius: '8px',
+              padding: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+            }}>
+               <button 
+                 onClick={() => fileInputRef.current?.click()}
+                 style={{ ...buttonStyle, borderRadius: '8px', justifyContent: 'flex-start', gap: '8px', width: '100%' }}
+               >
+                 <Image size={20} color="#007bff" /> Photos & Videos
+               </button>
+               <button 
+                 onClick={() => fileInputRef.current?.click()}
+                 style={{ ...buttonStyle, borderRadius: '8px', justifyContent: 'flex-start', gap: '8px', width: '100%' }}
+               >
+                 <FileText size={20} color="#7f66ff" /> Document
+               </button>
+            </div>
+          )}
+  
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            style={{ display: 'none' }} 
+            onChange={handleFileSelect}
+          />
+  
+          {isRecording ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', color: '#e9edef' }}>
+              <span style={{ color: '#ff5252', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ff5252', animation: 'pulse 1s infinite' }} />
+                {formatDuration(recordingDuration)}
+              </span>
+              <span style={{ flex: 1, color: '#8696a0', fontSize: '14px' }}>Recording...</span>
+              <button onClick={() => stopRecording(true)} style={{ color: '#ff5252', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <Trash2 size={24} />
+              </button>
+              <button onClick={() => stopRecording(false)} style={{ color: '#25d366', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <StopCircle size={24} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                style={{ ...buttonStyle, color: showEmojiPicker ? '#25d366' : '#8696a0' }}
+              >
+                <Smile size={24} />
+              </button>
+              <button 
+                onClick={() => setShowAttachMenu(!showAttachMenu)} 
+                style={{ ...buttonStyle, color: showAttachMenu ? '#25d366' : '#8696a0' }}
+                disabled={!!editingMessage}
+              >
+                <Paperclip size={24} style={{ opacity: editingMessage ? 0.5 : 1 }} />
+              </button>
+              
+              <input
+                type="text"
+                value={message}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                placeholder={editingMessage ? "Edit message..." : "Type a message"}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#2a3942',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  color: '#e9edef',
+                  fontSize: '15px',
+                  outline: 'none',
+                  height: '42px'
+                }}
+              />
+              
+              <button
+                onClick={message.trim() ? handleSend : startRecording}
+                disabled={isSending || (!!editingMessage && !message.trim())}
+                style={{
+                  minWidth: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: message.trim() || isRecording ? '#25d366' : '#2a3942', // Changing this logic to show green only for send
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                  color: message.trim() ? 'white' : '#8696a0'
+                }}
+              >
+                {message.trim() ? (
+                  editingMessage ? <CheckCheck size={20} /> : <Send size={20} />
+                ) : (
+                  <Mic size={20} />
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
       
       <style>{`

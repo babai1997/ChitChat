@@ -214,6 +214,50 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error('[Socket] error:', error.message);
     };
 
+    const handleMessageDeleted = (data: { messageId: string; chatId: string; deleteForEveryone: boolean }) => {
+      console.log('[Socket] message:deleted received:', data);
+      const store = useChatStore.getState();
+      
+      // Update the message in the store
+      store.updateMessage(data.chatId, data.messageId, {
+        isDeleted: true,
+        content: null, // Clear content for deleted messages
+      });
+
+      // Update last message if needed
+      const chat = store.chats.find(c => c.id === data.chatId);
+      if (chat && chat.lastMessage?.id === data.messageId) {
+        store.updateChat(chat.id, {
+          lastMessage: {
+            ...chat.lastMessage,
+            content: 'This message was deleted', // Placeholder for last message preview
+          },
+        });
+      }
+    };
+
+    const handleMessageEdited = (data: { messageId: string; chatId: string; message: any }) => {
+      console.log('[Socket] message:edited received:', data);
+      const store = useChatStore.getState();
+      
+      // Update the message in the store
+      store.updateMessage(data.chatId, data.messageId, {
+        content: data.message.content,
+        isEdited: true,
+      });
+
+      // Update last message if needed
+      const chat = store.chats.find(c => c.id === data.chatId);
+      if (chat && chat.lastMessage?.id === data.messageId) {
+        store.updateChat(chat.id, {
+          lastMessage: {
+            ...chat.lastMessage,
+            content: data.message.content,
+          },
+        });
+      }
+    };
+
     // Attach all listeners
     newSocket.on('connect', onConnect);
     newSocket.on('disconnect', onDisconnect);
@@ -222,6 +266,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     newSocket.on('message:sent', handleMessageSent);
     newSocket.on('message:delivered', handleMessageDelivered);
     newSocket.on('message:read', handleMessageRead);
+    newSocket.on('message:deleted', handleMessageDeleted);
+    newSocket.on('message:edited', handleMessageEdited);
     newSocket.on('chat:new', handleNewChat);
     newSocket.on('typing:start', handleTypingStart);
     newSocket.on('typing:stop', handleTypingStop);
@@ -242,6 +288,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       newSocket.off('message:sent', handleMessageSent);
       newSocket.off('message:delivered', handleMessageDelivered);
       newSocket.off('message:read', handleMessageRead);
+      newSocket.off('message:deleted', handleMessageDeleted);
+      newSocket.off('message:edited', handleMessageEdited);
       newSocket.off('chat:new', handleNewChat);
       newSocket.off('typing:start', handleTypingStart);
       newSocket.off('typing:stop', handleTypingStop);
@@ -305,6 +353,53 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [socket]);
 
+  const deleteMessage = useCallback((chatId: string, messageId: string, deleteForEveryone: boolean) => {
+    if (socket?.connected) {
+      socket.emit('message:delete', { chatId, messageId, deleteForEveryone });
+      
+      // Handle "delete for me" locally immediately
+      if (!deleteForEveryone) {
+         const store = useChatStore.getState();
+         // Remove the message from the store locally
+         const currentMessages = store.messages[chatId] || [];
+         const updatedMessages = currentMessages.filter(m => m.id !== messageId);
+         store.setMessages(chatId, updatedMessages);
+         
+         // Update last message if needed
+         const chat = store.chats.find(c => c.id === chatId);
+         if (chat && chat.lastMessage?.id === messageId) {
+           // If we deleted the last message, we should probably set it to the previous one
+           // But for simplicity, let's just leave it or set meaningful text
+           const newLastMsg = updatedMessages[updatedMessages.length - 1];
+           if (newLastMsg) {
+             store.updateChat(chatId, {
+               lastMessage: {
+                 id: newLastMsg.id,
+                 content: newLastMsg.content,
+                 type: newLastMsg.type,
+                 createdAt: newLastMsg.createdAt,
+                 senderId: newLastMsg.senderId,
+                 senderName: newLastMsg.sender.displayName,
+                 status: newLastMsg.status,
+               },
+             });
+           } else {
+             // No messages left
+              store.updateChat(chatId, {
+               lastMessage: undefined
+             });
+           }
+         }
+      }
+    }
+  }, [socket]);
+
+  const editMessage = useCallback((chatId: string, messageId: string, content: string) => {
+    if (socket?.connected) {
+      socket.emit('message:edit', { chatId, messageId, content });
+    }
+  }, [socket]);
+
   return (
     <SocketContext.Provider
       value={{
@@ -316,6 +411,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         markAsRead,
         startTyping,
         stopTyping,
+        deleteMessage,
+        editMessage,
       }}
     >
       {children}

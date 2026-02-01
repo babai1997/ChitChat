@@ -267,6 +267,119 @@ export class MessagesService {
     return messages.map((m) => this.formatMessage(m));
   }
 
+  async deleteMessage(
+    messageId: string,
+    userId: string,
+    deleteForEveryone: boolean,
+  ): Promise<{ success: boolean; message?: any }> {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: { include: { profile: true } },
+        attachments: true,
+      },
+    });
+
+    if (!message) {
+      throw new ForbiddenException('Message not found');
+    }
+
+    // Check if user is a member of the chat
+    const membership = await this.prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId: message.chatId, userId } },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of this chat');
+    }
+
+    if (deleteForEveryone) {
+      // Only the sender can delete for everyone
+      if (message.senderId !== userId) {
+        throw new ForbiddenException('You can only delete your own messages for everyone');
+      }
+
+      // Update message to show as deleted
+      const updatedMessage = await this.prisma.message.update({
+        where: { id: messageId },
+        data: {
+          content: null,
+          isDeleted: true,
+        },
+        include: {
+          sender: { include: { profile: true } },
+          attachments: true,
+        },
+      });
+
+      this.eventEmitter.emit('message.deleted', {
+        ...this.formatMessage(updatedMessage),
+        isDeleted: true,
+        deleteForEveryone: true,
+      });
+
+      return { success: true, message: this.formatMessage(updatedMessage) };
+    } else {
+      // Delete for me - we'll track this in a separate way
+      // For now, we return success without actually deleting (client handles locally)
+      return { success: true };
+    }
+  }
+
+  async editMessage(
+    messageId: string,
+    userId: string,
+    newContent: string,
+  ): Promise<{ success: boolean; message?: any }> {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: { include: { profile: true } },
+        attachments: true,
+      },
+    });
+
+    if (!message) {
+      throw new ForbiddenException('Message not found');
+    }
+
+    // Only the sender can edit their message
+    if (message.senderId !== userId) {
+      throw new ForbiddenException('You can only edit your own messages');
+    }
+
+    // Only text messages can be edited
+    if (message.type !== 'text') {
+      throw new ForbiddenException('Only text messages can be edited');
+    }
+
+    // Check if message is already deleted
+    if (message.isDeleted) {
+      throw new ForbiddenException('Cannot edit a deleted message');
+    }
+
+    const updatedMessage = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        content: newContent,
+        isEdited: true,
+      },
+      include: {
+        sender: { include: { profile: true } },
+        replyTo: {
+          include: {
+            sender: { include: { profile: true } },
+          },
+        },
+        attachments: true,
+      },
+    });
+
+    this.eventEmitter.emit('message.edited', this.formatMessage(updatedMessage));
+
+    return { success: true, message: this.formatMessage(updatedMessage) };
+  }
+
   // ============================================
   // Helper Methods
   // ============================================
@@ -278,6 +391,8 @@ export class MessagesService {
     content: string | null;
     type: MessageType;
     status: MessageStatus;
+    isDeleted?: boolean;
+    isEdited?: boolean;
     createdAt: Date;
     updatedAt: Date;
     sender: {
@@ -340,6 +455,8 @@ export class MessagesService {
         fileSize: Number(a.fileSize),
         url: a.url,
       })),
+      isDeleted: message.isDeleted ?? false,
+      isEdited: message.isEdited ?? false,
     };
   }
 }

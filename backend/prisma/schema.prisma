@@ -163,6 +163,8 @@ model Message {
   type      MessageType   @default(text)
   status    MessageStatus @default(sent)
   replyToId String?       @map("reply_to")
+  isDeleted Boolean       @default(false) @map("is_deleted")
+  isEdited  Boolean       @default(false) @map("is_edited")
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
 

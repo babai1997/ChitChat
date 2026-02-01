@@ -26,12 +26,15 @@ class RingtoneManager {
     return RingtoneManager.instance;
   }
 
-  public playRingtone(): void {
+  public async playRingtone(): Promise<void> {
     if (this.ringtoneAudio) {
       this.ringtoneAudio.currentTime = 0;
-      this.ringtoneAudio.play().catch((err) => {
+      try {
+        await this.ringtoneAudio.play();
+      } catch (err) {
         console.warn('Could not play ringtone:', err);
-      });
+        throw err;
+      }
     }
   }
 
@@ -42,12 +45,15 @@ class RingtoneManager {
     }
   }
 
-  public playCallingTone(): void {
+  public async playCallingTone(): Promise<void> {
     if (this.callingAudio) {
       this.callingAudio.currentTime = 0;
-      this.callingAudio.play().catch((err) => {
+      try {
+        await this.callingAudio.play();
+      } catch (err) {
         console.warn('Could not play calling tone:', err);
-      });
+        throw err;
+      }
     }
   }
 
