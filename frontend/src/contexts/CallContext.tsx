@@ -109,18 +109,33 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const peer = new SimplePeer({
         initiator,
-        /**
-         * FIX: trickle: true sends ICE candidates as they are discovered
-         * instead of waiting for the full gathering phase.
-         * This dramatically improves connection reliability, especially on
-         * restricted networks where full ICE gathering can stall or timeout.
-         */
         trickle: true,
         stream,
         config: {
           iceServers: [
+            // ── STUN servers (discover public IP, free, no relay) ──────────
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            // ── TURN servers (relay traffic when P2P fails) ───────────────
+            // Required for calls across different cities/networks/NATs.
+            // OpenRelay: free, community TURN server.
+            {
+              urls: 'turn:openrelay.metered.ca:80',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
           ],
         },
       });
