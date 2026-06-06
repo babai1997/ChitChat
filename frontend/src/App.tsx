@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { useEffect, useState } from 'react';
 import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage } from './pages';
 import { ProtectedRoute } from './components/common';
 import { useAuthStore } from './stores';
@@ -16,14 +17,38 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Wait for Zustand persist to finish reading from localStorage.
+ * Without this, guards run before `isAuthenticated` is populated,
+ * causing the router to show the wrong page on direct URL navigation.
+ */
+function useHasHydrated() {
+  const [hydrated, setHydrated] = useState(
+    () => useAuthStore.persist.hasHydrated()
+  );
+
+  useEffect(() => {
+    if (hydrated) return;
+    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    return unsub;
+  }, [hydrated]);
+
+  return hydrated;
+}
+
 // Auth guard for login pages - redirect to home if already logged in
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+  const hydrated = useHasHydrated();
   const { isAuthenticated } = useAuthStore();
-  
+
+  // Don't render anything until the store has rehydrated from localStorage.
+  // This prevents a flash where the user is sent to /login then immediately back.
+  if (!hydrated) return null;
+
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
