@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD, APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 // Config
 import { appConfig, jwtConfig, otpConfig } from './config';
@@ -32,6 +33,12 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     }),
     EventEmitterModule.forRoot({ global: true }),
 
+    // ── Rate limiting: max 100 requests per 60s per IP across all endpoints ──
+    ThrottlerModule.forRoot([{
+      ttl: 60_000,   // 60 second window
+      limit: 100,    // max 100 requests per window
+    }]),
+
     // Database
     PrismaModule,
 
@@ -49,6 +56,11 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // Global Rate Limiting Guard (applies to all HTTP endpoints)
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
     // Global Exception Filter
     {

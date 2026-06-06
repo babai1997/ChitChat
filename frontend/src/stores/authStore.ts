@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface User {
   id: string;
@@ -95,9 +95,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'chitchat-auth',
+      // Use sessionStorage instead of localStorage — tokens are cleared when
+      // the tab/browser closes, reducing the window for XSS token theft.
+      // localStorage tokens persist indefinitely and are readable by any JS on the page.
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
+        // Note: refreshToken is intentionally NOT persisted in storage.
+        // It is only kept in memory for the lifetime of the tab session.
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
