@@ -71,6 +71,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Share server reference with sub-services (done once here)
       this.registry.setServer(this.server);
       this.messageHandler.setServer(this.server);
+      this.callHandler.setServer(this.server);
 
       // Register socket
       this.registry.register(user.id, socket.id);
@@ -240,6 +241,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: string },
   ) {
     this.callHandler.handleCallEnd(socket as any, data);
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.CALL_MISSED)
+  handleCallMissed(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string; type: 'audio' | 'video' },
+  ) {
+    return this.callHandler.handleCallMissed(socket as any, data);
   }
 
   // ─── Room Management ───────────────────────────────────────────────────────

@@ -37,6 +37,8 @@ export const SOCKET_EVENTS = {
   CALL_SIGNAL: 'call:signal',
   CALL_END: 'call:end',
   CALL_REJECT: 'call:reject',
+  /** Caller timed out — no one answered. Server creates a missed-call message. */
+  CALL_MISSED: 'call:missed',
 
   // ── Calls: Server → Client ─────────────────────────────────────────────────
   CALL_INCOMING: 'call:incoming',

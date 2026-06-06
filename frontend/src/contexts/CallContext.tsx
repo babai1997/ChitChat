@@ -62,6 +62,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const isCallActiveRef = useRef(false);
   const incomingCallRef = useRef<IncomingCallData | null>(null);
+  /** Auto-cancel timer — clears when call is answered, rejected, or ended. */
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
@@ -72,6 +74,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const cleanupCall = useCallback(() => {
     console.log('[Call] Cleaning up');
     ringtoneManager.stopAll();
+
+    // Clear the auto-cancel timer if still running
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
 
     peersRef.current.forEach((peer) => {
       try { peer.destroy(); } catch { /* ignore */ }
@@ -172,6 +180,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[Call] Incoming call from', data.callerId, data.type);
 
       if (isCallActiveRef.current) {
+        // Already in a call — auto-reject
         socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
           chatId: data.chatId,
           callerId: data.callerId,
@@ -183,6 +192,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
+    };
+
+    /** Callee side: caller timed out — dismiss the incoming call UI. */
+    const handleMissed = () => {
+      console.log('[Call] Caller gave up — dismissing incoming call');
+      ringtoneManager.stopRingtone();
+      setIncomingCall(null);
+      setCallStatus('idle');
     };
 
     const handleUserJoined = (data: { userId: string; chatId: string }) => {
@@ -248,6 +265,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Register via socketManager — handlers persist in its internal registry
     // and are re-attached automatically after each reconnect.
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+    socketManager.on(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
     socketManager.on(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
     socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
     socketManager.on(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
@@ -255,6 +273,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+      socketManager.off(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
       socketManager.off(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
       socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
       socketManager.off(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
@@ -287,6 +306,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ringtoneManager.playCallingTone();
 
       socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type });
+
+      // ── Auto-cancel after 45 seconds if no one answers ──────────────────
+      callTimeoutRef.current = setTimeout(() => {
+        console.log('[Call] No answer after 45s — cancelling');
+        ringtoneManager.stopCallingTone();
+        socketManager.emit(SOCKET_EVENTS.CALL_MISSED, { chatId, type });
+        cleanupCall();
+        toast('No answer');
+      }, 45_000);
     } catch (err: unknown) {
       console.error('[Call] Failed to start:', err);
       toast.error(getMediaErrorMessage(err));
@@ -299,6 +327,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!call) return;
 
     ringtoneManager.stopRingtone();
+
+    // Clear the caller's outgoing timeout — call is now being answered
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
 
     try {
       // Set active BEFORE getting media so the signal handler sees it immediately

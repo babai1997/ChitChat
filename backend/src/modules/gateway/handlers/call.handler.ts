@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ChatsService } from '../../chats/chats.service';
+import { MessagesService } from '../../messages/messages.service';
 import { SocketRegistryService } from '../services/socket-registry.service';
 import { SOCKET_EVENTS } from '../../../shared/constants/socket-events';
+import { MessageType } from '@prisma/client';
 
 interface AuthSocket {
   id: string;
@@ -10,14 +12,24 @@ interface AuthSocket {
   emit: (event: string, data: unknown) => void;
 }
 
+interface Server {
+  to: (room: string) => { emit: (event: string, data: unknown) => void };
+}
+
 @Injectable()
 export class CallHandler {
   private readonly logger = new Logger(CallHandler.name);
+  private server: Server;
 
   constructor(
     private readonly chatsService: ChatsService,
+    private readonly messagesService: MessagesService,
     private readonly registry: SocketRegistryService,
   ) {}
+
+  setServer(server: Server) {
+    this.server = server;
+  }
 
   async handleCallStart(
     socket: AuthSocket,
@@ -105,5 +117,48 @@ export class CallHandler {
       chatId,
       enderId: senderId,
     });
+  }
+
+  /**
+   * Called when the outgoing call timer expires on the caller's side (no one answered).
+   * 
+   * Responsibilities:
+   * 1. Tell callee(s) to stop ringing (dismiss the incoming call UI)
+   * 2. Persist a "Missed call" message in the chat for both sides to see
+   * 3. Broadcast that message via MESSAGE_NEW so it appears in real-time
+   */
+  async handleCallMissed(
+    socket: AuthSocket,
+    data: { chatId: string; type: 'audio' | 'video' },
+  ) {
+    const { chatId, type } = data;
+    const callerId = socket.user.id;
+
+    this.logger.log(`[Call] Missed ${type} call from ${callerId} in chat ${chatId}`);
+
+    // 1. Stop ringing on all callee devices
+    const memberIds = await this.chatsService.getChatMemberIds(chatId);
+    const recipientIds = memberIds.filter((id) => id !== callerId);
+    recipientIds.forEach((recipientId) => {
+      this.registry.emitToUser(recipientId, SOCKET_EVENTS.CALL_MISSED, {
+        chatId,
+        callerId,
+        type,
+      });
+    });
+
+    // 2. Persist a "Missed call" system message authored by the caller
+    const label = type === 'video' ? 'Missed video call' : 'Missed audio call';
+    const missedMsg = await this.messagesService.createSystemMessage(
+      chatId,
+      callerId,
+      label,
+      MessageType.missed_call,
+    );
+
+    // 3. Broadcast it to the chat room so it appears in real-time for everyone
+    if (this.server) {
+      this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.MESSAGE_NEW, missedMsg);
+    }
   }
 }

@@ -38,17 +38,21 @@ class SocketManager {
       reconnectionDelay: 1000,
     });
 
-    // Re-attach all registered handlers after a reconnect
+    // Attach all handlers that were registered before this connect() call
+    this.handlers.forEach((fns, event) => {
+      fns.forEach((fn) => this.socket!.on(event, fn));
+    });
+
+    // Re-attach all registered handlers after a reconnect.
+    // We must remove first to prevent duplicates since socket.on() doesn't deduplicate.
     this.socket.on('connect', () => {
       console.log('[SocketManager] Connected, socket ID:', this.socket!.id);
       this.handlers.forEach((fns, event) => {
-        fns.forEach((fn) => this.socket!.on(event, fn));
+        fns.forEach((fn) => {
+          this.socket!.off(event, fn); // remove first to avoid double-firing
+          this.socket!.on(event, fn);
+        });
       });
-    });
-
-    // Immediately attach any handlers registered before connect
-    this.handlers.forEach((fns, event) => {
-      fns.forEach((fn) => this.socket!.on(event, fn));
     });
   }
 

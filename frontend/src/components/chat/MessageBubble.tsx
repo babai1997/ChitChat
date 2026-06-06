@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, CheckCheck, Clock, FileText, Pencil, Trash2, Ban } from 'lucide-react';
+import { Check, CheckCheck, Clock, FileText, Pencil, Trash2, Ban, PhoneMissed, Video } from 'lucide-react';
 import type { Message } from '../../types';
 
 interface MessageBubbleProps {
@@ -141,6 +141,49 @@ export const MessageBubble = ({ message, isOwn, showSender, onEdit, onDelete }: 
               color: '#8696a0'
             }}>
               This message was deleted
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Missed call — render as WhatsApp-style pill (no context menu, not editable)
+  if (message.type === 'missed_call') {
+    const isVideoCall = message.content?.includes('video');
+    return (
+      <div
+        className="animate-slide-up"
+        style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '4px' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 14px',
+            backgroundColor: isOwn ? '#005c4b' : '#202c33',
+            borderRadius: isOwn ? '8px 8px 0 8px' : '8px 8px 8px 0',
+            boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
+            maxWidth: '280px',
+          }}
+        >
+          <div style={{
+            width: '34px', height: '34px', borderRadius: '50%',
+            backgroundColor: 'rgba(234, 67, 53, 0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            {isVideoCall
+              ? <Video size={17} color="#ea4335" />
+              : <PhoneMissed size={17} color="#ea4335" />
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '14px', color: '#e9edef', lineHeight: '18px' }}>
+              {message.content}
+            </span>
+            <span style={{ fontSize: '11px', color: 'rgba(233,237,239,0.5)' }}>
+              {formatTime(message.createdAt)}
             </span>
           </div>
         </div>
