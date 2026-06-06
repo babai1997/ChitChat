@@ -220,6 +220,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleUserJoined = (data: { userId: string; chatId: string }) => {
       console.log('[Call] User joined:', data.userId);
       ringtoneManager.stopCallingTone();
+      // Move caller to connected state — callee has answered
+      setCallStatus('connected');
 
       if (!isCallActiveRef.current || !localStreamRef.current) {
         console.warn('[Call] Ignoring user-joined — call not active or no local stream');
@@ -351,7 +353,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       // Set active BEFORE getting media so the signal handler sees it immediately
-      setCallStatus('connected');
+      // Status is 'calling' (not 'connected') — actual connection established when stream arrives
+      setCallStatus('calling');
       setIsCallActive(true);
       isCallActiveRef.current = true; // Set ref immediately
       activeChatIdRef.current = call.chatId;
