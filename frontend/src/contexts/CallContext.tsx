@@ -113,28 +113,28 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stream,
         config: {
           iceServers: [
-            // ── STUN servers (discover public IP, free, no relay) ──────────
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            // ── TURN servers (relay traffic when P2P fails) ───────────────
-            // Required for calls across different cities/networks/NATs.
-            // OpenRelay: free, community TURN server.
             {
-              urls: 'turn:openrelay.metered.ca:80',
-              username: 'openrelayproject',
-              credential: 'openrelayproject',
+              urls: "stun:stun.relay.metered.ca:80",
             },
             {
-              urls: 'turn:openrelay.metered.ca:443',
-              username: 'openrelayproject',
-              credential: 'openrelayproject',
+              urls: "turn:global.relay.metered.ca:80",
+              username: "bfd9bc0f231dcb23a8625d17",
+              credential: "g65qhBaLA/r80etz",
             },
             {
-              urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-              username: 'openrelayproject',
-              credential: 'openrelayproject',
+              urls: "turn:global.relay.metered.ca:80?transport=tcp",
+              username: "bfd9bc0f231dcb23a8625d17",
+              credential: "g65qhBaLA/r80etz",
+            },
+            {
+              urls: "turn:global.relay.metered.ca:443",
+              username: "bfd9bc0f231dcb23a8625d17",
+              credential: "g65qhBaLA/r80etz",
+            },
+            {
+              urls: "turns:global.relay.metered.ca:443?transport=tcp",
+              username: "bfd9bc0f231dcb23a8625d17",
+              credential: "g65qhBaLA/r80etz",
             },
           ],
         },
@@ -220,8 +220,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleUserJoined = (data: { userId: string; chatId: string }) => {
       console.log('[Call] User joined:', data.userId);
       ringtoneManager.stopCallingTone();
-      // Move caller to connected state — callee has answered
-      setCallStatus('connected');
+
+      // Fix: clear the caller's auto-cancel timeout since callee answered
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+
+      // Status remains 'calling' (connecting) until the actual media stream arrives in peer.on('stream')
 
       if (!isCallActiveRef.current || !localStreamRef.current) {
         console.warn('[Call] Ignoring user-joined — call not active or no local stream');
