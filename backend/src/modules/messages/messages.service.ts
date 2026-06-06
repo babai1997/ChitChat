@@ -181,6 +181,42 @@ export class MessagesService {
     return formattedMessage;
   }
 
+  /**
+   * Creates a system-generated message (e.g. "Missed audio call").
+   * Skips the membership check — the caller already validated membership.
+   * Does NOT emit a message.created event — the caller (CallHandler) broadcasts
+   * the message via the gateway directly to avoid double-emit.
+   */
+  async createSystemMessage(
+    chatId: string,
+    senderId: string,
+    content: string,
+    type: MessageType,
+  ) {
+    const message = await this.prisma.message.create({
+      data: {
+        chatId,
+        senderId,
+        content,
+        type,
+        status: MessageStatus.sent,
+      },
+      include: {
+        sender: { include: { profile: true } },
+        replyTo: false,
+        attachments: true,
+      },
+    });
+
+    // Update chat's updatedAt so it sorts to top
+    await this.prisma.chat.update({
+      where: { id: chatId },
+      data: { updatedAt: new Date() },
+    });
+
+    return MessagesMapper.toDto(message);
+  }
+
   // ============================================
   // Message Status
   // ============================================
