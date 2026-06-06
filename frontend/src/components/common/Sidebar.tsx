@@ -133,7 +133,7 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
             }}
           >
              {userProfile?.avatarUrl ? (
-                <img src={userProfile.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={userProfile.avatarUrl} alt="Profile" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
              ) : (
                 <div style={{ width: '100%', height: '100%', backgroundColor: '#6a7f8a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <User size={18} color="white" />

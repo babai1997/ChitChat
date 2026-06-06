@@ -75,6 +75,7 @@ export const SettingsPage = () => {
           <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '16px' }}>
              <img 
                src={user?.profile?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.profile?.displayName || 'User'}&background=random`} 
+               referrerPolicy="no-referrer"
                alt="Profile" 
                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
              />

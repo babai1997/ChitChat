@@ -1,42 +1,58 @@
 import { create } from 'zustand';
-import type { Chat, Message } from '../types';
+import type { Chat, Message, MessageStatus } from '../types';
 
 interface ChatState {
-  // State
+  // ── State ──────────────────────────────────────────────────────────────────
   chats: Chat[];
   activeChat: Chat | null;
   messages: Record<string, Message[]>;
-  typingUsers: Record<string, string[]>; // chatId -> userId[]
+  typingUsers: Record<string, string[]>; // chatId → userId[]
   onlineUsers: Set<string>;
-  lastSeen: Record<string, string>; // userId -> timestamp
+  lastSeen: Record<string, string>; // userId → ISO timestamp
   isLoading: boolean;
 
-  // Actions
+  // ── Chat actions ───────────────────────────────────────────────────────────
   setChats: (chats: Chat[]) => void;
   addChat: (chat: Chat) => void;
+  /** Inserts new chat or merges updates if it already exists */
+  upsertChat: (chat: Chat) => void;
   updateChat: (chatId: string, updates: Partial<Chat>) => void;
   removeChat: (chatId: string) => void;
-  
   setActiveChat: (chat: Chat | null) => void;
-  
+
+  // ── Message actions ────────────────────────────────────────────────────────
   setMessages: (chatId: string, messages: Message[]) => void;
-  addMessage: (chatId: string, message: Message) => void;
+  /**
+   * Adds a message, deduplicating by both real id AND tempId.
+   * This prevents duplicates when message:new arrives before message:sent.
+   */
+  addMessage: (chatId: string, message: Message & { tempId?: string }) => void;
   prependMessages: (chatId: string, messages: Message[]) => void;
+  /**
+   * Atomically replaces the optimistic temp message with the confirmed real one.
+   * Fixes the duplicate message bug — use this in the message:sent handler.
+   */
+  replaceMessage: (chatId: string, tempId: string, realMessage: Message) => void;
+  /** Generic field-level update (use for status-only changes like delivered/read) */
   updateMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void;
-  
+  /** Convenience wrapper for status updates */
+  updateMessageStatus: (chatId: string, messageId: string, status: MessageStatus) => void;
+
+  // ── Typing ─────────────────────────────────────────────────────────────────
   setTypingUser: (chatId: string, userId: string, isTyping: boolean) => void;
   clearTypingUsers: (chatId: string) => void;
-  
+
+  // ── Presence ───────────────────────────────────────────────────────────────
   setUserOnline: (userId: string, isOnline: boolean, lastSeen?: string) => void;
   setOnlineUsers: (userIds: string[]) => void;
-  
+
+  // ── Misc ───────────────────────────────────────────────────────────────────
   setLoading: (isLoading: boolean) => void;
-  
   clearChatData: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  // Initial state
+  // ── Initial state ──────────────────────────────────────────────────────────
   chats: [],
   activeChat: null,
   messages: {},
@@ -45,23 +61,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
   onlineUsers: new Set(),
   isLoading: false,
 
-  // Actions
-  setChats: (chats) => {
-    set({ chats });
-  },
+  // ── Chat actions ───────────────────────────────────────────────────────────
+
+  setChats: (chats) => set({ chats }),
 
   addChat: (chat) => {
-    const { chats } = get();
-    if (!chats.find((c) => c.id === chat.id)) {
-      set({ chats: [chat, ...chats] });
+    if (!get().chats.find((c) => c.id === chat.id)) {
+      set((state) => ({ chats: [chat, ...state.chats] }));
     }
+  },
+
+  upsertChat: (chat) => {
+    set((state) => {
+      const exists = state.chats.find((c) => c.id === chat.id);
+      if (exists) {
+        // Merge — existing fields take precedence only when not provided in update
+        return {
+          chats: state.chats.map((c) => (c.id === chat.id ? { ...c, ...chat } : c)),
+          activeChat:
+            state.activeChat?.id === chat.id
+              ? { ...state.activeChat, ...chat }
+              : state.activeChat,
+        };
+      }
+      return { chats: [chat, ...state.chats] };
+    });
   },
 
   updateChat: (chatId, updates) => {
     set((state) => ({
-      chats: state.chats.map((chat) =>
-        chat.id === chatId ? { ...chat, ...updates } : chat
-      ),
+      chats: state.chats.map((c) => (c.id === chatId ? { ...c, ...updates } : c)),
       activeChat:
         state.activeChat?.id === chatId
           ? { ...state.activeChat, ...updates }
@@ -71,48 +100,62 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   removeChat: (chatId) => {
     set((state) => ({
-      chats: state.chats.filter((chat) => chat.id !== chatId),
+      chats: state.chats.filter((c) => c.id !== chatId),
       activeChat: state.activeChat?.id === chatId ? null : state.activeChat,
     }));
   },
 
-  setActiveChat: (chat) => {
-    set({ activeChat: chat });
-  },
+  setActiveChat: (chat) => set({ activeChat: chat }),
+
+  // ── Message actions ────────────────────────────────────────────────────────
 
   setMessages: (chatId, messages) => {
-    set((state) => ({
-      messages: { ...state.messages, [chatId]: messages },
-    }));
+    set((state) => ({ messages: { ...state.messages, [chatId]: messages } }));
   },
 
   addMessage: (chatId, message) => {
     set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      // Avoid duplicates
-      if (chatMessages.find((m) => m.id === message.id)) {
-        return state;
-      }
+      const existing = state.messages[chatId] || [];
+      const tempId = (message as any).tempId as string | undefined;
+
+      // Skip if we already have this message by real id OR by tempId
+      const alreadyExists = existing.some(
+        (m) => m.id === message.id || (tempId && m.id === tempId),
+      );
+      if (alreadyExists) return state;
+
       return {
-        messages: {
-          ...state.messages,
-          [chatId]: [...chatMessages, message],
-        },
+        messages: { ...state.messages, [chatId]: [...existing, message] },
       };
     });
   },
 
   prependMessages: (chatId, messages) => {
     set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      const existingIds = new Set(chatMessages.map((m) => m.id));
-      const newMessages = messages.filter((m) => !existingIds.has(m.id));
+      const existing = state.messages[chatId] || [];
+      const existingIds = new Set(existing.map((m) => m.id));
+      const newOnes = messages.filter((m) => !existingIds.has(m.id));
       return {
-        messages: {
-          ...state.messages,
-          [chatId]: [...newMessages, ...chatMessages],
-        },
+        messages: { ...state.messages, [chatId]: [...newOnes, ...existing] },
       };
+    });
+  },
+
+  replaceMessage: (chatId, tempId, realMessage) => {
+    set((state) => {
+      const existing = state.messages[chatId] || [];
+      const replaced = existing.map((m) => (m.id === tempId ? realMessage : m));
+
+      // Deduplicate — if message:new already added the real message before message:sent,
+      // we'll now have two entries with the same real id. Keep only the first.
+      const seen = new Set<string>();
+      const deduped = replaced.filter((m) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+
+      return { messages: { ...state.messages, [chatId]: deduped } };
     });
   },
 
@@ -120,66 +163,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: {
         ...state.messages,
-        [chatId]: (state.messages[chatId] || []).map((msg) =>
-          msg.id === messageId ? { ...msg, ...updates } : msg
+        [chatId]: (state.messages[chatId] || []).map((m) =>
+          m.id === messageId ? { ...m, ...updates } : m,
         ),
       },
     }));
   },
 
+  updateMessageStatus: (chatId, messageId, status) => {
+    get().updateMessage(chatId, messageId, { status });
+  },
+
+  // ── Typing ─────────────────────────────────────────────────────────────────
+
   setTypingUser: (chatId, userId, isTyping) => {
     set((state) => {
-      const currentTyping = state.typingUsers[chatId] || [];
-      let newTyping: string[];
-      
-      if (isTyping) {
-        if (!currentTyping.includes(userId)) {
-          newTyping = [...currentTyping, userId];
-        } else {
-          newTyping = currentTyping;
-        }
-      } else {
-        newTyping = currentTyping.filter((id) => id !== userId);
-      }
-      
-      return {
-        typingUsers: { ...state.typingUsers, [chatId]: newTyping },
-      };
+      const current = state.typingUsers[chatId] || [];
+      const updated = isTyping
+        ? current.includes(userId)
+          ? current
+          : [...current, userId]
+        : current.filter((id) => id !== userId);
+      return { typingUsers: { ...state.typingUsers, [chatId]: updated } };
     });
   },
 
   clearTypingUsers: (chatId) => {
-    set((state) => ({
-      typingUsers: { ...state.typingUsers, [chatId]: [] },
-    }));
+    set((state) => ({ typingUsers: { ...state.typingUsers, [chatId]: [] } }));
   },
+
+  // ── Presence ───────────────────────────────────────────────────────────────
 
   setUserOnline: (userId, isOnline, lastSeen) => {
     set((state) => {
-      const newOnlineUsers = new Set(state.onlineUsers);
-      const newLastSeen = { ...state.lastSeen };
-      
+      const online = new Set(state.onlineUsers);
+      const seen = { ...state.lastSeen };
       if (isOnline) {
-        newOnlineUsers.add(userId);
+        online.add(userId);
       } else {
-        newOnlineUsers.delete(userId);
-        if (lastSeen) {
-          newLastSeen[userId] = lastSeen;
-        }
+        online.delete(userId);
+        if (lastSeen) seen[userId] = lastSeen;
       }
-      return { onlineUsers: newOnlineUsers, lastSeen: newLastSeen };
+      return { onlineUsers: online, lastSeen: seen };
     });
   },
 
-  setOnlineUsers: (userIds: string[]) => {
-    set({ onlineUsers: new Set(userIds) });
-  },
+  setOnlineUsers: (userIds) => set({ onlineUsers: new Set(userIds) }),
 
-  setLoading: (isLoading) => {
-    set({ isLoading });
-  },
+  // ── Misc ───────────────────────────────────────────────────────────────────
 
-  clearChatData: () => {
+  setLoading: (isLoading) => set({ isLoading }),
+
+  clearChatData: () =>
     set({
       chats: [],
       activeChat: null,
@@ -187,6 +222,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
       typingUsers: {},
       onlineUsers: new Set(),
       lastSeen: {},
-    });
-  },
+    }),
 }));

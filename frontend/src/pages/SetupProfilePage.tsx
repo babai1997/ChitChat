@@ -86,7 +86,7 @@ export const SetupProfilePage = () => {
                 justifyContent: 'center'
              }}>
                 {user?.profile?.avatarUrl ? (
-                    <img src={user.profile.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={user.profile.avatarUrl} alt="Profile" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <User size={80} color="#6a7f8a" />
                 )}

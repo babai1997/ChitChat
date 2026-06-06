@@ -34,6 +34,7 @@ export const AvatarUpload = ({ currentAvatarUrl, onUpload, isUploading }: Avatar
         {previewUrl ? (
           <img 
             src={previewUrl} 
+            referrerPolicy="no-referrer"
             alt="Profile Avatar" 
             className="w-full h-full object-cover"
           />
