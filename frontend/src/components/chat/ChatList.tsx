@@ -98,6 +98,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
               {getChatAvatar(chat) ? (
                 <img 
                   src={getChatAvatar(chat)!} 
+                  referrerPolicy="no-referrer"
                   alt={getChatName(chat)} 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

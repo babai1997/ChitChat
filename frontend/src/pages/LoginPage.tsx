@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Phone, ArrowRight, Loader2 } from 'lucide-react';
+import { MessageCircle, Loader2 } from 'lucide-react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { authApi } from '../api';
@@ -9,8 +9,6 @@ import { useAuthStore } from '../stores';
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const [phone, setPhone] = useState('+91');
-  const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -39,44 +37,6 @@ export const LoginPage = () => {
     }
   };
 
-  const formatPhoneNumber = (value: string) => {
-    // Remove all non-digits except +
-    const cleaned = value.replace(/[^\d+]/g, '');
-    
-    // Ensure it starts with +
-    if (cleaned && !cleaned.startsWith('+')) {
-      return '+' + cleaned;
-    }
-    return cleaned;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    setPhone(formatted);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!phone || phone.length < 12) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      await authApi.sendOtp(phone);
-      toast.success('OTP sent successfully!');
-      navigate('/verify-otp', { state: { phone } });
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to send OTP');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div 
       style={{ 
@@ -85,165 +45,161 @@ export const LoginPage = () => {
         flexDirection: 'column', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        padding: '16px',
-        backgroundColor: '#111b21',
-        position: 'relative'
+        padding: '24px',
+        background: 'linear-gradient(135deg, #0b141a 0%, #111b21 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: "'Inter', sans-serif"
       }}
     >
+      {/* Background Ambient Glows */}
+      <div style={{
+        position: 'absolute',
+        top: '-10%',
+        left: '-10%',
+        width: '500px',
+        height: '500px',
+        background: 'radial-gradient(circle, rgba(37, 211, 102, 0.15) 0%, rgba(0,0,0,0) 70%)',
+        borderRadius: '50%',
+        filter: 'blur(60px)',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: '-10%',
+        right: '-10%',
+        width: '400px',
+        height: '400px',
+        background: 'radial-gradient(circle, rgba(18, 140, 126, 0.15) 0%, rgba(0,0,0,0) 70%)',
+        borderRadius: '50%',
+        filter: 'blur(60px)',
+        zIndex: 0
+      }} />
+
       {/* Google Loading Overlay */}
       {isGoogleLoading && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(17, 27, 33, 0.9)',
+          background: 'rgba(11, 20, 26, 0.85)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 50
+          zIndex: 50,
+          transition: 'all 0.3s ease'
         }}>
-          <Loader2 size={40} style={{ animation: 'spin 1s linear infinite', color: '#25d366' }} />
-          <p style={{ color: '#e9edef', marginTop: '16px', fontSize: '18px' }}>Signing in with Google...</p>
+          <Loader2 size={48} style={{ animation: 'spin 1s linear infinite', color: '#25d366' }} />
+          <p style={{ color: '#e9edef', marginTop: '20px', fontSize: '18px', fontWeight: '500', letterSpacing: '0.5px' }}>
+            Authenticating securely...
+          </p>
         </div>
       )}
-      {/* Logo */}
-      <div style={{ marginBottom: '32px', textAlign: 'center' }} className="animate-fade-in">
-        <div 
-          style={{ 
-            width: '80px', 
-            height: '80px', 
-            borderRadius: '50%', 
-            backgroundColor: '#25d366', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            margin: '0 auto 16px' 
-          }}
-        >
-          <MessageCircle size={40} color="white" />
-        </div>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#e9edef', marginBottom: '8px' }}>
-          ChitChat
-        </h1>
-        <p style={{ color: '#8696a0' }}>Connect with friends & family</p>
-      </div>
 
-      {/* Login Form */}
+      {/* Login Card */}
       <div 
         className="animate-slide-up"
         style={{ 
           width: '100%', 
-          maxWidth: '400px',
-          backgroundColor: '#1f2c34',
-          borderRadius: '16px',
-          padding: '32px',
-          border: '1px solid #2a3942',
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)'
+          maxWidth: '420px',
+          background: 'rgba(31, 44, 52, 0.6)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderRadius: '24px',
+          padding: '48px 32px',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}
       >
-        <h2 style={{ 
-          fontSize: '18px', 
-          fontWeight: '600', 
-          color: '#e9edef', 
-          marginBottom: '24px', 
-          textAlign: 'center' 
-        }}>
-          Enter your phone number
-        </h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ position: 'relative', marginBottom: '24px' }}>
-            <Phone 
-              size={20} 
-              style={{ 
-                position: 'absolute', 
-                left: '16px', 
-                top: '50%', 
-                transform: 'translateY(-50%)', 
-                color: '#8696a0' 
-              }} 
-            />
-            <input
-              type="tel"
-              value={phone}
-              onChange={handlePhoneChange}
-              placeholder="+91 98765 43210"
-              disabled={isLoading}
-              style={{
-                width: '100%',
-                backgroundColor: '#2a3942',
-                border: '1px solid #3b4a54',
-                borderRadius: '12px',
-                padding: '16px 16px 16px 48px',
-                color: '#e9edef',
-                fontSize: '18px',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading || phone.length < 12}
-            style={{
-              width: '100%',
-              backgroundColor: isLoading || phone.length < 12 ? '#1a5c3e' : '#25d366',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '16px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: isLoading || phone.length < 12 ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              opacity: isLoading || phone.length < 12 ? 0.6 : 1,
-              transition: 'all 0.2s ease'
+        {/* Logo Section */}
+        <div style={{ marginBottom: '40px', textAlign: 'center' }} className="animate-fade-in">
+          <div 
+            style={{ 
+              width: '88px', 
+              height: '88px', 
+              borderRadius: '24px', 
+              background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 24px rgba(37, 211, 102, 0.3)',
+              transform: 'rotate(-4deg)',
+              transition: 'transform 0.3s ease'
             }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'rotate(0deg) scale(1.05)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'rotate(-4deg) scale(1)'}
           >
-            {isLoading ? (
-              <>
-                <Loader2 size={20} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-                Sending OTP...
-              </>
-            ) : (
-              <>
-                Continue
-                <ArrowRight size={20} />
-              </>
-            )}
-          </button>
-        </form>
-
-        <p style={{ color: '#8696a0', fontSize: '14px', textAlign: 'center', marginTop: '24px' }}>
-          We'll send you a verification code via SMS
-        </p>
-
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#2a3942' }}></div>
-          <span style={{ color: '#8696a0', fontSize: '14px' }}>OR</span>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#2a3942' }}></div>
+            <MessageCircle size={44} color="white" />
+          </div>
+          <h1 style={{ 
+            fontSize: '32px', 
+            fontWeight: '800', 
+            color: '#e9edef', 
+            marginBottom: '8px',
+            letterSpacing: '-0.5px'
+          }}>
+            ChitChat
+          </h1>
+          <p style={{ color: '#8696a0', fontSize: '15px', lineHeight: '1.5' }}>
+            Connect instantly with the people who matter most.
+          </p>
         </div>
 
-        {/* Google Login */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => toast.error('Google Sign-In failed')}
-            theme="filled_black"
-            shape="circle"
-            width="300px" // This might be ignored by the component if specific sizes are enforced, but good to try
-          />
+        {/* Google Login Section */}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center',
+            padding: '4px',
+            background: 'rgba(0, 0, 0, 0.2)',
+            borderRadius: '100px',
+            border: '1px solid rgba(255,255,255,0.02)'
+          }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google Sign-In failed')}
+              theme="filled_black"
+              shape="circle"
+              size="large"
+              width="300px"
+              text="continue_with"
+            />
+          </div>
+          
+          <div style={{
+            background: 'rgba(37, 211, 102, 0.1)',
+            border: '1px solid rgba(37, 211, 102, 0.2)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center'
+          }}>
+            <p style={{ color: '#25d366', fontSize: '13px', fontWeight: '500' }}>
+              ✨ Quick, secure, and passwordless entry.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Footer */}
-      <p style={{ color: '#8696a0', fontSize: '12px', marginTop: '32px', textAlign: 'center' }}>
-        By continuing, you agree to our Terms of Service and Privacy Policy
-      </p>
+      <div style={{ 
+        position: 'absolute', 
+        bottom: '32px', 
+        color: '#8696a0', 
+        fontSize: '13px', 
+        textAlign: 'center',
+        zIndex: 10
+      }}>
+        By continuing, you agree to our{' '}
+        <a href="#" style={{ color: '#25d366', textDecoration: 'none', fontWeight: '500' }}>Terms</a>
+        {' '}and{' '}
+        <a href="#" style={{ color: '#25d366', textDecoration: 'none', fontWeight: '500' }}>Privacy Policy</a>
+      </div>
     </div>
   );
 };

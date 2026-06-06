@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import type { Instance } from 'simple-peer';
 import SimplePeer from 'simple-peer';
-import { useSocket } from '../hooks';
+import { socketManager } from '../shared/socket/SocketManager';
+import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { ringtoneManager } from '../utils/ringtone';
 import toast from 'react-hot-toast';
 
+// ── Types ───────────────────────────────────────────────────────────────────
 
+interface IncomingCallData {
+  chatId: string;
+  callerId: string;
+  callerName: string;
+  callerAvatar?: string;
+  offer?: unknown;
+  type: 'audio' | 'video';
+}
 
 interface CallContextType {
   isCallActive: boolean;
@@ -14,223 +24,247 @@ interface CallContextType {
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
+  isMinimized: boolean;
+  isMuted: boolean;
+  isVideoEnabled: boolean;
   startCall: (chatId: string, type: 'audio' | 'video') => void;
   answerCall: () => void;
   rejectCall: () => void;
-  toggleMinimize: () => void;
-  isMinimized: boolean;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
-  isMuted: boolean;
-  isVideoEnabled: boolean;
-}
-
-interface IncomingCallData {
-  chatId: string;
-  callerId: string;
-  callerName: string;
-  callerAvatar?: string;
-  offer?: any;
-  type: 'audio' | 'video';
+  toggleMinimize: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
+// ── Provider ─────────────────────────────────────────────────────────────────
+
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { socket } = useSocket();
-  
+  // ── State ──────────────────────────────────────────────────────────────────
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
-  
-  const [isMinimized, setIsMinimized] = useState(false);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  // Replaced single remoteStream with Map of streams
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
-  
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
-  // Replaced single peerRef with Map of peers
+  // ── Refs (stable across renders, safe in closures) ─────────────────────────
+  const localStreamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, Instance>>(new Map());
   const activeChatIdRef = useRef<string | null>(null);
+  /**
+   * FIX: Track isCallActive in a ref so socket event handlers always see
+   * the latest value without stale closure issues.
+   */
+  const isCallActiveRef = useRef(false);
+  const incomingCallRef = useRef<IncomingCallData | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
+  useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
+
+  // ── Cleanup ────────────────────────────────────────────────────────────────
 
   const cleanupCall = useCallback(() => {
-    console.log('Cleaning up call...');
-    // Stop all ringtones
+    console.log('[Call] Cleaning up');
     ringtoneManager.stopAll();
-    
-    // Destroy all peers
-    peersRef.current.forEach(peer => peer.destroy());
+
+    peersRef.current.forEach((peer) => {
+      try { peer.destroy(); } catch { /* ignore */ }
+    });
     peersRef.current.clear();
 
     if (localStreamRef.current) {
-        console.log('Stopping local tracks:', localStreamRef.current.id);
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
     }
+
     setLocalStream(null);
     setRemoteStreams(new Map());
     setIncomingCall(null);
     setCallStatus('idle');
     setIsCallActive(false);
     setIsMinimized(false);
+    isCallActiveRef.current = false;
     activeChatIdRef.current = null;
   }, []);
 
-  const createPeer = (targetUserId: string, initiator: boolean, stream: MediaStream) => {
-    console.log(`Creating peer for ${targetUserId} (initiator: ${initiator})`);
-    const peer = new SimplePeer({
-      initiator,
-      trickle: false,
-      stream,
-    });
+  // ── Peer factory ───────────────────────────────────────────────────────────
 
-    peer.on('signal', (signal) => {
-      // type is generic 'signal' here effectively, but we can infer role
-      socket?.emit('call:signal', {
-        targetUserId,
-        type: initiator ? 'offer' : 'answer', // Hint for clarity
-        signal,
-        chatId: activeChatIdRef.current
+  const createPeer = useCallback(
+    (targetUserId: string, initiator: boolean, stream: MediaStream): Instance => {
+      console.log(`[Call] Creating peer → ${targetUserId} (initiator: ${initiator})`);
+
+      const peer = new SimplePeer({
+        initiator,
+        /**
+         * FIX: trickle: true sends ICE candidates as they are discovered
+         * instead of waiting for the full gathering phase.
+         * This dramatically improves connection reliability, especially on
+         * restricted networks where full ICE gathering can stall or timeout.
+         */
+        trickle: true,
+        stream,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ],
+        },
       });
-    });
 
-    peer.on('stream', (stream) => {
-      console.log(`Received stream from ${targetUserId}`);
-      setRemoteStreams(prev => {
-          const newMap = new Map(prev);
-          newMap.set(targetUserId, stream);
-          return newMap;
-      });
-    });
-
-    peer.on('close', () => {
-        console.log(`Peer connection closed: ${targetUserId}`);
-        peersRef.current.delete(targetUserId);
-        setRemoteStreams(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(targetUserId);
-            return newMap;
+      peer.on('signal', (signal) => {
+        console.log(`[Call] Sending signal to ${targetUserId}:`, signal.type ?? 'candidate');
+        socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+          targetUserId,
+          type: signal.type ?? 'candidate',
+          signal,
+          chatId: activeChatIdRef.current,
         });
-    });
+      });
 
-    peer.on('error', (err) => {
-        console.error(`Peer error with ${targetUserId}:`, err);
-        // Potentially cleanup specific peer?
-    });
+      peer.on('stream', (remoteStream) => {
+        console.log(`[Call] Received stream from ${targetUserId}`);
+        setRemoteStreams((prev) => {
+          const next = new Map(prev);
+          next.set(targetUserId, remoteStream);
+          return next;
+        });
+        // Transition to connected state when we have a stream
+        setCallStatus('connected');
+      });
 
-    peersRef.current.set(targetUserId, peer);
-    return peer;
-  };
+      peer.on('connect', () => {
+        console.log(`[Call] Data channel connected to ${targetUserId}`);
+      });
 
-  // --- Socket Event Listeners ---
+      peer.on('close', () => {
+        console.log(`[Call] Peer closed: ${targetUserId}`);
+        peersRef.current.delete(targetUserId);
+        setRemoteStreams((prev) => {
+          const next = new Map(prev);
+          next.delete(targetUserId);
+          return next;
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error(`[Call] Peer error with ${targetUserId}:`, err);
+      });
+
+      peersRef.current.set(targetUserId, peer);
+      return peer;
+    },
+    [],
+  );
+
+  // ── Socket event listeners ─────────────────────────────────────────────────
+
   useEffect(() => {
-    if (!socket) return;
+    // Use socketManager.on() instead of socket.on() so these handlers are persisted
+    // by the SocketManager and re-attached after every reconnect — even if the socket
+    // doesn't exist yet when CallProvider first mounts.
+    const handleIncoming = (data: IncomingCallData) => {
+      console.log('[Call] Incoming call from', data.callerId, data.type);
 
-    socket.on('call:incoming', (data: IncomingCallData) => {
-      console.log('Incoming call:', data);
-      if (callStatus !== 'idle') {
-        // Busy
-        socket.emit('call:reject', { chatId: data.chatId, callerId: data.callerId });
+      if (isCallActiveRef.current) {
+        socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
+          chatId: data.chatId,
+          callerId: data.callerId,
+        });
         return;
       }
-      // Play ringtone for incoming call
-      ringtoneManager.playRingtone().catch(err => {
-         console.error('Failed to play ringtone:', err);
-         // If blocked by browser policy, we could show a stronger visual cue or specific toast
-         // But the incoming call UI should be visible regardless
-      });
+
+      ringtoneManager.playRingtone().catch(console.error);
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
-    });
+    };
 
-    // Handle new user joining the call (Mesh: initiate connection)
-    socket.on('call:user-joined', (data: { userId: string, chatId: string }) => {
-        console.log('User joined call:', data.userId);
-        // Stop calling tone when someone answers
-        ringtoneManager.stopCallingTone();
-        
-        if (isCallActive && localStreamRef.current && data.userId !== socket.id) { // Should check vs self? userId is usually DB id, assume socket.user.id
-            // Initiate connection to the new joiner
-            // Note: we need to ensure we don't connect to self if broadcast includes self.
-            // But we don't have our own userId easily accessible here unless we store it.
-            // Assuming backend doesn't send to self or we handle duplicate safely.
-            
-            if (!peersRef.current.has(data.userId)) {
-                createPeer(data.userId, true, localStreamRef.current);
-            }
+    const handleUserJoined = (data: { userId: string; chatId: string }) => {
+      console.log('[Call] User joined:', data.userId);
+      ringtoneManager.stopCallingTone();
+
+      if (!isCallActiveRef.current || !localStreamRef.current) {
+        console.warn('[Call] Ignoring user-joined — call not active or no local stream');
+        return;
+      }
+
+      if (!peersRef.current.has(data.userId)) {
+        createPeer(data.userId, true, localStreamRef.current);
+      }
+    };
+
+    const handleSignal = (data: { senderId: string; type: string; signal: unknown }) => {
+      console.log(`[Call] Signal received from ${data.senderId}: ${data.type}`);
+      const { senderId, signal } = data;
+
+      let peer = peersRef.current.get(senderId);
+
+      if (!peer) {
+        if (!isCallActiveRef.current || !localStreamRef.current) {
+          console.warn('[Call] Received signal but call not active — ignoring');
+          return;
         }
-    });
+        peer = createPeer(senderId, false, localStreamRef.current);
+      }
 
-    // Handle signals (Offer, Answer, Candidate)
-    socket.on('call:signal', (data: { senderId: string, type: string, signal: any }) => {
-        console.log(`Received signal from ${data.senderId} (${data.type})`);
-        const { senderId, signal } = data;
-        
-        let peer = peersRef.current.get(senderId);
+      try {
+        peer.signal(signal as SimplePeer.SignalData);
+      } catch (err) {
+        console.error('[Call] peer.signal() error:', err);
+      }
+    };
 
-        if (!peer) {
-            // If we receive an offer and don't have a peer, we are the receiver (non-initiator)
-            if (isCallActive && localStreamRef.current) {
-                 peer = createPeer(senderId, false, localStreamRef.current);
-            } else {
-                console.warn('Received signal but call not active or no stream');
-                return;
-            }
-        }
-
-        peer.signal(signal);
-    });
-
-    // Legacy/Global end
-    socket.on('call:ended', (data: { enderId: string }) => {
-      console.log(`[Call] User left call: ${data.enderId}`);
+    const handleEnded = (data: { enderId: string }) => {
+      console.log('[Call] Call ended by', data.enderId);
       const peer = peersRef.current.get(data.enderId);
       if (peer) {
-          peer.destroy();
-          peersRef.current.delete(data.enderId);
-          setRemoteStreams(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(data.enderId);
-              return newMap;
-          });
+        try { peer.destroy(); } catch { /* ignore */ }
+        peersRef.current.delete(data.enderId);
+        setRemoteStreams((prev) => {
+          const next = new Map(prev);
+          next.delete(data.enderId);
+          return next;
+        });
       }
-      
-      // If everyone left, end the call
+
       if (peersRef.current.size === 0) {
-        console.log('[Call] All participants left, ending call');
-        if (callStatus === 'calling') {
-          toast.error('Call was not answered');
-        } else {
-          toast('Call ended');
-        }
+        toast('Call ended');
         cleanupCall();
       }
-    });
+    };
 
-    // Rejections
-    socket.on('call:rejected', (_: { rejectorId: string }) => {
-      console.log('[Call] Call rejected by recipient');
+    const handleRejected = () => {
+      console.log('[Call] Call rejected');
       toast.error('Call was declined');
-      cleanupCall(); // End the call on caller's side
-    });
+      cleanupCall();
+    };
+
+    // Register via socketManager — handlers persist in its internal registry
+    // and are re-attached automatically after each reconnect.
+    socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+    socketManager.on(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
+    socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
+    socketManager.on(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
+    socketManager.on(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
 
     return () => {
-      socket.off('call:incoming');
-      socket.off('call:user-joined');
-      socket.off('call:signal');
-      socket.off('call:ended');
-      socket.off('call:rejected');
+      socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+      socketManager.off(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
+      socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
+      socketManager.off(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
+      socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
     };
-  }, [socket, callStatus, isCallActive]); // Deps need careful management
+  // Run once on mount — socketManager.on() persists handlers through reconnects
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createPeer, cleanupCall]);
 
-  const toggleMinimize = () => setIsMinimized(prev => !prev);
+  // ── Call actions ───────────────────────────────────────────────────────────
 
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
@@ -238,137 +272,102 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallType(type);
       setCallStatus('calling');
       setIsCallActive(true);
+      isCallActiveRef.current = true; // Set ref immediately
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: type === 'video',
-        audio: true
+        audio: true,
       });
-      
-      setLocalStream(stream);
+
       localStreamRef.current = stream;
+      setLocalStream(stream);
       setIsVideoEnabled(type === 'video');
       setIsMuted(false);
 
-      // Play calling tone (dial tone) while waiting for answer
       ringtoneManager.playCallingTone();
 
-      // Emit start (Advertises presence/invitation). No offer sent here.
-      socket!.emit('call:start', {
-        chatId,
-        offer: null, // No initial offer in Mesh
-        type
-      });
-      
-      // Now we wait for 'call:user-joined' (when they accept)
-
-    } catch (err: any) {
-      console.error('Failed to start call:', err);
-      
-      // More specific error messages
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        toast.error('Camera/microphone permission denied. Please allow access in browser settings.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        toast.error('No camera or microphone found. Please connect a device.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        toast.error('Camera/microphone is already in use by another application.');
-      } else if (err.name === 'OverconstrainedError') {
-        toast.error('Camera/microphone settings are not supported.');
-      } else if (err.name === 'TypeError') {
-        toast.error('Invalid media constraints.');
-      } else {
-        toast.error(`Could not access camera/microphone: ${err.message || err.name}`);
-      }
-      
+      socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type });
+    } catch (err: unknown) {
+      console.error('[Call] Failed to start:', err);
+      toast.error(getMediaErrorMessage(err));
       cleanupCall();
     }
   };
 
   const answerCall = async () => {
-    if (!incomingCall) return;
+    const call = incomingCallRef.current;
+    if (!call) return;
 
-    // Stop ringtone immediately when answering
     ringtoneManager.stopRingtone();
 
     try {
-      setCallStatus('connected'); // Immediately show connected UI
+      // Set active BEFORE getting media so the signal handler sees it immediately
+      setCallStatus('connected');
       setIsCallActive(true);
-      activeChatIdRef.current = incomingCall.chatId;
+      isCallActiveRef.current = true; // Set ref immediately
+      activeChatIdRef.current = call.chatId;
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: incomingCall.type === 'video',
-        audio: true
+        video: call.type === 'video',
+        audio: true,
       });
-      
-      setLocalStream(stream);
+
       localStreamRef.current = stream;
-      setIsVideoEnabled(incomingCall.type === 'video');
+      setLocalStream(stream);
+      setIsVideoEnabled(call.type === 'video');
       setIsMuted(false);
 
-      // Announce join to the room.
-      // Existing participants (including caller) will receive this and initiate connection.
-      socket!.emit('call:join', {
-          chatId: incomingCall.chatId
-      });
+      // Announce join — caller will receive CALL_USER_JOINED and send the offer
+      socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId: call.chatId });
 
       setIncomingCall(null);
-
-    } catch (err: any) {
-      console.error('Failed to answer call:', err);
-      
-      // More specific error messages
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        toast.error('Camera/microphone permission denied. Please allow access in browser settings.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        toast.error('No camera or microphone found. Please connect a device.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        toast.error('Camera/microphone is already in use by another application.');
-      } else if (err.name === 'OverconstrainedError') {
-        toast.error('Camera/microphone settings are not supported.');
-      } else if (err.name === 'TypeError') {
-        toast.error('Invalid media constraints.');
-      } else {
-        toast.error(`Could not access camera/microphone: ${err.message || err.name}`);
-      }
-      
+    } catch (err: unknown) {
+      console.error('[Call] Failed to answer:', err);
+      toast.error(getMediaErrorMessage(err));
       cleanupCall();
     }
   };
 
   const rejectCall = () => {
-    console.log('[Call] Rejecting call, incomingCall:', incomingCall);
-    if (incomingCall) {
-      socket!.emit('call:reject', { 
-        chatId: incomingCall.chatId, 
-        callerId: incomingCall.callerId 
+    const call = incomingCallRef.current;
+    console.log('[Call] Rejecting call');
+    ringtoneManager.stopRingtone();
+
+    if (call) {
+      socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
+        chatId: call.chatId,
+        callerId: call.callerId,
       });
     }
-    setIncomingCall(null); // Explicitly clear incoming call
+
     cleanupCall();
-    console.log('[Call] Call rejected and cleaned up');
   };
 
   const endCall = () => {
     if (activeChatIdRef.current) {
-        // We just emit 'call:end' to notify we are leaving?
-        // Or generic "I left". backend `handleCallEnd` notifies others.
-        socket!.emit('call:end', { chatId: activeChatIdRef.current });
+      socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
     }
     cleanupCall();
   };
 
   const toggleMute = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => track.enabled = !track.enabled);
-      setIsMuted(prev => !prev);
-    }
+    localStreamRef.current?.getAudioTracks().forEach((t) => {
+      t.enabled = !t.enabled;
+    });
+    setIsMuted((prev) => !prev);
   };
 
   const toggleVideo = () => {
-      if (localStream && callType === 'video') {
-          localStream.getVideoTracks().forEach(track => track.enabled = !track.enabled);
-          setIsVideoEnabled(prev => !prev);
-      }
-  }
+    if (callType !== 'video') return;
+    localStreamRef.current?.getVideoTracks().forEach((t) => {
+      t.enabled = !t.enabled;
+    });
+    setIsVideoEnabled((prev) => !prev);
+  };
+
+  const toggleMinimize = () => setIsMinimized((prev) => !prev);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <CallContext.Provider
@@ -378,17 +377,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callType,
         incomingCall,
         localStream,
-        remoteStreams, // Map
+        remoteStreams,
+        isMinimized,
+        isMuted,
+        isVideoEnabled,
         startCall,
         answerCall,
         rejectCall,
         endCall,
         toggleMute,
         toggleVideo,
-        isMuted,
-        isVideoEnabled,
         toggleMinimize,
-        isMinimized
       }}
     >
       {children}
@@ -396,10 +395,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// ── Hook ─────────────────────────────────────────────────────────────────────
+
 export const useCall = () => {
   const context = useContext(CallContext);
-  if (context === undefined) {
-    throw new Error('useCall must be used within a CallProvider');
-  }
+  if (!context) throw new Error('useCall must be used within a CallProvider');
   return context;
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getMediaErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return 'Could not access camera/microphone';
+  switch (err.name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Camera/microphone permission denied. Allow access in browser settings.';
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera or microphone found.';
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'Camera/microphone is already in use by another app.';
+    case 'OverconstrainedError':
+      return 'Camera/microphone settings are not supported.';
+    default:
+      return `Could not access media: ${err.message}`;
+  }
+}

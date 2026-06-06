@@ -120,7 +120,7 @@ export const CallModal = () => {
             justifyContent: 'center'
           }}>
              {incomingCall.callerAvatar ? (
-                 <img src={incomingCall.callerAvatar} alt="Caller" style={{width: '100%', height: '100%'}} />
+                 <img src={incomingCall.callerAvatar} alt="Caller" referrerPolicy="no-referrer" style={{width: '100%', height: '100%'}} />
              ) : (
                  <span style={{fontSize: '32px', color: '#8696a0'}}>{incomingCall.callerName.charAt(0)}</span>
              )}

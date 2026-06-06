@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatType, ChatMemberRole } from '@prisma/client';
 import { CreateDirectChatDto, CreateGroupDto, UpdateGroupDto, AddMemberDto } from './dto';
+import { ChatsMapper } from './chats.mapper';
 
 @Injectable()
 export class ChatsService {
@@ -61,7 +62,7 @@ export class ChatsService {
             senderId: { not: userId },
           },
         });
-        return this.formatChat(cm.chat, userId, cm.lastReadAt, unreadCount);
+        return ChatsMapper.toDto(cm.chat, userId, unreadCount);
       }),
     );
 
@@ -107,7 +108,7 @@ export class ChatsService {
       },
     });
 
-    return this.formatChat(chat, userId, member?.lastReadAt || null, unreadCount);
+    return ChatsMapper.toDto(chat, userId, unreadCount);
   }
 
   async getUserChatIds(userId: string): Promise<string[]> {
@@ -176,7 +177,7 @@ export class ChatsService {
           senderId: { not: userId },
         },
       });
-      return this.formatChat(existingChat, userId, member?.lastReadAt || null, unreadCount);
+      return ChatsMapper.toDto(existingChat, userId, unreadCount);
     }
 
     // Create new direct chat
@@ -200,7 +201,7 @@ export class ChatsService {
       },
     });
 
-    const formattedChat = this.formatChat(chat, userId, null, 0);
+    const formattedChat = ChatsMapper.toDto(chat, userId, 0);
     
     // Emit event for real-time updates
     this.eventEmitter.emit('chat.created', { chat: formattedChat, userIds: [userId, dto.participantId] });
@@ -244,7 +245,7 @@ export class ChatsService {
       },
     });
 
-    const formattedChat = this.formatChat(chat, userId, null, 0);
+    const formattedChat = ChatsMapper.toDto(chat, userId, 0);
 
     // Emit event for real-time updates
     this.eventEmitter.emit('chat.created', {
@@ -286,7 +287,7 @@ export class ChatsService {
         },
     });
 
-    return this.formatChat(updated, userId, null, unreadCount);
+    return ChatsMapper.toDto(updated, userId, unreadCount);
   }
 
   // ============================================
@@ -434,102 +435,6 @@ export class ChatsService {
     return chat;
   }
 
-  private formatChat(
-    chat: {
-      id: string;
-      type: ChatType;
-      name: string | null;
-      avatarUrl: string | null;
-      createdAt: Date;
-      updatedAt: Date;
-      members: Array<{
-        id: string;
-        userId: string;
-        role: ChatMemberRole;
-        joinedAt: Date;
-        lastReadAt: Date | null;
-        user: {
-          id: string;
-          phone: string | null;
-          email: string | null;
-          profile: {
-            displayName: string | null;
-            avatarUrl: string | null;
-            isOnline: boolean;
-          } | null;
-        };
-      }>;
-      messages?: Array<{
-        id: string;
-        content: string | null;
-        type: string;
-        createdAt: Date;
-        senderId: string;
-        sender?: {
-          id: string;
-          profile: {
-            displayName: string | null;
-          } | null;
-        };
-      }>;
-    },
-    currentUserId: string,
-    lastReadAt: Date | null,
-    unreadCount: number,
-  ) {
-    const lastMessage = chat.messages?.[0];
-    const otherMembers = chat.members.filter((m) => m.userId !== currentUserId);
-
-    // For direct chats, use the other user's info
-    let displayName = chat.name;
-    let avatarUrl = chat.avatarUrl;
-
-    if (chat.type === ChatType.direct && otherMembers.length > 0) {
-      const otherUser = otherMembers[0];
-      displayName =
-        otherUser.user.profile?.displayName ||
-        otherUser.user.phone ||
-        otherUser.user.email ||
-        'Unknown';
-      avatarUrl = otherUser.user.profile?.avatarUrl || null;
-    }
-
-    return {
-      id: chat.id,
-      type: chat.type,
-      name: displayName,
-      avatarUrl,
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
-      unreadCount,
-      lastMessage: lastMessage
-        ? {
-            id: lastMessage.id,
-            content: lastMessage.content,
-            type: lastMessage.type,
-            createdAt: lastMessage.createdAt,
-            senderId: lastMessage.senderId,
-            senderName: lastMessage.sender?.profile?.displayName || 'Unknown',
-          }
-        : null,
-      members: chat.members.map((m) => ({
-        id: m.id,
-        userId: m.userId,
-        role: m.role,
-        joinedAt: m.joinedAt,
-        user: {
-          id: m.user.id,
-          phone: m.user.phone,
-          email: m.user.email,
-          profile: m.user.profile
-            ? {
-                displayName: m.user.profile.displayName,
-                avatarUrl: m.user.profile.avatarUrl,
-                isOnline: m.user.profile.isOnline,
-              }
-            : null,
-        },
-      })),
-    };
-  }
+  // formatChat removed — use ChatsMapper.toDto() instead
 }
+

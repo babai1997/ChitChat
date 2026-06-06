@@ -73,6 +73,7 @@ export const SettingsSidebar = ({ onBack }: SettingsSidebarProps) => {
           <div style={{ width: '82px', height: '82px', borderRadius: '50%', overflow: 'hidden', marginRight: '16px', flexShrink: 0 }}>
              <img 
                src={user?.profile?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.profile?.displayName || 'User'}&background=random`} 
+               referrerPolicy="no-referrer"
                alt="Profile" 
                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
              />

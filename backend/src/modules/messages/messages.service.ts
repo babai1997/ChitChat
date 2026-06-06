@@ -1,13 +1,12 @@
 import {
   Injectable,
-  NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-    // (removed import)
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType, MessageStatus, Prisma } from '@prisma/client';
 import { CreateMessageDto, MessageQueryDto } from './dto';
+import { MessagesMapper } from './messages.mapper';
 
 interface CreateMessageData {
   chatId: string;
@@ -95,7 +94,7 @@ export class MessagesService {
       messageList.reverse();
     }
 
-    const formattedMessages = messageList.map((m) => this.formatMessage(m));
+    const formattedMessages = messageList.map((m) => MessagesMapper.toDto(m));
 
     const nextCursor =
       hasMore && messageList.length > 0
@@ -174,8 +173,8 @@ export class MessagesService {
       data: { updatedAt: new Date() },
     });
 
-    const formattedMessage = this.formatMessage(message);
-    
+    const formattedMessage = MessagesMapper.toDto(message);
+
     // Emit event for real-time updates
     this.eventEmitter.emit('message.created', formattedMessage);
 
@@ -264,7 +263,7 @@ export class MessagesService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return messages.map((m) => this.formatMessage(m));
+    return messages.map((m) => MessagesMapper.toDto(m as any));
   }
 
   async deleteMessage(
@@ -313,12 +312,12 @@ export class MessagesService {
       });
 
       this.eventEmitter.emit('message.deleted', {
-        ...this.formatMessage(updatedMessage),
+        ...MessagesMapper.toDto(updatedMessage),
         isDeleted: true,
         deleteForEveryone: true,
       });
 
-      return { success: true, message: this.formatMessage(updatedMessage) };
+      return { success: true, message: MessagesMapper.toDto(updatedMessage) };
     } else {
       // Delete for me - we'll track this in a separate way
       // For now, we return success without actually deleting (client handles locally)
@@ -375,16 +374,14 @@ export class MessagesService {
       },
     });
 
-    this.eventEmitter.emit('message.edited', this.formatMessage(updatedMessage));
+    this.eventEmitter.emit('message.edited', MessagesMapper.toDto(updatedMessage));
 
-    return { success: true, message: this.formatMessage(updatedMessage) };
+    return { success: true, message: MessagesMapper.toDto(updatedMessage) };
   }
 
-  // ============================================
-  // Helper Methods
-  // ============================================
+  // formatMessage removed — use MessagesMapper.toDto() instead
 
-  private formatMessage(message: {
+  private _removed(message: {
     id: string;
     chatId: string;
     senderId: string;

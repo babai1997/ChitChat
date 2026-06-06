@@ -86,7 +86,7 @@ export const GroupInfoModal = ({ isOpen, onClose, chat, currentUserId }: GroupIn
               overflow: 'hidden'
             }}>
               {chat.avatarUrl ? (
-                <img src={chat.avatarUrl} alt={chat.name || 'Group'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={chat.avatarUrl} alt={chat.name || 'Group'} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <Users size={60} color="#8696a0" />
               )}
@@ -130,7 +130,7 @@ export const GroupInfoModal = ({ isOpen, onClose, chat, currentUserId }: GroupIn
                     flexShrink: 0
                   }}>
                     {member.user.profile?.avatarUrl ? (
-                      <img src={member.user.profile.avatarUrl} alt={member.user.profile.displayName || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={member.user.profile.avatarUrl} alt={member.user.profile.displayName || ''} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <User size={20} color="#8696a0" />
                     )}

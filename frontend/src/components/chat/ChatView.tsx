@@ -105,10 +105,14 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
 
   useEffect(() => {
     joinChat(chat.id);
+    // Immediately mark the chat as read so lastReadAt is updated in DB.
+    // This ensures that even before messages load, opening the chat clears
+    // the unread badge on refresh. We pass an empty array so the backend
+    // only updates lastReadAt without touching individual message statuses.
+    markAsRead(chat.id, []);
+    updateChat(chat.id, { unreadCount: 0 });
     // Note: We intentionally do NOT leave the chat room when unmounting.
-    // Users should remain in all their chat rooms to receive real-time updates
-    // even when viewing the homepage or other chats.
-  }, [chat.id, joinChat]);
+  }, [chat.id, joinChat, markAsRead, updateChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -431,7 +435,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         >
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {getChatAvatar() ? (
-              <img src={getChatAvatar()!} alt={getChatName()} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getChatAvatar()!} alt={getChatName()} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <User size={20} color="#8696a0" />
             )}

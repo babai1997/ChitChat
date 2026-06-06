@@ -275,7 +275,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                     minWidth: 'fit-content'
                   }}>
                     {u.profile?.avatarUrl ? (
-                      <img src={u.profile.avatarUrl} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%' }} />
+                      <img src={u.profile.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '20px', height: '20px', borderRadius: '50%' }} />
                     ) : (
                       <User size={16} color="#8696a0" />
                     )}
@@ -394,7 +394,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                           overflow: 'hidden' 
                         }}>
                           {user.profile?.avatarUrl ? (
-                            <img src={user.profile.avatarUrl} alt={user.profile.displayName || 'User'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={user.profile.avatarUrl} alt={user.profile.displayName || 'User'} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
                             <User size={24} color="#8696a0" />
                           )}

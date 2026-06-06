@@ -74,7 +74,7 @@ export const ContactInfoModal = ({ isOpen, onClose, user }: ContactInfoModalProp
             overflow: 'hidden'
           }}>
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={user.avatarUrl} alt={user.displayName} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <User size={60} color="#8696a0" />
             )}
