@@ -25,7 +25,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       socketManager.disconnect();
-      setIsConnected(false);
+      // Use setTimeout to avoid synchronous setState inside useEffect warning
+      setTimeout(() => setIsConnected(false), 0);
       return;
     }
 

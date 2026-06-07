@@ -26,19 +26,39 @@ export const MessageBubble = ({ message, isOwn, showSender, onEdit, onDelete }: 
     });
   };
 
+  const [showClock, setShowClock] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (message.status === 'sending') {
+      // WhatsApp delays the clock icon so it doesn't flash on fast networks
+      timer = setTimeout(() => setShowClock(true), 300);
+    }
+    return () => clearTimeout(timer);
+  }, [message.status]);
+
   const getStatusIcon = () => {
+    let icon = null;
     switch (message.status) {
       case 'sending':
-        return <Clock size={14} color="#8696a0" />;
+        icon = <Clock size={14} color="#8696a0" style={{ opacity: showClock ? 1 : 0, transition: 'opacity 0.2s' }} />;
+        break;
       case 'sent':
-        return <Check size={14} color="#8696a0" />;
+        icon = <Check size={14} color="#8696a0" />;
+        break;
       case 'delivered':
-        return <CheckCheck size={14} color="#8696a0" />;
+        icon = <CheckCheck size={14} color="#8696a0" />;
+        break;
       case 'read':
-        return <CheckCheck size={14} color="#53bdeb" />;
-      default:
-        return null;
+        icon = <CheckCheck size={14} color="#53bdeb" />;
+        break;
     }
+    
+    return (
+      <div style={{ width: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        {icon}
+      </div>
+    );
   };
 
   // Handle right-click / long-press for context menu
