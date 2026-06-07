@@ -122,7 +122,7 @@ export class MessagesService {
   // Create Message
   // ============================================
 
-  async create(data: CreateMessageData) {
+  async create(data: CreateMessageData, options: { emitEvent?: boolean } = { emitEvent: true }) {
     // Verify sender is a member
     const membership = await this.prisma.chatMember.findUnique({
       where: { chatId_userId: { chatId: data.chatId, userId: data.senderId } },
@@ -175,8 +175,10 @@ export class MessagesService {
 
     const formattedMessage = MessagesMapper.toDto(message);
 
-    // Emit event for real-time updates
-    this.eventEmitter.emit('message.created', formattedMessage);
+    // Emit event for real-time updates (unless skipped by WebSocket gateway)
+    if (options.emitEvent !== false) {
+      this.eventEmitter.emit('message.created', formattedMessage);
+    }
 
     return formattedMessage;
   }

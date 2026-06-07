@@ -302,6 +302,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`📢 New chat ${chat.id} broadcast to ${userIds.join(', ')}`);
   }
 
+  // ─── HTTP Message Broadcaster ──────────────────────────────────────────────
+
+  @OnEvent('message.created')
+  handleMessageCreatedEvent(message: any) {
+    this.logger.log(`📢 Broadcasting message.created (HTTP) to chat:${message.chatId}`);
+    // Broadcast the full formatted message to the specific chat room
+    this.server.to(`chat:${message.chatId}`).emit(SOCKET_EVENTS.MESSAGE_NEW, message);
+  }
+
   // ─── Auth Helpers ──────────────────────────────────────────────────────────
 
   private async authenticateSocket(socket: Socket) {

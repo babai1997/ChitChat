@@ -144,7 +144,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   replaceMessage: (chatId, tempId, realMessage) => {
     set((state) => {
       const existing = state.messages[chatId] || [];
-      const replaced = existing.map((m) => (m.id === tempId ? realMessage : m));
+      const replaced = existing.map((m) => (m.id === tempId ? { ...realMessage, tempId } : m));
 
       // Deduplicate — if message:new already added the real message before message:sent,
       // we'll now have two entries with the same real id. Keep only the first.

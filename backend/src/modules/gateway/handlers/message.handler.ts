@@ -42,7 +42,7 @@ export class MessageHandler {
         content,
         type,
         replyToId,
-      });
+      }, { emitEvent: false });
 
       // Notify sender: temp → real message mapping
       socket.emit(SOCKET_EVENTS.MESSAGE_SENT, {

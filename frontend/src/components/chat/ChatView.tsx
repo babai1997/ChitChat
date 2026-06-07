@@ -48,7 +48,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
 
   const { messages, setMessages, addMessage, typingUsers, onlineUsers, lastSeen } = useChatStore();
-  const { startTyping, stopTyping, joinChat, deleteMessage, editMessage } = useSocket();
+  const { sendMessage, startTyping, stopTyping, joinChat, deleteMessage, editMessage } = useSocket();
   const { startCall } = useCall();
   
   const chatMessages = messages[chat.id] || [];
@@ -252,7 +252,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!message.trim() || isSending) return;
     const content = message.trim();
     
@@ -265,15 +265,21 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     }
 
     setMessage('');
-    setIsSending(true);
     stopTyping(chat.id);
-    try {
-      const newMessage = await chatApi.sendMessage(chat.id, content);
-      addMessage(chat.id, newMessage);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsSending(false);
+
+    // Instant Optimistic UI using WebSockets instead of awaiting HTTP
+    const tempId = sendMessage(chat.id, content, 'text');
+    if (tempId && currentUserId) {
+      addMessage(chat.id, {
+        id: tempId,
+        chatId: chat.id,
+        content,
+        type: 'text',
+        senderId: currentUserId,
+        createdAt: new Date().toISOString(),
+        status: 'sending',
+        tempId,
+      } as any);
     }
   };
 
@@ -515,7 +521,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
                   
                   return (
                     <MessageBubble
-                      key={msg.id}
+                      key={(msg as any).tempId || msg.id}
                       message={msg}
                       isOwn={msg.senderId === currentUserId}
                       showSender={showSender}
