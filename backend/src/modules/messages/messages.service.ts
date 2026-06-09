@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType, MessageStatus, Prisma } from '@prisma/client';
@@ -122,7 +119,10 @@ export class MessagesService {
   // Create Message
   // ============================================
 
-  async create(data: CreateMessageData, options: { emitEvent?: boolean } = { emitEvent: true }) {
+  async create(
+    data: CreateMessageData,
+    options: { emitEvent?: boolean } = { emitEvent: true },
+  ) {
     // Verify sender is a member
     const membership = await this.prisma.chatMember.findUnique({
       where: { chatId_userId: { chatId: data.chatId, userId: data.senderId } },
@@ -333,7 +333,9 @@ export class MessagesService {
     if (deleteForEveryone) {
       // Only the sender can delete for everyone
       if (message.senderId !== userId) {
-        throw new ForbiddenException('You can only delete your own messages for everyone');
+        throw new ForbiddenException(
+          'You can only delete your own messages for everyone',
+        );
       }
 
       // Update message to show as deleted
@@ -412,7 +414,10 @@ export class MessagesService {
       },
     });
 
-    this.eventEmitter.emit('message.edited', MessagesMapper.toDto(updatedMessage));
+    this.eventEmitter.emit(
+      'message.edited',
+      MessagesMapper.toDto(updatedMessage),
+    );
 
     return { success: true, message: MessagesMapper.toDto(updatedMessage) };
   }

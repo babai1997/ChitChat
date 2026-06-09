@@ -78,18 +78,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join all user's chat rooms
       const userChatIds = await this.chatsService.getUserChatIds(user.id);
-      userChatIds.forEach((chatId) => socket.join(`chat:${chatId}`));
+      for (const chatId of userChatIds) {
+        void socket.join(`chat:${chatId}`);
+      }
 
       // Mark unread messages as delivered
-      const deliveredMessages = await this.messagesService.markAllAsDeliveredForChats(
-        userChatIds,
-        user.id,
-      );
+      const deliveredMessages =
+        await this.messagesService.markAllAsDeliveredForChats(
+          userChatIds,
+          user.id,
+        );
       deliveredMessages.forEach((msg) => {
-        this.registry.emitToUser(msg.senderId, SOCKET_EVENTS.MESSAGE_DELIVERED, {
-          messageId: msg.id,
-          chatId: msg.chatId,
-        });
+        this.registry.emitToUser(
+          msg.senderId,
+          SOCKET_EVENTS.MESSAGE_DELIVERED,
+          {
+            messageId: msg.id,
+            chatId: msg.chatId,
+          },
+        );
       });
 
       // Update presence
@@ -170,7 +177,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.MESSAGE_DELETE)
   handleMessageDelete(
     @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() data: { messageId: string; chatId: string; deleteForEveryone: boolean },
+    @MessageBody()
+    data: { messageId: string; chatId: string; deleteForEveryone: boolean },
   ) {
     return this.messageHandler.handleDelete(socket as any, data);
   }
@@ -206,7 +214,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.CALL_START)
   handleCallStart(
     @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() data: { chatId: string; offer: unknown; type: 'video' | 'audio' },
+    @MessageBody()
+    data: { chatId: string; offer: unknown; type: 'video' | 'audio' },
   ) {
     return this.callHandler.handleCallStart(socket as any, data);
   }
@@ -222,7 +231,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.CALL_SIGNAL)
   handleCallSignal(
     @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() data: { targetUserId: string; type: 'offer' | 'answer' | 'candidate'; signal: unknown; chatId: string },
+    @MessageBody()
+    data: {
+      targetUserId: string;
+      type: 'offer' | 'answer' | 'candidate';
+      signal: unknown;
+      chatId: string;
+    },
   ) {
     this.callHandler.handleCallSignal(socket as any, data);
   }
@@ -299,16 +314,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     });
 
-    this.logger.log(`📢 New chat ${chat.id} broadcast to ${userIds.join(', ')}`);
+    this.logger.log(
+      `📢 New chat ${chat.id} broadcast to ${userIds.join(', ')}`,
+    );
   }
 
   // ─── HTTP Message Broadcaster ──────────────────────────────────────────────
 
   @OnEvent('message.created')
   handleMessageCreatedEvent(message: any) {
-    this.logger.log(`📢 Broadcasting message.created (HTTP) to chat:${message.chatId}`);
+    this.logger.log(
+      `📢 Broadcasting message.created (HTTP) to chat:${message.chatId}`,
+    );
     // Broadcast the full formatted message to the specific chat room
-    this.server.to(`chat:${message.chatId}`).emit(SOCKET_EVENTS.MESSAGE_NEW, message);
+    this.server
+      .to(`chat:${message.chatId}`)
+      .emit(SOCKET_EVENTS.MESSAGE_NEW, message);
   }
 
   // ─── Auth Helpers ──────────────────────────────────────────────────────────

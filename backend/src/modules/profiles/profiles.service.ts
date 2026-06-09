@@ -88,6 +88,6 @@ export class ProfilesService {
       where: { userId },
     });
 
-    return !!(profile?.displayName);
+    return !!profile?.displayName;
   }
 }

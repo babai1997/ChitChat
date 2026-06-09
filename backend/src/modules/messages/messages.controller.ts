@@ -87,8 +87,8 @@ export class MessagesController {
         size: file.size,
       };
     } catch (error) {
-       console.error('Upload Error:', error);
-       throw error;
+      console.error('Upload Error:', error);
+      throw error;
     }
   }
 }

@@ -460,14 +460,14 @@ export const HomePage = () => {
       <div 
         style={{ 
           flex: 1, 
-          display: isMobile && !activeChat ? 'none' : 'flex',
+          display: isMobile && (!activeChat || activeTab !== 'chats') ? 'none' : 'flex',
           flexDirection: 'column', 
           height: '100%',
           backgroundColor: '#0b141a',
           position: 'relative'
         }}
       >
-        {activeChat ? (
+        {activeTab === 'chats' && activeChat ? (
           <ChatView 
             chat={activeChat} 
             onBack={() => setActiveChat(null)}

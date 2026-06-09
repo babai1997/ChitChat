@@ -11,7 +11,8 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port') || 3000;
-  const frontendUrl = configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
+  const frontendUrl =
+    configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
 
   // ── Security headers ──────────────────────────────────────────────────────
   // Helmet sets: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection,
@@ -32,7 +33,7 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 ChitChat Backend running on: http://localhost:${port}`);
   logger.log(`📚 API available at: http://localhost:${port}/api`);

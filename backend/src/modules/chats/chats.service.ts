@@ -7,7 +7,12 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatType, ChatMemberRole } from '@prisma/client';
-import { CreateDirectChatDto, CreateGroupDto, UpdateGroupDto, AddMemberDto } from './dto';
+import {
+  CreateDirectChatDto,
+  CreateGroupDto,
+  UpdateGroupDto,
+  AddMemberDto,
+} from './dto';
 import { ChatsMapper } from './chats.mapper';
 
 @Injectable()
@@ -103,7 +108,9 @@ export class ChatsService {
     const unreadCount = await this.prisma.message.count({
       where: {
         chatId,
-        createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
+        createdAt: {
+          gt: member?.lastReadAt || member?.joinedAt || new Date(0),
+        },
         senderId: { not: userId },
       },
     });
@@ -120,7 +127,10 @@ export class ChatsService {
     return chatMembers.map((cm) => cm.chatId);
   }
 
-  async getChatMemberIds(chatId: string, excludeUserId?: string): Promise<string[]> {
+  async getChatMemberIds(
+    chatId: string,
+    excludeUserId?: string,
+  ): Promise<string[]> {
     const members = await this.prisma.chatMember.findMany({
       where: {
         chatId,
@@ -173,7 +183,9 @@ export class ChatsService {
       const unreadCount = await this.prisma.message.count({
         where: {
           chatId: existingChat.id,
-          createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
+          createdAt: {
+            gt: member?.lastReadAt || member?.joinedAt || new Date(0),
+          },
           senderId: { not: userId },
         },
       });
@@ -202,9 +214,12 @@ export class ChatsService {
     });
 
     const formattedChat = ChatsMapper.toDto(chat, userId, 0);
-    
+
     // Emit event for real-time updates
-    this.eventEmitter.emit('chat.created', { chat: formattedChat, userIds: [userId, dto.participantId] });
+    this.eventEmitter.emit('chat.created', {
+      chat: formattedChat,
+      userIds: [userId, dto.participantId],
+    });
 
     return formattedChat;
   }
@@ -232,7 +247,10 @@ export class ChatsService {
         members: {
           create: uniqueMemberIds.map((memberId) => ({
             userId: memberId,
-            role: memberId === userId ? ChatMemberRole.admin : ChatMemberRole.member,
+            role:
+              memberId === userId
+                ? ChatMemberRole.admin
+                : ChatMemberRole.member,
           })),
         },
       },
@@ -278,13 +296,15 @@ export class ChatsService {
       },
     });
 
-    const member = updated.members.find(m => m.userId === userId);
+    const member = updated.members.find((m) => m.userId === userId);
     const unreadCount = await this.prisma.message.count({
-        where: {
-          chatId,
-          createdAt: { gt: member?.lastReadAt || member?.joinedAt || new Date(0) },
-          senderId: { not: userId },
+      where: {
+        chatId,
+        createdAt: {
+          gt: member?.lastReadAt || member?.joinedAt || new Date(0),
         },
+        senderId: { not: userId },
+      },
     });
 
     return ChatsMapper.toDto(updated, userId, unreadCount);
@@ -437,4 +457,3 @@ export class ChatsService {
 
   // formatChat removed — use ChatsMapper.toDto() instead
 }
-
