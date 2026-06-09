@@ -27,7 +27,7 @@ export class ProfilesController {
   @Get()
   async getProfile(@CurrentUser() user: User) {
     const profile = await this.profilesService.getProfile(user.id);
-    
+
     return {
       id: profile.id,
       displayName: profile.displayName,
@@ -50,7 +50,7 @@ export class ProfilesController {
     @Body() dto: UpdateProfileDto,
   ) {
     const profile = await this.profilesService.updateProfile(user.id, dto);
-    
+
     return {
       id: profile.id,
       displayName: profile.displayName,

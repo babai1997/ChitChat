@@ -7,7 +7,10 @@ import { MessageType } from '@prisma/client';
 
 interface AuthSocket {
   id: string;
-  user: { id: string; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
+  user: {
+    id: string;
+    profile?: { displayName?: string | null; avatarUrl?: string | null } | null;
+  };
   to: (room: string) => { emit: (event: string, data: unknown) => void };
   emit: (event: string, data: unknown) => void;
 }
@@ -52,7 +55,9 @@ export class CallHandler {
       });
     });
 
-    this.logger.log(`[Call] ${sender.id} started ${type} call in chat ${chatId}`);
+    this.logger.log(
+      `[Call] ${sender.id} started ${type} call in chat ${chatId}`,
+    );
   }
 
   /**
@@ -78,12 +83,19 @@ export class CallHandler {
    */
   handleCallSignal(
     socket: AuthSocket,
-    data: { targetUserId: string; type: 'offer' | 'answer' | 'candidate'; signal: unknown; chatId: string },
+    data: {
+      targetUserId: string;
+      type: 'offer' | 'answer' | 'candidate';
+      signal: unknown;
+      chatId: string;
+    },
   ) {
     const { targetUserId, type, signal, chatId } = data;
     const senderId = socket.user.id;
 
-    this.logger.log(`[Call] Signal ${type} from ${senderId} → ${targetUserId} (chat ${chatId})`);
+    this.logger.log(
+      `[Call] Signal ${type} from ${senderId} → ${targetUserId} (chat ${chatId})`,
+    );
 
     this.registry.emitToUser(targetUserId, SOCKET_EVENTS.CALL_SIGNAL, {
       senderId,
@@ -93,11 +105,16 @@ export class CallHandler {
     });
   }
 
-  handleCallReject(socket: AuthSocket, data: { chatId: string; callerId: string }) {
+  handleCallReject(
+    socket: AuthSocket,
+    data: { chatId: string; callerId: string },
+  ) {
     const { chatId, callerId } = data;
     const rejectorId = socket.user.id;
 
-    this.logger.log(`[Call] User ${rejectorId} rejected call from ${callerId} in chat ${chatId}`);
+    this.logger.log(
+      `[Call] User ${rejectorId} rejected call from ${callerId} in chat ${chatId}`,
+    );
 
     this.registry.emitToUser(callerId, SOCKET_EVENTS.CALL_REJECTED, {
       chatId,
@@ -121,7 +138,7 @@ export class CallHandler {
 
   /**
    * Called when the outgoing call timer expires on the caller's side (no one answered).
-   * 
+   *
    * Responsibilities:
    * 1. Tell callee(s) to stop ringing (dismiss the incoming call UI)
    * 2. Persist a "Missed call" message in the chat for both sides to see
@@ -134,7 +151,9 @@ export class CallHandler {
     const { chatId, type } = data;
     const callerId = socket.user.id;
 
-    this.logger.log(`[Call] Missed ${type} call from ${callerId} in chat ${chatId}`);
+    this.logger.log(
+      `[Call] Missed ${type} call from ${callerId} in chat ${chatId}`,
+    );
 
     // 1. Stop ringing on all callee devices
     const memberIds = await this.chatsService.getChatMemberIds(chatId);
@@ -158,7 +177,9 @@ export class CallHandler {
 
     // 3. Broadcast it to the chat room so it appears in real-time for everyone
     if (this.server) {
-      this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.MESSAGE_NEW, missedMsg);
+      this.server
+        .to(`chat:${chatId}`)
+        .emit(SOCKET_EVENTS.MESSAGE_NEW, missedMsg);
     }
   }
 }

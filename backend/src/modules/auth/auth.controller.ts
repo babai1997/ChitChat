@@ -75,7 +75,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('me')
   @HttpCode(HttpStatus.OK)
-  async me(@CurrentUser() user: User & { profile: { displayName?: string | null; avatarUrl?: string | null; about?: string | null } | null }) {
+  async me(
+    @CurrentUser()
+    user: User & {
+      profile: {
+        displayName?: string | null;
+        avatarUrl?: string | null;
+        about?: string | null;
+      } | null;
+    },
+  ) {
     return {
       id: user.id,
       phone: user.phone,

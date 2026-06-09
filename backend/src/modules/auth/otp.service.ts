@@ -15,10 +15,13 @@ export class OtpService {
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {
-    this.otpExpiryMinutes = this.configService.get<number>('otp.expiryMinutes') ?? 5;
+    this.otpExpiryMinutes =
+      this.configService.get<number>('otp.expiryMinutes') ?? 5;
     this.maxAttempts = this.configService.get<number>('otp.maxAttempts') ?? 3;
-    this.rateLimitMinutes = this.configService.get<number>('otp.rateLimitMinutes') ?? 1;
-    this.smsProvider = this.configService.get<string>('otp.smsProvider') ?? 'console';
+    this.rateLimitMinutes =
+      this.configService.get<number>('otp.rateLimitMinutes') ?? 1;
+    this.smsProvider =
+      this.configService.get<string>('otp.smsProvider') ?? 'console';
   }
 
   async sendOtp(phone: string): Promise<{ success: boolean; message: string }> {
@@ -135,8 +138,8 @@ export class OtpService {
   private async sendSms(phone: string, otp: string): Promise<void> {
     // Switch based on provider
     if (this.smsProvider === 'twilio') {
-       await this.sendViaTwilio(phone, otp);
-       return;
+      await this.sendViaTwilio(phone, otp);
+      return;
     }
 
     // Default/Console fallback
@@ -165,7 +168,7 @@ export class OtpService {
         from: fromNumber,
         to: phone,
       });
-      
+
       this.logger.log(`Twilio SMS sent to ${phone}`);
     } catch (error) {
       this.logger.error(`Failed to send SMS via Twilio: ${error}`);

@@ -13,7 +13,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('jwt.secret') || 'default-secret-change-in-production';
+        const secret =
+          configService.get<string>('jwt.secret') ||
+          'default-secret-change-in-production';
         const expiresIn = configService.get<string>('jwt.expiresIn') || '15m';
         return {
           secret,

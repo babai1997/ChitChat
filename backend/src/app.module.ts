@@ -34,10 +34,12 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     EventEmitterModule.forRoot({ global: true }),
 
     // ── Rate limiting: max 100 requests per 60s per IP across all endpoints ──
-    ThrottlerModule.forRoot([{
-      ttl: 60_000,   // 60 second window
-      limit: 100,    // max 100 requests per window
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000, // 60 second window
+        limit: 100, // max 100 requests per window
+      },
+    ]),
 
     // Database
     PrismaModule,

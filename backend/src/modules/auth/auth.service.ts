@@ -8,9 +8,15 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OtpService } from './otp.service';
-import { SendOtpDto, VerifyOtpDto, GoogleAuthDto, RefreshTokenDto } from './dto';
+import {
+  SendOtpDto,
+  VerifyOtpDto,
+  GoogleAuthDto,
+  RefreshTokenDto,
+} from './dto';
 import { User, AuthProviderType } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { OAuth2Client } from 'google-auth-library';
 
 export interface TokenPair {
   accessToken: string;
@@ -37,6 +43,9 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly jwtRefreshSecret: string;
   private readonly jwtRefreshExpiresIn: string;
+  private readonly googleClient: OAuth2Client;
+  private readonly googleWebClientId: string;
+  private readonly googleAndroidClientId: string;
 
   constructor(
     private prisma: PrismaService,
@@ -44,15 +53,25 @@ export class AuthService {
     private configService: ConfigService,
     private otpService: OtpService,
   ) {
-    this.jwtRefreshSecret = this.configService.get<string>('jwt.refreshSecret')!;
-    this.jwtRefreshExpiresIn = this.configService.get<string>('jwt.refreshExpiresIn')!;
+    this.jwtRefreshSecret =
+      this.configService.get<string>('jwt.refreshSecret')!;
+    this.jwtRefreshExpiresIn = this.configService.get<string>(
+      'jwt.refreshExpiresIn',
+    )!;
+    this.googleWebClientId =
+      this.configService.get<string>('GOOGLE_CLIENT_ID') || '';
+    this.googleAndroidClientId =
+      this.configService.get<string>('GOOGLE_ANDROID_CLIENT_ID') || '';
+    this.googleClient = new OAuth2Client();
   }
 
   // ============================================
   // OTP Authentication
   // ============================================
 
-  async sendOtp(dto: SendOtpDto): Promise<{ success: boolean; message: string }> {
+  async sendOtp(
+    dto: SendOtpDto,
+  ): Promise<{ success: boolean; message: string }> {
     return this.otpService.sendOtp(dto.phone);
   }
 
@@ -205,31 +224,39 @@ export class AuthService {
     name?: string;
     picture?: string;
   }> {
-    // TODO: In production, use Google's tokeninfo endpoint or google-auth-library
-    // For MVP, we'll parse the JWT (NOT SECURE - only for development)
-
     try {
-      // For development, decode without verification
-      // In production: use OAuth2Client.verifyIdToken()
-      const decoded = this.jwtService.decode(idToken) as {
-        sub?: string;
-        email?: string;
-        name?: string;
-        picture?: string;
-      };
+      const audiences = [];
+      if (this.googleWebClientId) audiences.push(this.googleWebClientId);
+      if (this.googleAndroidClientId)
+        audiences.push(this.googleAndroidClientId);
 
-      if (!decoded?.sub) {
-        throw new BadRequestException('Invalid Google token');
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: audiences.length > 0 ? audiences : undefined,
+      });
+
+      const payload = ticket.getPayload() as
+        | {
+            sub: string;
+            email?: string;
+            name?: string;
+            picture?: string;
+          }
+        | undefined;
+
+      if (!payload || !payload.sub) {
+        throw new BadRequestException('Invalid Google token payload');
       }
 
       return {
-        sub: decoded.sub,
-        email: decoded.email,
-        name: decoded.name,
-        picture: decoded.picture,
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
       };
-    } catch {
-      throw new BadRequestException('Failed to verify Google token');
+    } catch (error) {
+      this.logger.error(`Google token verification failed: ${error}`);
+      throw new BadRequestException('Failed to verify Google token securely');
     }
   }
 
@@ -318,7 +345,8 @@ export class AuthService {
 
     // Store refresh token in database
     const refreshExpiresAt = new Date();
-    const expiresInDays = parseInt(this.jwtRefreshExpiresIn.replace('d', ''), 10) || 7;
+    const expiresInDays =
+      parseInt(this.jwtRefreshExpiresIn.replace('d', ''), 10) || 7;
     refreshExpiresAt.setDate(refreshExpiresAt.getDate() + expiresInDays);
 
     await this.prisma.refreshToken.create({
@@ -332,7 +360,15 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private sanitizeUser(user: User & { profile: { displayName?: string | null; avatarUrl?: string | null; about?: string | null } | null }) {
+  private sanitizeUser(
+    user: User & {
+      profile: {
+        displayName?: string | null;
+        avatarUrl?: string | null;
+        about?: string | null;
+      } | null;
+    },
+  ) {
     return {
       id: user.id,
       phone: user.phone,

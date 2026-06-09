@@ -57,7 +57,8 @@ export class MessagesMapper {
         ? {
             id: message.replyTo.id,
             content: message.replyTo.content,
-            senderName: message.replyTo.sender.profile?.displayName || 'Unknown',
+            senderName:
+              message.replyTo.sender.profile?.displayName || 'Unknown',
           }
         : null,
       attachments: message.attachments.map((a) => ({

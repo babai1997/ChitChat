@@ -32,17 +32,26 @@ export class MessageHandler {
 
   async handleSend(socket: AuthSocket, data: SendMessageDto) {
     try {
-      const { chatId, content, type = MessageType.text, tempId, replyToId } = data;
+      const {
+        chatId,
+        content,
+        type = MessageType.text,
+        tempId,
+        replyToId,
+      } = data;
       const senderId = socket.user.id;
 
       // Persist message
-      const message = await this.messagesService.create({
-        chatId,
-        senderId,
-        content,
-        type,
-        replyToId,
-      }, { emitEvent: false });
+      const message = await this.messagesService.create(
+        {
+          chatId,
+          senderId,
+          content,
+          type,
+          replyToId,
+        },
+        { emitEvent: false },
+      );
 
       // Notify sender: temp → real message mapping
       socket.emit(SOCKET_EVENTS.MESSAGE_SENT, {
@@ -57,8 +66,13 @@ export class MessageHandler {
       });
 
       // Mark as delivered for currently online recipients
-      const recipientIds = await this.chatsService.getChatMemberIds(chatId, senderId);
-      const onlineRecipients = recipientIds.filter((id) => this.registry.isOnline(id));
+      const recipientIds = await this.chatsService.getChatMemberIds(
+        chatId,
+        senderId,
+      );
+      const onlineRecipients = recipientIds.filter((id) =>
+        this.registry.isOnline(id),
+      );
 
       if (onlineRecipients.length > 0) {
         await this.messagesService.updateStatus(message.id, 'delivered' as any);
@@ -110,7 +124,11 @@ export class MessageHandler {
       const { messageId, chatId, deleteForEveryone } = data;
       const userId = socket.user.id;
 
-      const result = await this.messagesService.deleteMessage(messageId, userId, deleteForEveryone);
+      const result = await this.messagesService.deleteMessage(
+        messageId,
+        userId,
+        deleteForEveryone,
+      );
 
       if (deleteForEveryone && result.success) {
         this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.MESSAGE_DELETED, {
@@ -134,7 +152,11 @@ export class MessageHandler {
       const { messageId, chatId, content } = data;
       const userId = socket.user.id;
 
-      const result = await this.messagesService.editMessage(messageId, userId, content);
+      const result = await this.messagesService.editMessage(
+        messageId,
+        userId,
+        content,
+      );
 
       if (result.success && result.message) {
         this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.MESSAGE_EDITED, {

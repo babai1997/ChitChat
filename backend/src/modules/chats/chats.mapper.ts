@@ -10,7 +10,11 @@ type RawChatMember = {
     id: string;
     phone: string | null;
     email: string | null;
-    profile: { displayName: string | null; avatarUrl: string | null; isOnline: boolean } | null;
+    profile: {
+      displayName: string | null;
+      avatarUrl: string | null;
+      isOnline: boolean;
+    } | null;
   };
 };
 
@@ -28,7 +32,10 @@ type RawChat = {
     type: string;
     createdAt: Date;
     senderId: string;
-    sender?: { id: string; profile: { displayName: string | null } | null } | null;
+    sender?: {
+      id: string;
+      profile: { displayName: string | null } | null;
+    } | null;
   }>;
 };
 
@@ -43,7 +50,10 @@ export class ChatsMapper {
     if (chat.type === ChatType.direct && otherMembers.length > 0) {
       const other = otherMembers[0];
       displayName =
-        other.user.profile?.displayName || other.user.phone || other.user.email || 'Unknown';
+        other.user.profile?.displayName ||
+        other.user.phone ||
+        other.user.email ||
+        'Unknown';
       avatarUrl = other.user.profile?.avatarUrl ?? null;
     }
 
