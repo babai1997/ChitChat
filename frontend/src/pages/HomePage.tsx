@@ -179,6 +179,10 @@ export const HomePage = () => {
     // For direct chats, search by member name
     const otherMember = chat.members.find((m) => m.userId !== user?.id);
     return otherMember?.user.profile?.displayName?.toLowerCase().includes(searchLower);
+  }).sort((a, b) => {
+    const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+    const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+    return timeB - timeA;
   });
 
   return (

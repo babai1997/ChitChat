@@ -1,5 +1,5 @@
 import api from './client';
-import type { Profile } from '../types';
+import type { Profile, UserWithProfile } from '../types';
 
 export const profileApi = {
   getProfile: async (): Promise<Profile> => {
@@ -40,12 +40,12 @@ export const profileApi = {
 };
 
 export const usersApi = {
-  searchUsers: async (query: string): Promise<Profile[]> => {
+  searchUsers: async (query: string): Promise<UserWithProfile[]> => {
     const response = await api.get(`/users/search?q=${encodeURIComponent(query)}`);
     return response.data;
   },
 
-  getUser: async (userId: string): Promise<Profile> => {
+  getUser: async (userId: string): Promise<UserWithProfile> => {
     const response = await api.get(`/users/${userId}`);
     return response.data;
   },

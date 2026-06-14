@@ -1,3 +1,4 @@
+import * as Linking from "expo-linking";
 import {
   View,
   Text,
@@ -6,7 +7,14 @@ import {
   Image,
   Modal,
   Pressable,
+  FlatList,
+  Alert,
 } from "react-native";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
+import { useChatStore } from "../../src/stores/chatStore";
+import { useAuthStore } from "../../src/stores/authStore";
+import { chatApi } from "../../src/api";
 import {
   Check,
   CheckCheck,
@@ -19,8 +27,12 @@ import {
   Video,
   Phone,
   PhoneOff,
+  X,
+  Forward,
+  Download,
 } from "lucide-react-native";
 import { useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Message } from "../../src/types";
 import AudioPlayer from "./AudioPlayer";
 
@@ -48,6 +60,65 @@ export default function MessageBubble({
   onDelete,
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showForward, setShowForward] = useState(false);
+  const { chats } = useChatStore();
+  const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+
+  const handleDownload = async () => {
+    if (!selectedImage) return;
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "We need permission to save to your gallery.",
+        );
+        return;
+      }
+
+      const filename = selectedImage.split("/").pop() || "download.jpg";
+      const file = await FileSystem.File.downloadFileAsync(
+        selectedImage,
+        new FileSystem.File(FileSystem.Paths.document, filename),
+      );
+      const uri = file.uri;
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert("Success", "Image saved to gallery!");
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Could not download image.");
+    }
+  };
+
+  const handleForward = async (chatId: string) => {
+    try {
+      const attachment = message.attachments?.[0];
+      if (!attachment) return;
+
+      await chatApi.sendMessage(
+        chatId,
+        message.content,
+        message.type,
+        undefined,
+        [
+          {
+            filename: attachment.filename,
+            url: attachment.url,
+            mimetype: attachment.mimeType,
+            size: attachment.size,
+          },
+        ],
+      );
+      Alert.alert("Forwarded", "Message forwarded successfully!");
+      setShowForward(false);
+      setSelectedImage(null);
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Could not forward message.");
+    }
+  };
 
   const formatTime = (d: string) => {
     const dt = new Date(d);
@@ -176,7 +247,7 @@ export default function MessageBubble({
           style={[
             styles.bubble,
             isOwn ? styles.bubbleOwn : styles.bubbleTheirs,
-            { minWidth: 160 },
+            { paddingBottom: 8, minWidth: 120 },
           ]}
         >
           <View
@@ -204,14 +275,18 @@ export default function MessageBubble({
 
   // ── Normal message ───────────────────────────────────────────────────────────
   const hasAttachments = !!message.attachments?.length;
-  const hasText = !!message.content && message.type !== "audio";
+  const hasText = !!message.content && message.type === "text";
 
   return (
     <Wrapper isOwn={isOwn}>
       <TouchableOpacity
         activeOpacity={0.82}
         onLongPress={() => setShowMenu(true)}
-        style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleTheirs]}
+        style={[
+          styles.bubble, 
+          isOwn ? styles.bubbleOwn : styles.bubbleTheirs,
+          !hasText && { paddingBottom: 8 }
+        ]}
       >
         {/* Group sender name */}
         {showSender && message.sender && (
@@ -225,12 +300,16 @@ export default function MessageBubble({
           <View style={{ marginBottom: hasText ? 4 : 0 }}>
             {message.attachments!.map((att, index) =>
               message.type === "image" ? (
-                <Image
+                <TouchableOpacity
                   key={index}
-                  source={{ uri: att.url }}
-                  style={styles.imgAttach}
-                  resizeMode="cover"
-                />
+                  onPress={() => setSelectedImage(att.url)}
+                >
+                  <Image
+                    source={{ uri: att.url }}
+                    style={styles.imgAttach}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
               ) : message.type === "audio" ? (
                 <AudioPlayer key={index} uri={att.url} isOwn={isOwn} />
               ) : (
@@ -306,6 +385,103 @@ export default function MessageBubble({
             )}
           </View>
         </Pressable>
+      </Modal>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={!!selectedImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          {/* Header */}
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: insets.top + 10,
+              paddingBottom: 16,
+              paddingHorizontal: 20,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              zIndex: 10,
+            }}
+          >
+            <TouchableOpacity onPress={() => setSelectedImage(null)}>
+              <X size={28} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 16 }}>
+              <TouchableOpacity onPress={handleDownload}>
+                <Download size={24} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowForward(true)}>
+                <Forward size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Image
+            source={{ uri: selectedImage! }}
+            style={{ flex: 1 }}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+
+      {/* Forward Modal */}
+      <Modal
+        visible={showForward}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowForward(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#111b21" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 16, backgroundColor: "#202c33" }}>
+            <TouchableOpacity onPress={() => setShowForward(false)}>
+              <X size={24} color="#e9edef" />
+            </TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 20,
+                color: "#e9edef",
+                marginLeft: 16,
+                fontWeight: "500",
+              }}
+            >
+              Forward to...
+            </Text>
+          </View>
+          <FlatList
+            data={chats}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              let name = item.name;
+              if (item.type === "direct") {
+                const otherMember = item.members.find(
+                  (m: any) => m.userId !== user?.id,
+                );
+                name = otherMember?.user?.profile?.displayName || "Unknown";
+              }
+              return (
+                <TouchableOpacity
+                  style={{
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#2a3942",
+                  }}
+                  onPress={() => handleForward(item.id)}
+                >
+                  <Text style={{ color: "#e9edef", fontSize: 16 }}>{name}</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
       </Modal>
     </Wrapper>
   );
@@ -385,11 +561,11 @@ const styles = StyleSheet.create({
   },
   bubbleOwn: {
     backgroundColor: OWN_BG,
-    borderTopRightRadius: 4, // flat top-right corner where tail meets
+    borderTopRightRadius: 0, // perfectly flat top-right corner where tail meets
   },
   bubbleTheirs: {
     backgroundColor: THEIR_BG,
-    borderTopLeftRadius: 4, // flat top-left corner where tail meets
+    borderTopLeftRadius: 0, // perfectly flat top-left corner where tail meets
   },
 
   // ── Message text

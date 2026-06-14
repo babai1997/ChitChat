@@ -66,6 +66,34 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
     }
   };
 
+  const getLastMessageText = (message: any) => {
+    if (message.type === 'missed_call') {
+      try {
+        const callLog = JSON.parse(message.content || '{}');
+        const isVideo = callLog.isVideo;
+        if (message.senderId === currentUserId) {
+          return isVideo ? 'Video call' : 'Voice call';
+        } else {
+          return callLog.status === 'ended' 
+            ? 'Call ended' 
+            : (isVideo ? 'Missed video call' : 'Missed voice call');
+        }
+      } catch (e) {
+        return 'Missed call';
+      }
+    }
+    
+    if (message.type === 'image') return '📷 Photo';
+    if (message.type === 'audio') return '🎵 Audio';
+    if (message.type === 'video') return '📹 Video';
+    if (message.type === 'file' || (message.attachments && message.attachments.length > 0)) {
+      return '📄 Document';
+    }
+
+    return message.content;
+  };
+
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {chats.map((chat) => (
@@ -134,7 +162,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
                         )}
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                            {chat.lastMessage.senderId === currentUserId ? '' : (chat.type === 'group' ? (chat.lastMessage.senderName ? `${chat.lastMessage.senderName}: ` : '') : '')}
-                           {chat.lastMessage.content}
+                           {getLastMessageText(chat.lastMessage)}
                         </span>
                     </>
                 ) : (

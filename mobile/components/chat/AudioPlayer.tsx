@@ -164,9 +164,9 @@ export default function AudioPlayer({ uri, isOwn }: { uri: string; isOwn: boolea
 
 const styles = StyleSheet.create({
   container: {
-    width: 250,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
+    width: 210,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   topRow: {
     flexDirection: 'row',
@@ -174,12 +174,12 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
-    paddingLeft: 48,
-    marginTop: -4,
+    paddingLeft: 46,
+    marginTop: -8,
   },
   playButton: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -211,14 +211,14 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 0,
   },
   speedButton: {
     backgroundColor: '#2a3942',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginLeft: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginLeft: 2,
   },
   speedText: {
     color: '#8696a0',

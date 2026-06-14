@@ -115,6 +115,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 2. Optimistically update the chat list's last message
         store.updateChat(chatId, {
+          updatedAt: new Date().toISOString(),
           lastMessage: {
             id: tempId,
             content,

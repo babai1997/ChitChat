@@ -39,6 +39,12 @@ export const useSocket = () => {
 
     markAsRead: (chatId: string, messageIds: string[]) => {
       socketManager.emit(SOCKET_EVENTS.MESSAGE_READ, { chatId, messageIds });
+      // Optimistically clear the unread badge locally
+      const store = useChatStore.getState();
+      const chat = store.chats.find((c) => c.id === chatId);
+      if (chat && (chat.unreadCount || 0) > 0) {
+        store.updateChat(chatId, { unreadCount: 0 });
+      }
     },
 
     startTyping: (chatId: string) => {

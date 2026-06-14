@@ -5,6 +5,7 @@ import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { ringtoneManager } from '../utils/ringtone';
 import toast from 'react-hot-toast';
+import { useChatStore } from '../stores/chatStore';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         config: {
           iceServers: [
             {
+              urls: "stun:stun.l.google.com:19302",
+            },
+            {
+              urls: "stun:stun1.l.google.com:19302",
+            },
+            {
               urls: "stun:stun.relay.metered.ca:80",
             },
             {
@@ -207,6 +214,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
+      
+      // Bump chat to the top
+      useChatStore.getState().updateChat(data.chatId, { updatedAt: new Date().toISOString() });
     };
 
     /** Callee side: caller timed out — dismiss the incoming call UI. */
@@ -315,6 +325,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallStatus('calling');
       setIsCallActive(true);
       isCallActiveRef.current = true; // Set ref immediately
+
+      // Instantly bump chat to the top of the chat list
+      useChatStore.getState().updateChat(chatId, { updatedAt: new Date().toISOString() });
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: type === 'video',

@@ -117,16 +117,22 @@ export default function ChatsScreen() {
     router.push(`/(main)/chat/${chat.id}`);
   };
 
-  // Filter chats by search query
-  const filteredChats = chats.filter((chat) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    if (chat.type === "group") {
-      return chat.name?.toLowerCase().includes(q);
-    }
-    const otherMember = chat.members.find((m) => m.userId !== user?.id);
-    return otherMember?.user.profile?.displayName?.toLowerCase().includes(q);
-  });
+  // Filter and sort chats by search query and recent activity
+  const filteredChats = chats
+    .filter((chat) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      if (chat.type === "group") {
+        return chat.name?.toLowerCase().includes(q);
+      }
+      const otherMember = chat.members.find((m) => m.userId !== user?.id);
+      return otherMember?.user.profile?.displayName?.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+      return timeB - timeA;
+    });
 
   const renderItem = ({ item: chat }: { item: Chat }) => {
     let isOnline = false;
@@ -215,12 +221,15 @@ export default function ChatsScreen() {
                               : `📞 Missed voice call`;
                           }
                         })()
+                      : chat.lastMessage.type === "image"
+                        ? `📷 Photo`
+                      : chat.lastMessage.type === "video"
+                        ? `🎥 Video`
                       : chat.lastMessage.type === "audio"
                         ? `🎤 Voice message`
-                        : chat.lastMessage.content ||
-                          (chat.lastMessage.type !== "text"
-                            ? `📎 ${chat.lastMessage.type}`
-                            : "")}
+                      : chat.lastMessage.type === "file"
+                        ? `📎 ${chat.lastMessage.content || "Document"}`
+                        : chat.lastMessage.content || ""}
                   </Text>
                 </>
               ) : (

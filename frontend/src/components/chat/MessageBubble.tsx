@@ -7,10 +7,15 @@ import {
   Pencil,
   Trash2,
   Ban,
-  PhoneMissed,
+  PhoneOff,
   Video,
+  X,
+  Forward,
+  Download,
 } from "lucide-react";
 import type { Message } from "../../types";
+import { chatApi } from "../../api";
+import { useChatStore, useAuthStore } from "../../stores";
 
 interface MessageBubbleProps {
   message: Message;
@@ -29,8 +34,58 @@ export const MessageBubble = ({
 }: MessageBubbleProps) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showForward, setShowForward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
+
+  const { chats } = useChatStore();
+  const { user } = useAuthStore();
+
+  const handleDownload = async () => {
+    if (!selectedImage) return;
+    try {
+      const response = await fetch(selectedImage);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      const filename = selectedImage.split("/").pop() || "download.jpg";
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Failed to download image", e);
+    }
+  };
+
+  const handleForward = async (chatId: string) => {
+    try {
+      const attachment = message.attachments?.[0];
+      if (!attachment) return;
+
+      await chatApi.sendMessage(
+        chatId,
+        message.content,
+        message.type,
+        undefined,
+        [
+          {
+            filename: attachment.filename,
+            url: attachment.url,
+            mimetype: attachment.mimetype || attachment.mimeType,
+            size: attachment.size,
+          },
+        ]
+      );
+      setShowForward(false);
+      setSelectedImage(null);
+    } catch (error) {
+      console.error("Forward failed", error);
+    }
+  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -238,7 +293,7 @@ export const MessageBubble = ({
             {isVideoCall ? (
               <Video size={17} color="#ea4335" />
             ) : (
-              <PhoneMissed size={17} color="#ea4335" />
+              <PhoneOff size={17} color="#ea4335" />
             )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -321,7 +376,7 @@ export const MessageBubble = ({
                       objectFit: "cover",
                       cursor: "pointer",
                     }}
-                    onClick={() => window.open(att.url, "_blank")}
+                    onClick={() => setSelectedImage(att.url)}
                   />
                 );
               }
@@ -375,7 +430,7 @@ export const MessageBubble = ({
         <div
           style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end" }}
         >
-          {message.content && (
+          {message.content && message.type === "text" && (
             <span
               style={{
                 fontSize: "14px",
@@ -528,6 +583,140 @@ export const MessageBubble = ({
           </div>
         )}
       </div>
+
+      {/* Image Viewer Modal */}
+      {selectedImage && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.9)",
+            zIndex: 2000,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "16px 24px",
+              backgroundColor: "rgba(0,0,0,0.5)",
+            }}
+          >
+            <button
+              onClick={() => setSelectedImage(null)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+            >
+              <X size={28} />
+            </button>
+            <div style={{ display: "flex", gap: "24px" }}>
+              <button
+                onClick={handleDownload}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+              >
+                <Download size={24} />
+              </button>
+              <button
+                onClick={() => setShowForward(true)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+              >
+                <Forward size={24} />
+              </button>
+            </div>
+          </div>
+          
+          {/* Image container */}
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "20px" }}>
+            <img
+              src={selectedImage}
+              alt="Full screen"
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Forward Modal */}
+      {showForward && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(11,20,26,0.85)",
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => setShowForward(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#202c33",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "90%",
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: "20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: "1px solid #2a3942" }}>
+              <button
+                onClick={() => setShowForward(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#aebac1" }}
+              >
+                <X size={24} />
+              </button>
+              <h2 style={{ margin: 0, fontSize: "18px", color: "#e9edef", fontWeight: 500 }}>Forward to...</h2>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {chats.map((c) => {
+                let name = c.name;
+                if (c.type === "direct") {
+                  const otherMember = c.members.find((m) => m.userId !== user?.id);
+                  name = otherMember?.user?.profile?.displayName || "Unknown";
+                }
+                return (
+                  <button
+                    key={c.id}
+                    style={{
+                      width: "100%",
+                      padding: "16px 20px",
+                      display: "flex",
+                      alignItems: "center",
+                      background: "none",
+                      border: "none",
+                      borderBottom: "1px solid #2a3942",
+                      color: "#e9edef",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#2a3942")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                    onClick={() => handleForward(c.id)}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
