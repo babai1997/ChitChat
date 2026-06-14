@@ -21,11 +21,17 @@ export const CallModal = () => {
     isMinimized
   } = useCall();
 
-  // PiP drag state
+  // PiP drag state (for minimized remote video)
   const [pipPosition, setPipPosition] = useState({ x: window.innerWidth - 200, y: window.innerHeight - 280 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const pipRef = useRef<HTMLDivElement>(null);
+
+  // Local PiP drag state (for full screen local video)
+  const [localPipPosition, setLocalPipPosition] = useState({ x: window.innerWidth - 140, y: window.innerHeight - 260 });
+  const [isLocalDragging, setIsLocalDragging] = useState(false);
+  const [localDragOffset, setLocalDragOffset] = useState({ x: 0, y: 0 });
+  const localPipRef = useRef<HTMLDivElement>(null);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -38,7 +44,7 @@ export const CallModal = () => {
     });
   }, [pipPosition]);
 
-  // Handle drag move
+  // Handle drag move for remote PiP
   useEffect(() => {
     if (!isDragging) return;
 
@@ -46,16 +52,13 @@ export const CallModal = () => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       
-      // Keep within window bounds
       const newX = Math.max(0, Math.min(window.innerWidth - 180, clientX - dragOffset.x));
       const newY = Math.max(0, Math.min(window.innerHeight - 240, clientY - dragOffset.y));
       
       setPipPosition({ x: newX, y: newY });
     };
 
-    const handleEnd = () => {
-      setIsDragging(false);
-    };
+    const handleEnd = () => setIsDragging(false);
 
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
@@ -69,6 +72,46 @@ export const CallModal = () => {
       window.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging, dragOffset]);
+
+  // Handle drag start for local PiP
+  const handleLocalDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    setIsLocalDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setLocalDragOffset({
+      x: clientX - localPipPosition.x,
+      y: clientY - localPipPosition.y
+    });
+  }, [localPipPosition]);
+
+  // Handle drag move for local PiP
+  useEffect(() => {
+    if (!isLocalDragging) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      const newX = Math.max(0, Math.min(window.innerWidth - 120, clientX - localDragOffset.x));
+      const newY = Math.max(0, Math.min(window.innerHeight - 160, clientY - localDragOffset.y));
+      
+      setLocalPipPosition({ x: newX, y: newY });
+    };
+
+    const handleEnd = () => setIsLocalDragging(false);
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove);
+    window.addEventListener('touchend', handleEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [isLocalDragging, localDragOffset]);
 
   // --- Active Call UI ---
   const isVideo = callType === 'video';
@@ -379,17 +422,23 @@ export const CallModal = () => {
 
         {/* Local Video (PiP) */}
         {localStream && isVideo && (
-            <div style={{
-                position: 'absolute',
-                bottom: '100px',
-                right: '20px',
+            <div 
+              ref={localPipRef}
+              onMouseDown={handleLocalDragStart}
+              onTouchStart={handleLocalDragStart}
+              style={{
+                position: 'fixed',
+                left: `${localPipPosition.x}px`,
+                top: `${localPipPosition.y}px`,
                 width: '120px',
                 height: '160px',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                boxShadow: isLocalDragging ? '0 8px 16px rgba(0,0,0,0.5)' : '0 4px 6px rgba(0,0,0,0.3)',
                 backgroundColor: '#202c33',
-                zIndex: 20
+                zIndex: 20,
+                cursor: isLocalDragging ? 'grabbing' : 'grab',
+                transition: isLocalDragging ? 'none' : 'box-shadow 0.2s ease'
             }}>
                 <LocalVideo />
             </div>

@@ -5,14 +5,15 @@ import {
   CircleDashed,
   Settings, 
   User,
-  LogOut
+  LogOut,
+  Phone
 } from 'lucide-react';
 import { useAuthStore } from '../../stores';
 import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
-  activeTab: 'chats' | 'status' | 'communities';
-  onTabChange: (tab: 'chats' | 'status' | 'communities') => void;
+  activeTab: 'chats' | 'status' | 'communities' | 'calls';
+  onTabChange: (tab: 'chats' | 'status' | 'communities' | 'calls') => void;
   userProfile?: {
     avatarUrl: string | null;
     displayName: string | null;
@@ -85,6 +86,7 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
       {/* Top Navigation */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <NavItem id="chats" icon={MessageCircle} isActive={activeTab === 'chats'} onClick={() => onTabChange('chats')} />
+        <NavItem id="calls" icon={Phone} isActive={activeTab === 'calls'} onClick={() => onTabChange('calls')} />
         <NavItem id="status" icon={CircleDashed} isActive={activeTab === 'status'} onClick={() => onTabChange('status')} />
         <NavItem id="communities" icon={Users} isActive={activeTab === 'communities'} onClick={() => onTabChange('communities')} />
       </div>

@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ChatsService } from './chats.service';
 import {
@@ -33,6 +34,11 @@ export class ChatsController {
   @Get()
   async getChats(@CurrentUser() user: User) {
     return this.chatsService.getUserChats(user.id);
+  }
+
+  @Get('calls/history')
+  async getCallHistory(@CurrentUser() user: User, @Query('chatId') chatId?: string) {
+    return this.chatsService.getCallHistory(user.id, chatId);
   }
 
   @Get(':id')

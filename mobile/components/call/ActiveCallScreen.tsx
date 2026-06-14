@@ -1,24 +1,42 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Animated,
   Easing,
-} from 'react-native';
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react-native';
-import { useCall } from '../../src/contexts/CallContext';
+  Image,
+  PanResponder,
+} from "react-native";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  User,
+  Minimize2,
+  UserPlus,
+  MessageSquare,
+  MoreHorizontal,
+  Volume2,
+} from "lucide-react-native";
+import { useCall } from "../../src/contexts/CallContext";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 // Safe lazy require — react-native-webrtc may fail to load on emulators
 // without camera/mic hardware. Falls back to plain View so app doesn't crash.
 let RTCView: any = View;
 try {
-  RTCView = require('react-native-webrtc').RTCView;
+  RTCView = require("react-native-webrtc").RTCView;
 } catch (e) {
-  console.warn('[ActiveCallScreen] RTCView not available');
+  console.warn("[ActiveCallScreen] RTCView not available");
 }
 
 interface ActiveCallScreenProps {
@@ -26,7 +44,10 @@ interface ActiveCallScreenProps {
   chatAvatar?: string;
 }
 
-export default function ActiveCallScreen({ chatName }: ActiveCallScreenProps) {
+export default function ActiveCallScreen({
+  chatName,
+  chatAvatar,
+}: ActiveCallScreenProps) {
   const {
     callStatus,
     callType,
@@ -39,27 +60,83 @@ export default function ActiveCallScreen({ chatName }: ActiveCallScreenProps) {
     toggleVideo,
   } = useCall();
 
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [isSpeaker, setIsSpeaker] = useState(callType === "video");
+
   // Fade animation for "calling…" label
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Draggable PiP
+  const pan = useRef(new Animated.ValueXY()).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: () => {
+        pan.extractOffset();
+      },
+    }),
+  ).current;
 
   useEffect(() => {
-    if (callStatus !== 'calling') return;
-    const anim = Animated.loop(
+    if (callStatus !== "calling") return;
+
+    // Fade for text
+    const textAnim = Animated.loop(
       Animated.sequence([
-        Animated.timing(fadeAnim, { toValue: 0.3, duration: 800, easing: Easing.ease, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 800, easing: Easing.ease, useNativeDriver: true }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.3,
+          duration: 800,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
       ]),
     );
-    anim.start();
-    return () => anim.stop();
+    textAnim.start();
+
+    // Pulse for avatar ring
+    const ringAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.15,
+          duration: 700,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    ringAnim.start();
+
+    return () => {
+      textAnim.stop();
+      ringAnim.stop();
+    };
   }, [callStatus]);
 
   const statusText =
-    callStatus === 'calling' ? 'Calling…' :
-    callStatus === 'connected' ? 'Connected' :
-    'Connecting…';
+    callStatus === "calling"
+      ? "Calling…"
+      : callStatus === "connected"
+        ? "Connected"
+        : "Connecting…";
 
-  const isVideo = callType === 'video';
+  const isVideo = callType === "video";
 
   return (
     <View style={styles.container}>
@@ -79,48 +156,136 @@ export default function ActiveCallScreen({ chatName }: ActiveCallScreenProps) {
       {/* Gradient overlay for readability */}
       <View style={styles.overlay} />
 
-      {/* Header info */}
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Text style={styles.callerName}>{chatName}</Text>
-          <Animated.Text style={[styles.statusText, callStatus === 'calling' && { opacity: fadeAnim }]}>
-            {statusText}
-          </Animated.Text>
+        {/* Top Header Row */}
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) }]}>
+          <TouchableOpacity
+            style={styles.topIconBtn}
+            onPress={() => router.back()}
+          >
+            <Minimize2 size={24} color="#fff" />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitles}>
+            <Text style={styles.callerName}>{chatName}</Text>
+            <Animated.Text
+              style={[
+                styles.statusText,
+                callStatus === "calling" && { opacity: fadeAnim },
+              ]}
+            >
+              {statusText}
+            </Animated.Text>
+          </View>
+
+          <View style={styles.topRightBtns}>
+            <TouchableOpacity
+              style={styles.topIconBtn}
+              onPress={() => console.log("Add user")}
+            >
+              <UserPlus size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.topIconBtn, { marginTop: 12 }]}
+              onPress={() => router.back()}
+            >
+              <MessageSquare size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Audio Avatar Center */}
+        {!isVideo && (
+          <View style={styles.avatarCenterContainer}>
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: -50,
+              }}
+            >
+              {callStatus === "calling" && (
+                <Animated.View
+                  style={[
+                    styles.pulseRing,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                />
+              )}
+              {chatAvatar ? (
+                <Image
+                  source={{ uri: chatAvatar }}
+                  style={styles.largeAvatar}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <User size={80} color="#8696a0" />
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Local video PiP */}
         {isVideo && localStream && (
-          <View style={styles.localVideoWrapper}>
+          <Animated.View
+            style={[
+              styles.localVideoWrapper,
+              { transform: [{ translateX: pan.x }, { translateY: pan.y }] },
+            ]}
+            {...panResponder.panHandlers}
+          >
             <RTCView
               streamURL={(localStream as any).toURL()}
               style={{ flex: 1 }}
               objectFit="cover"
               mirror
             />
-          </View>
+          </Animated.View>
         )}
 
-        {/* Controls */}
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.controlBtn} onPress={toggleMute} activeOpacity={0.8}>
-            {isMuted ? <MicOff size={24} color="#e9edef" /> : <Mic size={24} color="#e9edef" />}
-            <Text style={styles.controlLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-          </TouchableOpacity>
-
-          {/* End call (center, larger) */}
-          <TouchableOpacity style={[styles.controlBtn, styles.endCallBtn]} onPress={endCall} activeOpacity={0.85}>
-            <PhoneOff size={30} color="white" />
-            <Text style={styles.controlLabel}>End</Text>
-          </TouchableOpacity>
-
-          {isVideo ? (
-            <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo} activeOpacity={0.8}>
-              {isVideoEnabled ? <Video size={24} color="#e9edef" /> : <VideoOff size={24} color="#e9edef" />}
-              <Text style={styles.controlLabel}>{isVideoEnabled ? 'Cam off' : 'Cam on'}</Text>
+        {/* Bottom Control Pill */}
+        <View style={styles.bottomPillContainer}>
+          <View style={styles.bottomPill}>
+            <TouchableOpacity
+              style={styles.pillIconBtn}
+              onPress={() => console.log("More options")}
+            >
+              <MoreHorizontal size={24} color="#fff" />
             </TouchableOpacity>
-          ) : (
-            <View style={styles.controlBtn} />
-          )}
+            <TouchableOpacity style={styles.pillIconBtn} onPress={toggleVideo}>
+              {isVideoEnabled ? (
+                <Video size={24} color="#fff" />
+              ) : (
+                <VideoOff size={24} color="#fff" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.pillIconBtn,
+                isSpeaker && { backgroundColor: "rgba(255,255,255,0.2)" },
+              ]}
+              onPress={() => setIsSpeaker(!isSpeaker)}
+            >
+              <Volume2 size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.pillIconBtn,
+                isMuted && { backgroundColor: "rgba(255,255,255,0.2)" },
+              ]}
+              onPress={toggleMute}
+            >
+              {isMuted ? (
+                <MicOff size={24} color="#fff" />
+              ) : (
+                <Mic size={24} color="#fff" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
+              <PhoneOff size={28} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -130,84 +295,120 @@ export default function ActiveCallScreen({ chatName }: ActiveCallScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   audioBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0b1a24',
+    backgroundColor: "#0f171b", // dark whatsapp bg
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
   safeArea: {
     flex: 1,
+    justifyContent: "space-between",
   },
-  header: {
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    alignItems: "flex-start",
+  },
+  topIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitles: {
+    alignItems: "center",
+    flex: 1,
+    marginTop: 4,
   },
   callerName: {
-    fontSize: 30,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 10,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    fontSize: 22,
+    fontWeight: "500",
+    color: "#fff",
+    marginBottom: 4,
   },
   statusText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    color: "rgba(255,255,255,0.7)",
+  },
+  topRightBtns: {
+    alignItems: "center",
+  },
+  avatarCenterContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  largeAvatar: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    zIndex: 2,
+  },
+  avatarPlaceholder: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "#1f2c33",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    zIndex: 1,
   },
   localVideoWrapper: {
-    position: 'absolute',
+    position: "absolute",
     top: 130,
     right: 16,
     width: 110,
     height: 155,
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.25)',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
+    borderColor: "rgba(255,255,255,0.25)",
   },
-  controls: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 28,
-    paddingHorizontal: 32,
+  bottomPillContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
-  controlBtn: {
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 50,
-    padding: 16,
-    minWidth: 76,
+  bottomPill: {
+    flexDirection: "row",
+    backgroundColor: "#1c2227",
+    borderRadius: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  controlLabel: {
-    color: '#e9edef',
-    fontSize: 11,
-    fontWeight: '500',
+  pillIconBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   endCallBtn: {
-    backgroundColor: '#ef4444',
-    padding: 22,
-    elevation: 6,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#ff253a",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

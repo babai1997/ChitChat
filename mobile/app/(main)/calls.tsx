@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Phone,
   PhoneMissed,
@@ -23,7 +23,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { useChatStore } from '../../src/stores/chatStore';
 import { useCall } from '../../src/contexts/CallContext';
 import { chatApi } from '../../src/api';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import type { Message, Chat } from '../../src/types';
 
 interface CallRecord {
@@ -42,45 +42,82 @@ export default function CallsScreen() {
   const { chats } = useChatStore();
   const { startCall } = useCall();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [callRecords, setCallRecords] = useState<CallRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const buildCallRecords = (allChats: Chat[], currentUserId: string): CallRecord[] => {
+  const buildCallRecords = (messages: any[], currentUserId: string): CallRecord[] => {
     const records: CallRecord[] = [];
 
-    for (const chat of allChats) {
-      // We'll fetch missed_call messages from direct chats
-      if (chat.type !== 'direct') continue;
-      const otherMember = chat.members.find((m) => m.userId !== currentUserId);
-      if (!otherMember) continue;
+    for (const msg of messages) {
+      const isMine = msg.senderId === currentUserId;
+      let chatName = 'Unknown';
+      let avatarUrl = null;
+      let otherUserId = msg.senderId;
 
-      // Check lastMessage for missed calls
-      if (chat.lastMessage?.type === 'missed_call') {
-        const isVideoCall = chat.lastMessage.content?.toLowerCase().includes('video');
-        const isMine = chat.lastMessage.senderId === currentUserId;
-        records.push({
-          id: chat.lastMessage.id,
-          chatId: chat.id,
-          chatName: otherMember.user.profile?.displayName || 'Unknown',
-          avatarUrl: otherMember.user.profile?.avatarUrl || null,
-          type: isVideoCall ? 'video' : 'audio',
-          direction: isMine ? 'outgoing' : 'missed',
-          time: chat.lastMessage.createdAt,
-          otherUserId: otherMember.userId,
-        });
+      if (msg.chat) {
+        if (msg.chat.type === 'direct') {
+          const otherMember = msg.chat.members.find((m: any) => m.userId !== currentUserId);
+          if (otherMember?.user?.profile) {
+            chatName = otherMember.user.profile.displayName || 'Unknown';
+            avatarUrl = otherMember.user.profile.avatarUrl;
+            otherUserId = otherMember.userId;
+          } else if (otherMember?.user) {
+            chatName = otherMember.user.phone || otherMember.user.email || 'Unknown';
+            otherUserId = otherMember.userId;
+          }
+        } else {
+          chatName = msg.chat.name || 'Group';
+          avatarUrl = msg.chat.avatarUrl;
+        }
+      } else {
+        // Fallback to sender
+        chatName = msg.sender?.profile?.displayName || msg.sender?.phone || 'Unknown';
+        avatarUrl = msg.sender?.profile?.avatarUrl || null;
       }
+
+      let callLog = { status: 'missed', duration: 0, isVideo: false };
+      try {
+        if (msg.content) {
+          if (msg.content.startsWith('{')) {
+            callLog = JSON.parse(msg.content);
+          } else {
+            callLog.isVideo = msg.content.includes('video');
+            callLog.status = msg.content.includes('ended') ? 'ended' : 'missed';
+          }
+        }
+      } catch (e) {}
+
+      let direction: 'missed' | 'outgoing' | 'incoming' = 'missed';
+      if (isMine) {
+        direction = 'outgoing';
+      } else if (callLog.status === 'ended') {
+        direction = 'incoming';
+      } else {
+        direction = 'missed';
+      }
+
+      records.push({
+        id: msg.id,
+        chatId: msg.chatId,
+        chatName,
+        avatarUrl,
+        type: callLog.isVideo ? 'video' : 'audio',
+        direction,
+        time: msg.createdAt,
+        otherUserId,
+      });
     }
 
-    // Sort by most recent
-    return records.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    return records;
   };
 
   const loadCalls = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const data = await chatApi.getChats();
+      const data = await chatApi.getCallHistory();
       if (user?.id) {
         setCallRecords(buildCallRecords(data, user.id));
       }
@@ -92,16 +129,15 @@ export default function CallsScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadCalls(true); // silent load to avoid flickering
+    }, [user?.id])
+  );
+
   useEffect(() => {
     loadCalls();
   }, []);
-
-  // Also build from existing store chats
-  useEffect(() => {
-    if (chats.length > 0 && user?.id) {
-      setCallRecords(buildCallRecords(chats, user.id));
-    }
-  }, [chats, user?.id]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -110,6 +146,7 @@ export default function CallsScreen() {
 
   const handleCallBack = (record: CallRecord) => {
     startCall(record.chatId, record.type);
+    router.push(`/chat/${record.chatId}` as any);
   };
 
   const formatTime = (isoString: string) => {
@@ -139,6 +176,14 @@ export default function CallsScreen() {
 
   const renderItem = ({ item }: { item: CallRecord }) => (
     <View style={styles.callItem}>
+      <TouchableOpacity 
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+        activeOpacity={0.7}
+        onPress={() => {
+          console.log(`Navigating to Call Info: /call-info/${item.chatId}`);
+          router.push(`/call-info/${item.chatId}` as any);
+        }}
+      >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
         {item.avatarUrl ? (
@@ -163,6 +208,7 @@ export default function CallsScreen() {
           <Text style={styles.callTime}> · {formatTime(item.time)}</Text>
         </View>
       </View>
+      </TouchableOpacity>
 
       {/* Callback button */}
       <TouchableOpacity
@@ -180,9 +226,9 @@ export default function CallsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <Text style={styles.headerTitle}>Calls</Text>
       </View>
 
@@ -216,7 +262,7 @@ export default function CallsScreen() {
           </Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -233,7 +279,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 14,
     backgroundColor: '#202c33',
     borderBottomWidth: 1,
     borderBottomColor: '#2a3942',

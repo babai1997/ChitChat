@@ -306,20 +306,21 @@ export default function ChatRoomScreen() {
 
       {/* Messages + Input */}
       <View style={styles.innerContainer}>
-        <KeyboardAvoidingView
-          style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
-          <View style={styles.content}>
-            {isLoading ? (
-              <MessageListSkeleton />
-            ) : (
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView
+            style={styles.keyboardView}
+            behavior="padding"
+            keyboardVerticalOffset={0}
+          >
+            <View style={styles.content}>
+              {isLoading ? (
+                <MessageListSkeleton />
+              ) : (
               <FlatList
                 ref={flatListRef}
                 data={getGroupedMessages()}
                 inverted
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => (item as any).tempId || item.id}
                 renderItem={renderMessageItem}
                 contentContainerStyle={styles.messagesList}
                 onEndReached={loadMoreMessages}
@@ -338,9 +339,42 @@ export default function ChatRoomScreen() {
             <TypingIndicator names={typingNames} />
           )}
 
-          {/* Input Area */}
-          <ChatInput chatId={chatId} />
-        </KeyboardAvoidingView>
+            {/* Input Area */}
+            <ChatInput chatId={chatId} />
+          </KeyboardAvoidingView>
+        ) : (
+          <View style={styles.keyboardView}>
+            <View style={styles.content}>
+              {isLoading ? (
+                <MessageListSkeleton />
+              ) : (
+                <FlatList
+                  ref={flatListRef}
+                  data={getGroupedMessages()}
+                  inverted
+                  keyExtractor={(item) => (item as any).tempId || item.id}
+                  renderItem={renderMessageItem}
+                  contentContainerStyle={styles.messagesList}
+                  onEndReached={loadMoreMessages}
+                  onEndReachedThreshold={0.3}
+                  ListFooterComponent={
+                    isLoadingMore ? (
+                      <ActivityIndicator size="small" color="#8696a0" style={{ padding: 16 }} />
+                    ) : null
+                  }
+                />
+              )}
+            </View>
+
+            {/* Typing indicator */}
+            {typingNames.length > 0 && (
+              <TypingIndicator names={typingNames} />
+            )}
+
+            {/* Input Area */}
+            <ChatInput chatId={chatId} />
+          </View>
+        )}
       </View>
 
       {/* Chat Info Modal */}

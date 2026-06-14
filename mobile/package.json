@@ -10,6 +10,7 @@
     "axios": "^1.17.0",
     "expo": "~54.0.0",
     "expo-auth-session": "~7.0.11",
+    "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-image-picker": "~17.0.11",
@@ -26,6 +27,7 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.2",
     "react-native-webrtc": "^124.0.7",
+    "rn-emoji-keyboard": "^1.7.0",
     "socket.io-client": "^4.8.3",
     "uuid": "^14.0.0",
     "zustand": "^5.0.14"

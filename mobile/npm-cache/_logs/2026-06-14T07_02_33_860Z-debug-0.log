@@ -1,0 +1,62 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@10.9.2
+2 info using node@v22.16.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/sudiptap/Documents/sudipta_pramanik/Personal Projetcs /Chitchat/mobile/.npmrc
+5 silly config load:file:/Users/sudiptap/.npmrc
+6 verbose config error loading user config Error: EPERM: operation not permitted, open '/Users/sudiptap/.npmrc'
+6 verbose config     at async open (node:internal/fs/promises:633:25)
+6 verbose config     at async readFile (node:internal/fs/promises:1237:14)
+6 verbose config     at async #loadFile (/usr/local/lib/node_modules/npm/node_modules/@npmcli/config/lib/index.js:589:5)
+6 verbose config     at async Config.load (/usr/local/lib/node_modules/npm/node_modules/@npmcli/config/lib/index.js:250:5)
+6 verbose config     at async #load (/usr/local/lib/node_modules/npm/lib/npm.js:98:5)
+6 verbose config     at async Npm.load (/usr/local/lib/node_modules/npm/lib/npm.js:80:14)
+6 verbose config     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:42:37) {
+6 verbose config   errno: -1,
+6 verbose config   code: 'EPERM',
+6 verbose config   syscall: 'open',
+6 verbose config   path: '/Users/sudiptap/.npmrc'
+6 verbose config }
+7 silly config load:file:/usr/local/etc/npmrc
+8 verbose title npm install expo-av
+9 verbose argv "install" "expo-av" "--cache" "./npm-cache"
+10 verbose logfile logs-max:10 dir:/Users/sudiptap/Documents/sudipta_pramanik/Personal Projetcs /Chitchat/mobile/npm-cache/_logs/2026-06-14T07_02_33_860Z-
+11 verbose logfile /Users/sudiptap/Documents/sudipta_pramanik/Personal Projetcs /Chitchat/mobile/npm-cache/_logs/2026-06-14T07_02_33_860Z-debug-0.log
+12 silly logfile done cleaning log files
+13 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+14 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with ENOTFOUND
+15 silly idealTree buildDeps
+16 silly fetch manifest expo-av@~14.0.0
+17 silly packumentCache full:https://registry.npmjs.org/expo-av cache-miss
+18 http fetch GET https://registry.npmjs.org/expo-av attempt 1 failed with ENOTFOUND
+19 http fetch GET https://registry.npmjs.org/npm attempt 2 failed with ENOTFOUND
+20 http fetch GET https://registry.npmjs.org/expo-av attempt 2 failed with ENOTFOUND
+21 http fetch GET https://registry.npmjs.org/npm attempt 3 failed with ENOTFOUND
+22 http fetch GET https://registry.npmjs.org/expo-av attempt 3 failed with ENOTFOUND
+23 silly placeDep ROOT expo-av@ OK for: mobile@1.0.0 want: ~14.0.0
+24 verbose type system
+25 verbose stack FetchError: request to https://registry.npmjs.org/expo-av failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+25 verbose stack     at ClientRequest.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/minipass-fetch/lib/index.js:130:14)
+25 verbose stack     at ClientRequest.emit (node:events:518:28)
+25 verbose stack     at emitErrorEvent (node:_http_client:104:11)
+25 verbose stack     at _destroy (node:_http_client:898:9)
+25 verbose stack     at onSocketNT (node:_http_client:918:5)
+25 verbose stack     at process.processTicksAndRejections (node:internal/process/task_queues:91:21)
+26 error code ENOTFOUND
+27 error syscall getaddrinfo
+28 error errno ENOTFOUND
+29 error network request to https://registry.npmjs.org/expo-av failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+30 error network This is a problem related to network connectivity.
+30 error network In most cases you are behind a proxy or have bad network settings.
+30 error network
+30 error network If you are behind a proxy, please make sure that the
+30 error network 'proxy' config is set properly.  See: 'npm help config'
+31 silly unfinished npm timer reify 1781420554193
+32 silly unfinished npm timer reify:loadTrees 1781420554194
+33 verbose cwd /Users/sudiptap/Documents/sudipta_pramanik/Personal Projetcs /Chitchat/mobile
+34 verbose os Darwin 24.5.0
+35 verbose node v22.16.0
+36 verbose npm  v10.9.2
+37 verbose exit 1
+38 verbose code 1
+39 error A complete log of this run can be found in: /Users/sudiptap/Documents/sudipta_pramanik/Personal Projetcs /Chitchat/mobile/npm-cache/_logs/2026-06-14T07_02_33_860Z-debug-0.log

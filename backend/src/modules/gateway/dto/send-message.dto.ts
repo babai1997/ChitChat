@@ -4,8 +4,11 @@ import {
   IsOptional,
   IsEnum,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MessageType } from '@prisma/client';
+import { AttachmentDto } from '../../messages/dto/create-message.dto';
 
 export class SendMessageDto {
   @IsString()
@@ -27,4 +30,9 @@ export class SendMessageDto {
   @IsString()
   @IsOptional()
   replyToId?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  attachments?: AttachmentDto[];
 }

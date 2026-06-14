@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -12,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 import { profileApi } from '../../src/api';
@@ -38,6 +39,7 @@ import {
 export default function SettingsScreen() {
   const { user, logout, updateProfile } = useAuthStore();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState(user?.profile?.displayName || '');
@@ -124,8 +126,9 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
 
@@ -260,7 +263,7 @@ export default function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#111b21' },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 14,
     backgroundColor: '#202c33',
     borderBottomWidth: 1,
     borderBottomColor: '#2a3942',

@@ -4,8 +4,25 @@ import {
   IsEnum,
   IsUUID,
   MaxLength,
+  ValidateNested,
+  IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MessageType } from '@prisma/client';
+
+export class AttachmentDto {
+  @IsString()
+  filename: string;
+
+  @IsString()
+  url: string;
+
+  @IsString()
+  mimetype: string;
+
+  @IsNumber()
+  size: number;
+}
 
 export class CreateMessageDto {
   @IsString()
@@ -21,10 +38,7 @@ export class CreateMessageDto {
   replyToId?: string;
 
   @IsOptional()
-  attachments?: {
-    filename: string;
-    url: string;
-    mimetype: string;
-    size: number;
-  }[];
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  attachments?: AttachmentDto[];
 }
