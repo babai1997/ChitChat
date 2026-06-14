@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "ChitChat",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "scheme": "chitchat",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sudipta.chitchatapp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ChitChat needs camera access for video calls.",
+        "NSMicrophoneUsageDescription": "ChitChat needs microphone access for calls.",
+        "NSPhotoLibraryUsageDescription": "ChitChat needs photo library access for sending images."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#111b21",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.sudipta.chitchatapp",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "MODIFY_AUDIO_SETTINGS",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ChitChat needs access to your photo library to set a profile photo and send images.",
+          "cameraPermission": "ChitChat needs access to your camera for video calls."
+        }
+      ]
+    ]
+  }
+}
