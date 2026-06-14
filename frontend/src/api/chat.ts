@@ -72,7 +72,7 @@ export const chatApi = {
     content: string,
     type: string = 'text',
     replyToId?: string,
-    attachments?: { filename: string; url: string; mimetype: string; size: number }[]
+    attachments?: { filename: string; url: string; mimeType: string; size: number }[]
   ): Promise<Message> => {
     const response = await api.post(`/chats/${chatId}/messages`, {
       content,
@@ -83,7 +83,7 @@ export const chatApi = {
     return response.data;
   },
 
-  uploadAttachment: async (chatId: string, file: File): Promise<{ filename: string; url: string; mimetype: string; size: number }> => {
+  uploadAttachment: async (chatId: string, file: File): Promise<{ filename: string; url: string; mimeType: string; size: number }> => {
     const formData = new FormData();
     formData.append('file', file);
     // Use transformRequest to delete the Content-Type after axios header merging.

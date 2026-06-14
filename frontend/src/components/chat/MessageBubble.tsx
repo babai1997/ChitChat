@@ -75,7 +75,7 @@ export const MessageBubble = ({
           {
             filename: attachment.filename,
             url: attachment.url,
-            mimetype: attachment.mimetype || attachment.mimeType,
+            mimeType: attachment.mimeType,
             size: attachment.size,
           },
         ]
