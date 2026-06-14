@@ -1,4 +1,4 @@
-import { io, Socket } from "socket.io-client";
+import { io, Socket } from 'socket.io-client';
 
 type Handler = (...args: unknown[]) => void;
 
@@ -17,7 +17,7 @@ class SocketManager {
 
   connect(url: string, token: string) {
     if (this.socket?.connected) {
-      console.log("[SocketManager] Already connected, skipping");
+      console.log('[SocketManager] Already connected, skipping');
       return;
     }
 
@@ -26,13 +26,13 @@ class SocketManager {
     }
 
     // The backend gateway is mounted on the /chat namespace.
-    // Always append it so we don't accidentally connect to the default namespace.
-    const namespaceUrl = url.replace(/\/chat$/, "") + "/chat";
-    console.log("[SocketManager] Connecting to:", namespaceUrl);
+    // We strip /api and /chat from the base URL so we connect to the right path.
+    const namespaceUrl = url.replace(/\/api\/?$/, '').replace(/\/chat\/?$/, '') + '/chat';
+    console.log('[SocketManager] Connecting to:', namespaceUrl);
 
     this.socket = io(namespaceUrl, {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
@@ -45,8 +45,8 @@ class SocketManager {
 
     // Re-attach all registered handlers after a reconnect.
     // We must remove first to prevent duplicates since socket.on() doesn't deduplicate.
-    this.socket.on("connect", () => {
-      console.log("[SocketManager] Connected, socket ID:", this.socket!.id);
+    this.socket.on('connect', () => {
+      console.log('[SocketManager] Connected, socket ID:', this.socket!.id);
       this.handlers.forEach((fns, event) => {
         fns.forEach((fn) => {
           this.socket!.off(event, fn); // remove first to avoid double-firing
@@ -57,7 +57,7 @@ class SocketManager {
   }
 
   disconnect() {
-    console.log("[SocketManager] Disconnecting");
+    console.log('[SocketManager] Disconnecting');
     this.socket?.disconnect();
     this.socket = null;
   }
