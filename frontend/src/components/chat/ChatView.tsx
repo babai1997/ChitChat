@@ -59,6 +59,11 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     content: string;
   } | null>(null);
 
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewType, setPreviewType] = useState<"image" | "video" | "audio" | "file" | null>(null);
+  const [previewCaption, setPreviewCaption] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const {
     messages,
     setMessages,
@@ -224,18 +229,22 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const handleUploadAndSend = async (
     file: File,
     type: "image" | "video" | "audio" | "file",
+    caption?: string,
   ) => {
-    const tempId = crypto.randomUUID();
+    const tempId = `temp-${Date.now()}`;
+    
+    const displayContent = caption && caption.trim().length > 0 
+      ? caption 
+      : type === "image" 
+        ? "Image" 
+        : type === "audio"
+          ? "Voice Message"
+          : file.name;
+
     const tempMessage = {
       id: tempId,
-      tempId,
       chatId: chat.id,
-      content:
-        type === "image"
-          ? "Image"
-          : type === "audio"
-            ? "Voice Message"
-            : file.name,
+      content: displayContent,
       type,
       senderId: currentUserId,
       status: "sending",
@@ -264,11 +273,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
       const attachment = await chatApi.uploadAttachment(chat.id, file);
       const newMessage = await chatApi.sendMessage(
         chat.id,
-        type === "image"
-          ? "Image"
-          : type === "audio"
-            ? "Voice Message"
-            : file.name,
+        displayContent,
         type,
         undefined,
         [attachment],
@@ -303,8 +308,32 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     else if (file.type.startsWith("video/")) type = "video";
     else if (file.type.startsWith("audio/")) type = "audio";
 
-    handleUploadAndSend(file, type);
+    if (type === "image" || type === "video") {
+      setPreviewFile(file);
+      setPreviewType(type);
+      setPreviewCaption("");
+      setPreviewUrl(URL.createObjectURL(file));
+      setShowAttachMenu(false);
+    } else {
+      handleUploadAndSend(file, type);
+    }
+
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSendPreview = () => {
+    if (previewFile && previewType) {
+      handleUploadAndSend(previewFile, previewType, previewCaption);
+    }
+    cancelPreview();
+  };
+
+  const cancelPreview = () => {
+    setPreviewFile(null);
+    setPreviewType(null);
+    setPreviewCaption("");
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
   };
 
   const startRecording = async () => {
@@ -991,6 +1020,100 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
           }
         }
       `}</style>
+
+      {/* Preview Modal for Images/Videos */}
+      {previewFile && previewUrl && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(11,20,26,0.85)",
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column"
+        }}>
+          {/* Header */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "16px 24px",
+            backgroundColor: "rgba(0,0,0,0.3)"
+          }}>
+            <button
+              onClick={cancelPreview}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+            >
+              <X size={28} />
+            </button>
+            <span style={{ color: "white", fontSize: "18px", marginLeft: "24px" }}>
+              Preview
+            </span>
+          </div>
+          
+          {/* Content */}
+          <div style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+            overflow: "hidden"
+          }}>
+            {previewType === "image" ? (
+              <img src={previewUrl} alt="Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+            ) : previewType === "video" ? (
+              <video src={previewUrl} controls style={{ maxWidth: "100%", maxHeight: "100%" }} />
+            ) : null}
+          </div>
+
+          {/* Footer (Caption Input & Send) */}
+          <div style={{
+            padding: "16px 24px",
+            backgroundColor: "#202c33",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px"
+          }}>
+            <input
+              type="text"
+              placeholder="Add a caption..."
+              value={previewCaption}
+              onChange={(e) => setPreviewCaption(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") handleSendPreview();
+              }}
+              style={{
+                flex: 1,
+                backgroundColor: "#2a3942",
+                border: "none",
+                borderRadius: "8px",
+                padding: "12px 16px",
+                color: "#e9edef",
+                fontSize: "15px",
+                outline: "none"
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleSendPreview}
+              disabled={isSending}
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                backgroundColor: "#00a884",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "none",
+                cursor: "pointer",
+                color: "white"
+              }}
+            >
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contact Info Modal */}
       {chat.type === "direct" && getOtherMember() && (

@@ -83,12 +83,10 @@ export default function ChatRoomScreen() {
         hasMoreRef.current = data.hasMore;
 
         // Mark all as read
-        if (data.messages.length > 0) {
-          const unreadIds = data.messages
-            .filter((m) => m.senderId !== user?.id && m.status !== 'read')
-            .map((m) => m.id);
-          if (unreadIds.length > 0) markAsRead(chatId, unreadIds);
-        }
+        const unreadIds = data.messages
+          .filter((m) => m.senderId !== user?.id && m.status !== 'read')
+          .map((m) => m.id);
+        markAsRead(chatId, unreadIds);
       } catch (error) {
         console.error('Failed to load messages:', error);
       } finally {

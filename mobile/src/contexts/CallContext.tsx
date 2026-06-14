@@ -26,6 +26,8 @@ try {
 
 const ICE_SERVERS = {
   iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun.relay.metered.ca:80' },
     {
       urls: 'turn:global.relay.metered.ca:80',
@@ -249,6 +251,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (pc as any).onconnectionstatechange = () => {
         console.log('[Call] Connection state:', pc.connectionState);
         if ((pc as any).connectionState === 'failed' || (pc as any).connectionState === 'disconnected') {
+          if (isCallActiveRef.current && activeChatIdRef.current) {
+            socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
+          }
+          cleanupCall();
+        }
+      };
+
+      (pc as any).oniceconnectionstatechange = () => {
+        console.log('[Call] ICE connection state:', pc.iceConnectionState);
+        if ((pc as any).iceConnectionState === 'failed' || (pc as any).iceConnectionState === 'disconnected') {
+          if (isCallActiveRef.current && activeChatIdRef.current) {
+            socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
+          }
           cleanupCall();
         }
       };
@@ -274,6 +289,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallStatus('incoming');
       setCallType(data.type);
       try { incomingSoundRef.current?.playAsync().catch(() => {}); } catch {}
+      
+      // Bump chat to the top
+      useChatStore.getState().updateChat(data.chatId, { updatedAt: new Date().toISOString() });
     };
 
     const handleMissed = () => {
@@ -290,7 +308,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callTimeoutRef.current = null;
       }
 
-      if (!isCallActiveRef.current || !localStreamRef.current || !pcRef.current) return;
+      if (!isCallActiveRef.current || !localStreamRef.current) return;
+
+      // Caller creates PC now that we know the targetUserId
+      if (!pcRef.current) {
+        createPeerConnection(data.userId, true, localStreamRef.current);
+      }
+      
+      if (!pcRef.current) return;
 
       // Initiator creates offer
       try {
@@ -447,10 +472,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsVideoEnabled(type === 'video');
       setIsMuted(false);
 
-      // Create PC so it's ready when user-joined fires
-      createPeerConnection('', true, stream);
+      // DO NOT create PC yet. Wait for CALL_USER_JOINED so we know targetUserId!
 
-      socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type });
+      socketManager.emit(SOCKET_EVENTS.CALL_START, {
+        chatId: activeChatIdRef.current,
+        type: callTypeRef.current,
+      });
       try { outgoingSoundRef.current?.playAsync().catch(() => {}); } catch {}
 
       // Auto-cancel after 45 seconds

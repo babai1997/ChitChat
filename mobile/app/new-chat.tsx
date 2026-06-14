@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, User, Users, ChevronRight } from 'lucide-react-native';
 import { useAuthStore } from '../src/stores/authStore';
 import { usersApi, chatApi } from '../src/api';
-import type { Profile, Chat } from '../src/types';
+import type { Profile, Chat, UserWithProfile } from '../src/types';
 
 import { useChatStore } from '../src/stores/chatStore';
 import { useRouter } from 'expo-router';
@@ -25,10 +25,10 @@ export default function NewChatScreen() {
   const { chats, setChats } = useChatStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<UserWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<Profile[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<UserWithProfile[]>([]);
   const [groupName, setGroupName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const insets = useSafeAreaInsets();
@@ -56,7 +56,7 @@ export default function NewChatScreen() {
     return () => clearTimeout(searchTimeout);
   }, [searchQuery, user?.id]);
 
-  const handleUserSelect = async (selectedUser: Profile) => {
+  const handleUserSelect = async (selectedUser: UserWithProfile) => {
     if (isCreatingGroup) {
       // Toggle selection for group
       const isSelected = selectedUsers.find(u => u.id === selectedUser.id);
@@ -96,7 +96,7 @@ export default function NewChatScreen() {
     }
   };
 
-  const renderUserItem = ({ item }: { item: Profile }) => {
+  const renderUserItem = ({ item }: { item: UserWithProfile }) => {
     const isSelected = selectedUsers.find(u => u.id === item.id);
 
     return (
@@ -105,20 +105,20 @@ export default function NewChatScreen() {
         onPress={() => handleUserSelect(item)}
       >
         <View style={styles.avatarContainer}>
-          {item.avatarUrl ? (
-            <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
+          {item.profile?.avatarUrl ? (
+            <Image source={{ uri: item.profile.avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarText}>
-                {item.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                {item.profile?.displayName?.charAt(0)?.toUpperCase() || 'U'}
               </Text>
             </View>
           )}
         </View>
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.displayName || 'Unknown User'}</Text>
-          {item.about ? (
-            <Text style={styles.userAbout} numberOfLines={1}>{item.about}</Text>
+          <Text style={styles.userName}>{item.profile?.displayName || item.phone || 'Unknown User'}</Text>
+          {item.profile?.about ? (
+            <Text style={styles.userAbout} numberOfLines={1}>{item.profile.about}</Text>
           ) : null}
         </View>
         
@@ -226,6 +226,15 @@ export default function NewChatScreen() {
           )}
           </View>
       </KeyboardAvoidingView>
+      
+      {/* Loading Overlay for Direct Chat Creation */}
+      {isSubmitting && !isCreatingGroup && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#00a884" />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
