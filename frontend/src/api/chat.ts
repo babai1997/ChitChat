@@ -2,6 +2,15 @@ import api from './client';
 import type { Chat, Message, MessagesResponse, Profile } from '../types';
 
 export const chatApi = {
+  // Calls
+  getCallHistory: async (chatId?: string): Promise<Message[]> => {
+    const url = chatId
+      ? `/chats/calls/history?chatId=${chatId}`
+      : "/chats/calls/history";
+    const response = await api.get(url);
+    return response.data;
+  },
+
   // Chats
   getChats: async (): Promise<Chat[]> => {
     const response = await api.get('/chats');
@@ -77,9 +86,18 @@ export const chatApi = {
   uploadAttachment: async (chatId: string, file: File): Promise<{ filename: string; url: string; mimetype: string; size: number }> => {
     const formData = new FormData();
     formData.append('file', file);
+    // Use transformRequest to delete the Content-Type after axios header merging.
+    // This lets the browser/XHR auto-set 'multipart/form-data; boundary=XXX'.
     const response = await api.post(`/chats/${chatId}/messages/attachments`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
+      transformRequest: (data: FormData, headers?: Record<string, unknown>) => {
+        if (headers) {
+          delete headers['Content-Type'];
+          const common = headers['common'];
+          if (common && typeof common === 'object') {
+            delete (common as Record<string, unknown>)['Content-Type'];
+          }
+        }
+        return data;
       },
     });
     return response.data;

@@ -63,9 +63,9 @@ export class MessagesMapper {
         : null,
       attachments: message.attachments.map((a) => ({
         id: a.id,
-        fileName: a.fileName,
-        fileType: a.fileType,
-        fileSize: Number(a.fileSize),
+        filename: a.fileName,
+        mimeType: a.fileType,
+        size: Number(a.fileSize),
         url: a.url,
       })),
     };

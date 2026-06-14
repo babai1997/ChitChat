@@ -419,6 +419,44 @@ export class ChatsService {
   }
 
   // ============================================
+  // Call History
+  // ============================================
+
+  async getCallHistory(userId: string, chatId?: string) {
+    const whereClause: any = {
+      type: { in: ['missed_call', 'call_log'] },
+      chat: {
+        members: {
+          some: { userId },
+        },
+      },
+    };
+
+    if (chatId) {
+      whereClause.chatId = chatId;
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        sender: { include: { profile: true } },
+        chat: {
+          include: {
+            members: {
+              include: {
+                user: { include: { profile: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return messages;
+  }
+
+  // ============================================
   // Helper Methods
   // ============================================
 

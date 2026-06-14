@@ -148,6 +148,7 @@ enum MessageType {
   audio
   video
   missed_call
+  call_log
 }
 
 enum MessageStatus {

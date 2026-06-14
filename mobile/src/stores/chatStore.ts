@@ -144,8 +144,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   replaceMessage: (chatId, tempId, realMessage) => {
     set((state) => {
       const existing = state.messages[chatId] || [];
-      const replaced = existing.map((m) => (m.id === tempId ? { ...realMessage, tempId } : m));
-
+      const replaced = existing.map((m: any) => {
+        if (m.id === tempId) {
+          // Preserve local attachment URL to prevent flickering/reloading
+          const preservedAttachments = realMessage.attachments?.map((att: any, idx: number) => ({
+            ...att,
+            url: m.attachments?.[idx]?.url?.startsWith('file://') ? m.attachments[idx].url : att.url
+          }));
+          return { ...realMessage, tempId, attachments: preservedAttachments || realMessage.attachments };
+        }
+        return m;
+      });
       // Deduplicate — if message:new already added the real message before message:sent,
       // we'll now have two entries with the same real id. Keep only the first.
       const seen = new Set<string>();

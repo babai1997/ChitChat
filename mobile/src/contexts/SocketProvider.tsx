@@ -16,7 +16,7 @@ interface SocketContextType {
   isConnected: boolean;
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
-  sendMessage: (chatId: string, content: string, type?: string, replyToId?: string, attachments?: any[]) => string | null;
+  sendMessage: (chatId: string, content: string, type?: string, replyToId?: string, attachments?: any[], customTempId?: string) => string | null;
   markAsRead: (chatId: string, messageIds: string[]) => void;
   startTyping: (chatId: string) => void;
   stopTyping: (chatId: string) => void;
@@ -79,12 +79,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const sendMessage = useCallback(
-    (chatId: string, content: string, type = 'text', replyToId?: string, attachments?: any[]) => {
+    (chatId: string, content: string, type = 'text', replyToId?: string, attachments?: any[], customTempId?: string) => {
       if (!socketManager.isConnected) {
         console.warn('[Socket] Cannot send — not connected');
         return null;
       }
-      const tempId = Crypto.randomUUID();
+      const tempId = customTempId || Crypto.randomUUID();
 
       // --- Optimistic Update ---
       const store = useChatStore.getState();

@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
+import { Audio } from 'expo-av';
 import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
+import { useSocketContext } from './SocketProvider';
 
 // Lazy-load WebRTC to prevent crash on startup if hardware not available
 let RTCPeerConnection: any;
@@ -90,6 +93,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
+  const { sendMessage } = useSocketContext();
+
   // Refs for stable closures inside socket handlers
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -97,11 +102,49 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCandidatesRef = useRef<any[]>([]);
+
+  const callStartTimeRef = useRef<number | null>(null);
+  const isInitiatorRef = useRef<boolean>(false);
+  const callStatusRef = useRef<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
+  const callTypeRef = useRef<'audio' | 'video'>('audio');
+  const sendMessageRef = useRef(sendMessage);
+
+  const incomingSoundRef = useRef<Audio.Sound | null>(null);
+  const outgoingSoundRef = useRef<Audio.Sound | null>(null);
+
+  // Initialize sounds
+  useEffect(() => {
+    (async () => {
+      try {
+        const { sound: iSound } = await Audio.Sound.createAsync(
+          require('../../assets/audio/incoming.wav'),
+          { isLooping: true }
+        );
+        incomingSoundRef.current = iSound;
+
+        const { sound: oSound } = await Audio.Sound.createAsync(
+          require('../../assets/audio/outgoing.wav'),
+          { isLooping: true }
+        );
+        outgoingSoundRef.current = oSound;
+      } catch (err) {
+        console.warn('[Call] Failed to load sounds:', err);
+      }
+    })();
+    return () => {
+      incomingSoundRef.current?.unloadAsync().catch(() => {});
+      outgoingSoundRef.current?.unloadAsync().catch(() => {});
+    };
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
   useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
+  useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
+  useEffect(() => { callTypeRef.current = callType; }, [callType]);
+  useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
 
@@ -113,8 +156,40 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callTimeoutRef.current = null;
     }
 
+    try { incomingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
+    try { outgoingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
+
     try { pcRef.current?.close(); } catch {}
     pcRef.current = null;
+
+    // Dispatch call log if initiator
+    if (isInitiatorRef.current && activeChatIdRef.current && callStatusRef.current !== 'idle' && callStatusRef.current !== 'incoming') {
+      let duration = 0;
+      let status = 'missed';
+      
+      if (callStatusRef.current === 'connected' && callStartTimeRef.current) {
+        duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+        status = 'ended';
+      } else if (callStatusRef.current === ('rejected' as any)) {
+        status = 'rejected';
+      } else if (callStatusRef.current === 'calling') {
+        status = 'missed';
+      }
+      
+      const payload = JSON.stringify({
+        status,
+        duration,
+        isVideo: callTypeRef.current === 'video'
+      });
+      
+      const capturedChatId = activeChatIdRef.current;
+      // Async so we don't block cleanup
+      setTimeout(() => {
+        if (capturedChatId) {
+          sendMessageRef.current(capturedChatId, payload, 'missed_call');
+        }
+      }, 50);
+    }
 
     localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
     localStreamRef.current = null;
@@ -127,6 +202,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveChatId(null);
     isCallActiveRef.current = false;
     activeChatIdRef.current = null;
+    pendingCandidatesRef.current = [];
+    callStartTimeRef.current = null;
+    isInitiatorRef.current = false;
   }, []);
 
   // ── PeerConnection factory ────────────────────────────────────────────────────
@@ -159,8 +237,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (pc as any).ontrack = ({ streams }: any) => {
         console.log('[Call] Remote track received');
         if (streams && streams[0]) {
+          try { outgoingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
           setRemoteStream(streams[0]);
           setCallStatus('connected');
+          if (!callStartTimeRef.current) {
+            callStartTimeRef.current = Date.now();
+          }
         }
       };
 
@@ -191,6 +273,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
+      try { incomingSoundRef.current?.playAsync().catch(() => {}); } catch {}
     };
 
     const handleMissed = () => {
@@ -216,7 +299,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
           targetUserId: data.userId,
           type: 'offer',
-          signal: { type: 'offer', sdp: offer },
+          signal: offer,
           chatId: activeChatIdRef.current,
         });
       } catch (err) {
@@ -243,23 +326,44 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         if (type === 'offer') {
-          await pcRef.current.setRemoteDescription(
-            new RTCSessionDescription({ type: 'offer', sdp: signal.sdp } as any),
-          );
+          let sdpString = signal.sdp;
+          if (typeof signal.sdp === 'object' && signal.sdp !== null) {
+            sdpString = signal.sdp.sdp;
+          }
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: sdpString } as any));
+          
+          // Add pending candidates
+          while (pendingCandidatesRef.current.length > 0) {
+            const c = pendingCandidatesRef.current.shift();
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+          }
+
           const answer = await pcRef.current.createAnswer();
           await pcRef.current.setLocalDescription(new RTCSessionDescription(answer as any));
           socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
             targetUserId: data.senderId,
             type: 'answer',
-            signal: { type: 'answer', sdp: answer },
+            signal: answer,
             chatId: activeChatIdRef.current,
           });
         } else if (type === 'answer') {
-          await pcRef.current.setRemoteDescription(
-            new RTCSessionDescription({ type: 'answer', sdp: signal.sdp } as any),
-          );
+          let sdpString = signal.sdp;
+          if (typeof signal.sdp === 'object' && signal.sdp !== null) {
+            sdpString = signal.sdp.sdp;
+          }
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: sdpString } as any));
+
+          // Add pending candidates
+          while (pendingCandidatesRef.current.length > 0) {
+            const c = pendingCandidatesRef.current.shift();
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+          }
         } else if (type === 'candidate' && signal.candidate) {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (pcRef.current.remoteDescription) {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } else {
+            pendingCandidatesRef.current.push(signal.candidate);
+          }
         }
       } catch (err) {
         console.error('[Call] Signal handling error:', err);
@@ -273,6 +377,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleRejected = () => {
       console.log('[Call] Call rejected');
+      // If we are the initiator, we should mark status as rejected somehow.
+      // We can do this by setting callStatusRef.current to a temp state 'rejected' before cleanup
+      callStatusRef.current = 'rejected' as any;
       cleanupCall();
     };
 
@@ -295,14 +402,38 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Call actions ──────────────────────────────────────────────────────────────
 
+  const requestPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+        if (
+          grants[PermissionsAndroid.PERMISSIONS.CAMERA] !== PermissionsAndroid.RESULTS.GRANTED ||
+          grants[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          throw new Error('Camera/Microphone permissions required');
+        }
+      } catch (err) {
+        console.warn('[Call] Permission check failed:', err);
+        throw err;
+      }
+    }
+  };
+
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
+      await requestPermissions();
+
       setCallType(type);
       setCallStatus('calling');
       setIsCallActive(true);
       setActiveChatId(chatId);
       isCallActiveRef.current = true;
       activeChatIdRef.current = chatId;
+      isInitiatorRef.current = true;
+      callStartTimeRef.current = null;
 
       const stream = await mediaDevices.getUserMedia({
         audio: true,
@@ -320,6 +451,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createPeerConnection('', true, stream);
 
       socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type });
+      try { outgoingSoundRef.current?.playAsync().catch(() => {}); } catch {}
 
       // Auto-cancel after 45 seconds
       callTimeoutRef.current = setTimeout(() => {
@@ -343,11 +475,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      await requestPermissions();
+
       setCallStatus('calling');
       setIsCallActive(true);
       isCallActiveRef.current = true;
       setActiveChatId(call.chatId);
       activeChatIdRef.current = call.chatId;
+      isInitiatorRef.current = false;
+      callStartTimeRef.current = null;
+
+      try {
+        if (incomingSoundRef.current) {
+          await incomingSoundRef.current.stopAsync().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[Call] Failed to stop incoming sound:', err);
+      }
 
       const stream = await mediaDevices.getUserMedia({
         audio: true,

@@ -18,6 +18,8 @@ import { chatApi } from '../api';
 import { useAuthStore, useChatStore } from '../stores';
 import { useSocket } from '../hooks';
 import { ChatList } from '../components/chat/ChatList';
+import { CallList } from '../components/call/CallList';
+import { CallInfoView } from '../components/call/CallInfoView';
 import { ChatView } from '../components/chat/ChatView';
 import { NewChatModal } from '../components/chat/NewChatModal';
 import { SettingsSidebar } from '../components/chat/SettingsSidebar';
@@ -28,8 +30,8 @@ import { ChatListSkeleton } from '../components/chat/ChatListSkeleton';
 
 
 interface BottomNavProps {
-  activeTab: 'chats' | 'status' | 'communities';
-  setActiveTab: (tab: 'chats' | 'status' | 'communities') => void;
+  activeTab: 'chats' | 'status' | 'communities' | 'calls';
+  setActiveTab: (tab: 'chats' | 'status' | 'communities' | 'calls') => void;
 }
 
 const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => (
@@ -74,9 +76,10 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => (
     </button>
 
     <button 
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#8696a0', flex: 1 }}
+      onClick={() => setActiveTab('calls')}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'calls' ? '#00a884' : '#8696a0', flex: 1 }}
     >
-      <Phone size={24} />
+      <Phone size={24} strokeWidth={activeTab === 'calls' ? 2.5 : 2} />
       <span style={{ fontSize: '12px', fontWeight: 500 }}>Calls</span>
     </button>
   </div>
@@ -86,7 +89,8 @@ export const HomePage = () => {
   const { user } = useAuthStore();
   const { chats, setChats, activeChat, setActiveChat } = useChatStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'communities'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'communities' | 'calls'>('chats');
+  const [activeCallInfoId, setActiveCallInfoId] = useState<string | null>(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -135,6 +139,27 @@ export const HomePage = () => {
 
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
+  };
+
+  const handleCallChatSelect = (chatId: string) => {
+    setActiveCallInfoId(chatId);
+  };
+
+  const handleMessageClickFromCallInfo = async (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+       setActiveChat(chat);
+       setActiveTab('chats');
+    } else {
+       try {
+         const fetchedChat = await chatApi.getChat(chatId);
+         setChats([fetchedChat, ...chats]);
+         setActiveChat(fetchedChat);
+         setActiveTab('chats');
+       } catch (error) {
+         console.error('Failed to load chat from call record', error);
+       }
+    }
   };
 
   const handleChatCreated = (chat: Chat) => {
@@ -454,13 +479,34 @@ export const HomePage = () => {
              {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}
           </div>
         )}
+
+        {/* Calls Tab */}
+        {!settingsOpen && activeTab === 'calls' && (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+             {/* Header */}
+             <div style={{ 
+               padding: '10px 16px', 
+               backgroundColor: '#111b21', 
+               display: 'flex', 
+               alignItems: 'center', 
+               justifyContent: 'space-between', 
+               height: '60px' 
+             }}>
+               <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#e9edef' }}>Calls</h1>
+             </div>
+             <div style={{ flex: 1, overflowY: 'auto' }}>
+               <CallList onChatSelect={handleCallChatSelect} />
+             </div>
+             {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}
+          </div>
+        )}
       </div>
 
       {/* Main Chat Area */}
       <div 
         style={{ 
           flex: 1, 
-          display: isMobile && (!activeChat || activeTab !== 'chats') ? 'none' : 'flex',
+          display: isMobile && !((activeTab === 'chats' && activeChat) || (activeTab === 'calls' && activeCallInfoId)) ? 'none' : 'flex',
           flexDirection: 'column', 
           height: '100%',
           backgroundColor: '#0b141a',
@@ -472,6 +518,12 @@ export const HomePage = () => {
             chat={activeChat} 
             onBack={() => setActiveChat(null)}
             currentUserId={user?.id || ''}
+          />
+        ) : activeTab === 'calls' && activeCallInfoId ? (
+          <CallInfoView 
+            chatId={activeCallInfoId} 
+            onBack={() => setActiveCallInfoId(null)}
+            onMessageClick={handleMessageClickFromCallInfo}
           />
         ) : (
           <EmptyState />

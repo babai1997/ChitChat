@@ -1,14 +1,16 @@
 import { Tabs } from 'expo-router';
 import { MessageCircle, Phone, Settings } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
+import MiniCallScreen from '../../components/call/MiniCallScreen';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
   
   return (
-    <Tabs
-      screenOptions={{
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: '#202c33',
@@ -54,6 +56,16 @@ export default function MainLayout() {
           tabBarStyle: { display: 'none' },
         }}
       />
-    </Tabs>
+      {/* Hide the call-info/[id] dynamic route from the tab bar */}
+      <Tabs.Screen
+        name="call-info/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      </Tabs>
+      <MiniCallScreen />
+    </View>
   );
 }

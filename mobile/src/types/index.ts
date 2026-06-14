@@ -88,7 +88,7 @@ export interface Chat {
 }
 
 // Message types
-export type MessageType = 'text' | 'image' | 'file' | 'audio' | 'video' | 'system' | 'missed_call';
+export type MessageType = 'text' | 'image' | 'file' | 'audio' | 'video' | 'system' | 'missed_call' | 'call_log';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface MessageAttachment {

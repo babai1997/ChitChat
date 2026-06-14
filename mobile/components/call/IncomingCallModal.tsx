@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   Image,
   Animated,
@@ -11,10 +10,19 @@ import {
 } from 'react-native';
 import { PhoneOff, Video, Phone, User } from 'lucide-react-native';
 import { useCall } from '../../src/contexts/CallContext';
+import { useRouter } from 'expo-router';
 
 export default function IncomingCallModal() {
   const { incomingCall, answerCall, rejectCall } = useCall();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const router = useRouter();
+
+  const handleAccept = () => {
+    if (!incomingCall) return;
+    const chatId = incomingCall.chatId;
+    answerCall();
+    router.push(`/chat/${chatId}`);
+  };
 
   useEffect(() => {
     if (!incomingCall) {
@@ -47,21 +55,22 @@ export default function IncomingCallModal() {
   const isVideo = incomingCall.type === 'video';
 
   return (
-    <Modal visible animationType="fade" transparent statusBarTranslucent>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          {/* Pulse ring */}
-          <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
+    <View style={[StyleSheet.absoluteFill, styles.overlay, { zIndex: 9999, elevation: 9999 }]}>
+      <View style={styles.card}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            {/* Pulse ring */}
+            <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
 
-          {/* Avatar */}
-          <View style={styles.avatarWrapper}>
-            {incomingCall.callerAvatar ? (
-              <Image source={{ uri: incomingCall.callerAvatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <User size={52} color="#8696a0" />
-              </View>
-            )}
+            {/* Avatar */}
+            <View style={styles.avatarWrapper}>
+              {incomingCall.callerAvatar ? (
+                <Image source={{ uri: incomingCall.callerAvatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <User size={52} color="#8696a0" />
+                </View>
+              )}
+            </View>
           </View>
 
           <Text style={styles.callerName}>{incomingCall.callerName}</Text>
@@ -81,15 +90,14 @@ export default function IncomingCallModal() {
 
             {/* Accept */}
             <View style={styles.actionItem}>
-              <TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={answerCall} activeOpacity={0.8}>
+              <TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={handleAccept} activeOpacity={0.8}>
                 {isVideo ? <Video size={30} color="white" /> : <Phone size={30} color="white" />}
               </TouchableOpacity>
               <Text style={styles.actionLabel}>Accept</Text>
             </View>
           </View>
         </View>
-      </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -114,7 +122,6 @@ const styles = StyleSheet.create({
   },
   pulseRing: {
     position: 'absolute',
-    top: 20,
     width: 130,
     height: 130,
     borderRadius: 65,
@@ -122,7 +129,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 168, 132, 0.3)',
   },
   avatarWrapper: {
-    marginBottom: 20,
   },
   avatar: {
     width: 110,

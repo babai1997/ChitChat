@@ -41,7 +41,7 @@ export class MessageHandler {
       } = data;
       const senderId = socket.user.id;
 
-      // Persist message
+      console.log(`[handleSend] Receiving attachments:`, JSON.stringify(data.attachments));
       const message = await this.messagesService.create(
         {
           chatId,
@@ -49,9 +49,11 @@ export class MessageHandler {
           content,
           type,
           replyToId,
+          attachments: data.attachments,
         },
         { emitEvent: false },
       );
+      console.log(`[handleSend] Created message with attachments:`, JSON.stringify(message.attachments));
 
       // Notify sender: temp → real message mapping
       socket.emit(SOCKET_EVENTS.MESSAGE_SENT, {
