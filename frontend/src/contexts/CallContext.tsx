@@ -25,6 +25,7 @@ interface CallContextType {
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
+  activeChatId: string | null;
   isMinimized: boolean;
   isMuted: boolean;
   isVideoEnabled: boolean;
@@ -49,6 +50,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -98,6 +100,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCallStatus('idle');
     setIsCallActive(false);
     setIsMinimized(false);
+    setActiveChatId(null);
     isCallActiveRef.current = false;
     activeChatIdRef.current = null;
   }, []);
@@ -321,6 +324,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
       activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
       setCallType(type);
       setCallStatus('calling');
       setIsCallActive(true);
@@ -377,6 +381,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsCallActive(true);
       isCallActiveRef.current = true; // Set ref immediately
       activeChatIdRef.current = call.chatId;
+      setActiveChatId(call.chatId);
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: call.type === 'video',
@@ -449,6 +454,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         incomingCall,
         localStream,
         remoteStreams,
+        activeChatId,
         isMinimized,
         isMuted,
         isVideoEnabled,
