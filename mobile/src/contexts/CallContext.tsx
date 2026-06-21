@@ -4,19 +4,18 @@ import { Audio } from 'expo-av';
 import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useSocketContext } from './SocketProvider';
+import { useChatStore } from '../stores/chatStore';
 
 // Lazy-load WebRTC to prevent crash on startup if hardware not available
 let RTCPeerConnection: any;
 let RTCSessionDescription: any;
 let RTCIceCandidate: any;
-let MediaStream: any;
 let mediaDevices: any;
 try {
   const webrtc = require('react-native-webrtc');
   RTCPeerConnection = webrtc.RTCPeerConnection;
   RTCSessionDescription = webrtc.RTCSessionDescription;
   RTCIceCandidate = webrtc.RTCIceCandidate;
-  MediaStream = webrtc.MediaStream;
   mediaDevices = webrtc.mediaDevices;
 } catch (e) {
   console.warn('[CallContext] react-native-webrtc not available:', e);
@@ -68,9 +67,13 @@ interface CallContextType {
   callType: 'audio' | 'video';
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
+  // Multi-party: one stream per remote userId
+  remoteStreams: Map<string, MediaStream>;
+  // Multi-party: per-user camera on/off state
+  remoteVideoStates: Map<string, boolean>;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  isSpeaker: boolean;
   activeChatId: string | null;
   startCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
   answerCall: () => Promise<void>;
@@ -78,6 +81,7 @@ interface CallContextType {
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
+  toggleSpeaker: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -90,21 +94,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isSpeaker, setIsSpeaker] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
   const { sendMessage } = useSocketContext();
 
-  // Refs for stable closures inside socket handlers
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  // Map of userId → RTCPeerConnection (one per remote participant)
+  const peerConnectionsRef = useRef<Map<string, any>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const isCallActiveRef = useRef(false);
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingCandidatesRef = useRef<any[]>([]);
+  // Per-sender ICE candidate queue (buffered before remoteDescription is set)
+  const pendingCandidatesRef = useRef<Map<string, any[]>>(new Map());
 
   const callStartTimeRef = useRef<number | null>(null);
   const isInitiatorRef = useRef<boolean>(false);
@@ -148,6 +155,28 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { callTypeRef.current = callType; }, [callType]);
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+  // ── Speaker mode ──────────────────────────────────────────────────────────────
+
+  const applySpeakerMode = async (speaker: boolean) => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: !speaker,
+      });
+    } catch (e) {
+      console.warn('[Call] Audio mode set failed:', e);
+    }
+  };
+
+  const toggleSpeaker = () => {
+    const next = !isSpeaker;
+    setIsSpeaker(next);
+    applySpeakerMode(next);
+  };
+
   // ── Cleanup ──────────────────────────────────────────────────────────────────
 
   const cleanupCall = useCallback(() => {
@@ -161,14 +190,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try { incomingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
     try { outgoingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
 
-    try { pcRef.current?.close(); } catch {}
-    pcRef.current = null;
+    // Close all peer connections
+    peerConnectionsRef.current.forEach((pc) => { try { pc.close(); } catch {} });
+    peerConnectionsRef.current.clear();
 
     // Dispatch call log if initiator
     if (isInitiatorRef.current && activeChatIdRef.current && callStatusRef.current !== 'idle' && callStatusRef.current !== 'incoming') {
       let duration = 0;
       let status = 'missed';
-      
+
       if (callStatusRef.current === 'connected' && callStartTimeRef.current) {
         duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
         status = 'ended';
@@ -177,15 +207,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (callStatusRef.current === 'calling') {
         status = 'missed';
       }
-      
+
       const payload = JSON.stringify({
         status,
         duration,
         isVideo: callTypeRef.current === 'video'
       });
-      
+
       const capturedChatId = activeChatIdRef.current;
-      // Async so we don't block cleanup
       setTimeout(() => {
         if (capturedChatId) {
           sendMessageRef.current(capturedChatId, payload, 'missed_call');
@@ -196,34 +225,45 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
     localStreamRef.current = null;
 
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: true,
+    }).catch(() => {});
+
     setLocalStream(null);
-    setRemoteStream(null);
+    setRemoteStreams(new Map());
+    setRemoteVideoStates(new Map());
     setIncomingCall(null);
     setCallStatus('idle');
     setIsCallActive(false);
     setActiveChatId(null);
+    setIsSpeaker(false);
     isCallActiveRef.current = false;
     activeChatIdRef.current = null;
-    pendingCandidatesRef.current = [];
+    pendingCandidatesRef.current.clear();
     callStartTimeRef.current = null;
     isInitiatorRef.current = false;
   }, []);
 
   // ── PeerConnection factory ────────────────────────────────────────────────────
+  // Creates one RTCPeerConnection per remote user and stores it in peerConnectionsRef.
 
   const createPeerConnection = useCallback(
     (targetUserId: string, isInitiator: boolean, stream: MediaStream) => {
-      console.log(`[Call] Creating PeerConnection (initiator: ${isInitiator})`);
+      console.log(`[Call] Creating PC for ${targetUserId} (initiator: ${isInitiator})`);
 
       const pc = new RTCPeerConnection(ICE_SERVERS as any);
-      pcRef.current = pc;
+      peerConnectionsRef.current.set(targetUserId, pc);
 
-      // Add local tracks
+      // Add all local tracks to this peer connection
       stream.getTracks().forEach((track: any) => {
         (pc as any).addTrack(track, stream);
       });
 
-      // ICE candidates → forward via socket
+      // ICE candidates — closed over targetUserId so each PC routes independently
       (pc as any).onicecandidate = ({ candidate }: any) => {
         if (candidate) {
           socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
@@ -235,12 +275,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
-      // Remote track arrived → build remoteStream
+      // Remote track arrived — add to the per-user streams Map
       (pc as any).ontrack = ({ streams }: any) => {
-        console.log('[Call] Remote track received');
+        console.log(`[Call] Remote track received from ${targetUserId}`);
         if (streams && streams[0]) {
           try { outgoingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
-          setRemoteStream(streams[0]);
+          setRemoteStreams(prev => new Map(prev).set(targetUserId, streams[0]));
           setCallStatus('connected');
           if (!callStartTimeRef.current) {
             callStartTimeRef.current = Date.now();
@@ -248,23 +288,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
-      (pc as any).onconnectionstatechange = () => {
-        console.log('[Call] Connection state:', pc.connectionState);
-        if ((pc as any).connectionState === 'failed' || (pc as any).connectionState === 'disconnected') {
-          if (isCallActiveRef.current && activeChatIdRef.current) {
+      // When a single peer fails, remove them. If no peers remain, end the call.
+      const removePeer = () => {
+        if (!peerConnectionsRef.current.has(targetUserId)) return;
+        try { pc.close(); } catch {}
+        peerConnectionsRef.current.delete(targetUserId);
+        setRemoteStreams(prev => { const m = new Map(prev); m.delete(targetUserId); return m; });
+        setRemoteVideoStates(prev => { const m = new Map(prev); m.delete(targetUserId); return m; });
+        pendingCandidatesRef.current.delete(targetUserId);
+
+        if (peerConnectionsRef.current.size === 0 && isCallActiveRef.current) {
+          if (activeChatIdRef.current) {
             socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
           }
           cleanupCall();
         }
       };
 
+      (pc as any).onconnectionstatechange = () => {
+        const state = (pc as any).connectionState;
+        console.log(`[Call] PC state for ${targetUserId}:`, state);
+        if (state === 'failed' || state === 'disconnected') {
+          removePeer();
+        }
+      };
+
       (pc as any).oniceconnectionstatechange = () => {
-        console.log('[Call] ICE connection state:', pc.iceConnectionState);
-        if ((pc as any).iceConnectionState === 'failed' || (pc as any).iceConnectionState === 'disconnected') {
-          if (isCallActiveRef.current && activeChatIdRef.current) {
-            socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
-          }
-          cleanupCall();
+        const state = (pc as any).iceConnectionState;
+        console.log(`[Call] ICE state for ${targetUserId}:`, state);
+        if (state === 'failed') {
+          removePeer();
         }
       };
 
@@ -289,8 +342,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallStatus('incoming');
       setCallType(data.type);
       try { incomingSoundRef.current?.playAsync().catch(() => {}); } catch {}
-      
-      // Bump chat to the top
+
       useChatStore.getState().updateChat(data.chatId, { updatedAt: new Date().toISOString() });
     };
 
@@ -310,17 +362,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!isCallActiveRef.current || !localStreamRef.current) return;
 
-      // Caller creates PC now that we know the targetUserId
-      if (!pcRef.current) {
-        createPeerConnection(data.userId, true, localStreamRef.current);
-      }
-      
-      if (!pcRef.current) return;
+      // Guard against duplicate connections to the same user
+      if (peerConnectionsRef.current.has(data.userId)) return;
 
-      // Initiator creates offer
+      createPeerConnection(data.userId, true, localStreamRef.current);
+      const pc = peerConnectionsRef.current.get(data.userId);
+      if (!pc) return;
+
       try {
-        const offer = await pcRef.current.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true } as any);
-        await pcRef.current.setLocalDescription(new RTCSessionDescription(offer as any));
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true } as any);
+        await pc.setLocalDescription(new RTCSessionDescription(offer as any));
         socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
           targetUserId: data.userId,
           type: 'offer',
@@ -328,7 +379,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           chatId: activeChatIdRef.current,
         });
       } catch (err) {
-        console.error('[Call] Failed to create offer:', err);
+        console.error('[Call] Failed to create offer for', data.userId, err);
       }
     };
 
@@ -341,13 +392,20 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!isCallActiveRef.current) return;
 
-      // Create PC if not yet created (callee receiving offer)
-      if (!pcRef.current && localStreamRef.current) {
-        createPeerConnection(data.senderId, false, localStreamRef.current);
-      }
-      if (!pcRef.current) return;
+      const { senderId, type, signal } = data;
 
-      const { type, signal } = data;
+      // Create a PC for this sender if we don't have one (answerer side)
+      if (!peerConnectionsRef.current.has(senderId) && localStreamRef.current) {
+        createPeerConnection(senderId, false, localStreamRef.current);
+      }
+      const pc = peerConnectionsRef.current.get(senderId);
+      if (!pc) return;
+
+      // Per-sender ICE candidate buffer
+      if (!pendingCandidatesRef.current.has(senderId)) {
+        pendingCandidatesRef.current.set(senderId, []);
+      }
+      const pending = pendingCandidatesRef.current.get(senderId)!;
 
       try {
         if (type === 'offer') {
@@ -355,18 +413,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (typeof signal.sdp === 'object' && signal.sdp !== null) {
             sdpString = signal.sdp.sdp;
           }
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: sdpString } as any));
-          
-          // Add pending candidates
-          while (pendingCandidatesRef.current.length > 0) {
-            const c = pendingCandidatesRef.current.shift();
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: sdpString } as any));
+
+          // Flush buffered ICE candidates for this sender
+          while (pending.length > 0) {
+            await pc.addIceCandidate(new RTCIceCandidate(pending.shift()));
           }
 
-          const answer = await pcRef.current.createAnswer();
-          await pcRef.current.setLocalDescription(new RTCSessionDescription(answer as any));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(new RTCSessionDescription(answer as any));
           socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
-            targetUserId: data.senderId,
+            targetUserId: senderId,
             type: 'answer',
             signal: answer,
             chatId: activeChatIdRef.current,
@@ -376,36 +433,52 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (typeof signal.sdp === 'object' && signal.sdp !== null) {
             sdpString = signal.sdp.sdp;
           }
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: sdpString } as any));
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: sdpString } as any));
 
-          // Add pending candidates
-          while (pendingCandidatesRef.current.length > 0) {
-            const c = pendingCandidatesRef.current.shift();
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+          while (pending.length > 0) {
+            await pc.addIceCandidate(new RTCIceCandidate(pending.shift()));
           }
         } else if (type === 'candidate' && signal.candidate) {
-          if (pcRef.current.remoteDescription) {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
           } else {
-            pendingCandidatesRef.current.push(signal.candidate);
+            pending.push(signal.candidate);
           }
         }
       } catch (err) {
-        console.error('[Call] Signal handling error:', err);
+        console.error('[Call] Signal handling error for', senderId, err);
       }
     };
 
-    const handleEnded = () => {
-      console.log('[Call] Call ended by remote');
-      cleanupCall();
+    const handleEnded = (data: { chatId: string; enderId: string }) => {
+      const enderId = data?.enderId;
+      console.log('[Call] Peer left:', enderId);
+
+      if (enderId && peerConnectionsRef.current.has(enderId)) {
+        try { peerConnectionsRef.current.get(enderId)?.close(); } catch {}
+        peerConnectionsRef.current.delete(enderId);
+        setRemoteStreams(prev => { const m = new Map(prev); m.delete(enderId); return m; });
+        setRemoteVideoStates(prev => { const m = new Map(prev); m.delete(enderId); return m; });
+        pendingCandidatesRef.current.delete(enderId);
+
+        // If all peers have left, end the call locally too
+        if (peerConnectionsRef.current.size === 0) {
+          cleanupCall();
+        }
+      } else {
+        cleanupCall();
+      }
     };
 
     const handleRejected = () => {
       console.log('[Call] Call rejected');
-      // If we are the initiator, we should mark status as rejected somehow.
-      // We can do this by setting callStatusRef.current to a temp state 'rejected' before cleanup
       callStatusRef.current = 'rejected' as any;
       cleanupCall();
+    };
+
+    const handleVideoState = (data: { senderId: string; videoEnabled: boolean }) => {
+      console.log('[Call] Remote video state from', data.senderId, '→', data.videoEnabled);
+      setRemoteVideoStates(prev => new Map(prev).set(data.senderId, data.videoEnabled));
     };
 
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -414,6 +487,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
     socketManager.on(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
     socketManager.on(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
+    socketManager.on(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -422,6 +496,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
       socketManager.off(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
       socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
+      socketManager.off(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
     };
   }, [createPeerConnection, cleanupCall]);
 
@@ -460,20 +535,38 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isInitiatorRef.current = true;
       callStartTimeRef.current = null;
 
-      const stream = await mediaDevices.getUserMedia({
-        audio: true,
-        video: type === 'video'
-          ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-          : false,
-      }) as MediaStream;
+      // Try video; fall back to audio-only if camera is unavailable
+      let stream: any;
+      let videoAvailable = type === 'video';
+      if (type === 'video') {
+        try {
+          stream = await mediaDevices.getUserMedia({
+            audio: true,
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
+          const vTracks = stream.getVideoTracks ? stream.getVideoTracks() : [];
+          if (vTracks.length === 0 || !vTracks.some((t: any) => t.readyState === 'live')) {
+            videoAvailable = false;
+          }
+        } catch (camErr) {
+          console.warn('[Call] Camera unavailable, falling back to audio-only:', camErr);
+          stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+          videoAvailable = false;
+        }
+      } else {
+        stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      }
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-      setIsVideoEnabled(type === 'video');
+      setIsVideoEnabled(videoAvailable);
       setIsMuted(false);
 
-      // DO NOT create PC yet. Wait for CALL_USER_JOINED so we know targetUserId!
+      // Speaker starts OFF — user taps the speaker button to enable it
+      setIsSpeaker(false);
+      await applySpeakerMode(false);
 
+      // DO NOT create PC yet — wait for CALL_USER_JOINED to know targetUserId
       socketManager.emit(SOCKET_EVENTS.CALL_START, {
         chatId: activeChatIdRef.current,
         type: callTypeRef.current,
@@ -520,20 +613,39 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('[Call] Failed to stop incoming sound:', err);
       }
 
-      const stream = await mediaDevices.getUserMedia({
-        audio: true,
-        video: call.type === 'video'
-          ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-          : false,
-      }) as MediaStream;
+      // Try video; fall back to audio-only if camera is unavailable
+      let stream: any;
+      let videoAvailable = call.type === 'video';
+      if (call.type === 'video') {
+        try {
+          stream = await mediaDevices.getUserMedia({
+            audio: true,
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
+          const vTracks = stream.getVideoTracks ? stream.getVideoTracks() : [];
+          if (vTracks.length === 0 || !vTracks.some((t: any) => t.readyState === 'live')) {
+            videoAvailable = false;
+          }
+        } catch (camErr) {
+          console.warn('[Call] Camera unavailable, falling back to audio-only:', camErr);
+          stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+          videoAvailable = false;
+        }
+      } else {
+        stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      }
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-      setIsVideoEnabled(call.type === 'video');
+      setIsVideoEnabled(videoAvailable);
       setIsMuted(false);
       setCallType(call.type);
 
-      // Announce join — caller will get CALL_USER_JOINED and send offer
+      // Speaker starts OFF — user taps the speaker button to enable it
+      setIsSpeaker(false);
+      await applySpeakerMode(false);
+
+      // Announce join — all existing participants get CALL_USER_JOINED and send offers
       socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId: call.chatId });
       setIncomingCall(null);
     } catch (err) {
@@ -570,10 +682,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleVideo = () => {
     if (callType !== 'video') return;
+    const newEnabled = !isVideoEnabled;
     localStreamRef.current?.getVideoTracks().forEach((t: any) => {
-      t.enabled = !t.enabled;
+      t.enabled = newEnabled;
     });
-    setIsVideoEnabled((prev) => !prev);
+    setIsVideoEnabled(newEnabled);
+
+    // Broadcast camera state to the entire chat room
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
+        chatId: activeChatIdRef.current,
+        videoEnabled: newEnabled,
+      });
+    }
   };
 
   return (
@@ -584,9 +705,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callType,
         incomingCall,
         localStream,
-        remoteStream,
+        remoteStreams,
+        remoteVideoStates,
         isMuted,
         isVideoEnabled,
+        isSpeaker,
         activeChatId,
         startCall,
         answerCall,
@@ -594,6 +717,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endCall,
         toggleMute,
         toggleVideo,
+        toggleSpeaker,
       }}
     >
       {children}

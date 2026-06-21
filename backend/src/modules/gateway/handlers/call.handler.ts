@@ -123,6 +123,18 @@ export class CallHandler {
     });
   }
 
+  handleCallVideoState(
+    socket: AuthSocket,
+    data: { chatId: string; videoEnabled: boolean },
+  ) {
+    const { chatId, videoEnabled } = data;
+    // Broadcast to everyone else in the room so they update the avatar/video UI
+    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
+      senderId: socket.user.id,
+      videoEnabled,
+    });
+  }
+
   handleCallEnd(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const senderId = socket.user.id;
