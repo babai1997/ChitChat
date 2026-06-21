@@ -27,6 +27,7 @@ import {
 } from "lucide-react-native";
 import { useCall } from "../../src/contexts/CallContext";
 import { useAuthStore } from "../../src/stores/authStore";
+import { useChatStore } from "../../src/stores/chatStore";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -51,13 +52,14 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 // ── Remote participant tile ───────────────────────────────────────────────────
-// Shows either the participant's RTCView or their avatar when camera is off.
 
 function RemoteParticipantTile({
   userId,
   stream,
   videoEnabled,
-  chatAvatar,
+  memberName,
+  memberAvatar,
+  isSpeaking,
   style,
   videoRenderKey,
   isSingleParticipant,
@@ -65,39 +67,74 @@ function RemoteParticipantTile({
   userId: string;
   stream: MediaStream | undefined;
   videoEnabled: boolean;
-  chatAvatar?: string;
+  memberName: string;
+  memberAvatar: string | null;
+  isSpeaking: boolean;
   style?: any;
   videoRenderKey: number;
   isSingleParticipant: boolean;
 }) {
   const streamURL = stream ? (stream as any).toURL() : null;
+  const showVideo = videoEnabled && !!streamURL;
 
-  if (!videoEnabled || !streamURL) {
-    return (
-      <View style={[styles.remoteTile, styles.remoteTileAvatarBg, style]}>
-        {chatAvatar ? (
-          <Image
-            source={{ uri: chatAvatar }}
-            style={isSingleParticipant ? styles.avatarBgImage : styles.remoteTileAvatar}
-          />
-        ) : (
-          <View style={isSingleParticipant ? styles.avatarBgPlaceholder : styles.remoteTileAvatarPlaceholder}>
-            <User size={isSingleParticipant ? 100 : 48} color="#8696a0" />
-          </View>
-        )}
-        <Text style={styles.cameraOffLabel}>Camera off</Text>
-      </View>
-    );
-  }
+  const avatarSize = isSingleParticipant ? 160 : 72;
+  const avatarRadius = avatarSize / 2;
+  const iconSize = isSingleParticipant ? 100 : 36;
 
   return (
-    <RTCView
-      key={`remote-${userId}-${videoRenderKey}`}
-      streamURL={streamURL}
-      style={[styles.remoteTile, style]}
-      objectFit="cover"
-      zOrder={0}
-    />
+    <View
+      style={[
+        styles.remoteTile,
+        style,
+        isSpeaking && styles.remoteTileSpeaking,
+      ]}
+    >
+      {showVideo ? (
+        <RTCView
+          key={`remote-${userId}-${videoRenderKey}`}
+          streamURL={streamURL}
+          style={StyleSheet.absoluteFillObject}
+          objectFit="cover"
+          zOrder={0}
+        />
+      ) : (
+        <View style={styles.remoteTileAvatarBg}>
+          {memberAvatar ? (
+            <Image
+              source={{ uri: memberAvatar }}
+              style={{ width: avatarSize, height: avatarSize, borderRadius: avatarRadius }}
+            />
+          ) : (
+            <View
+              style={[
+                styles.remoteTileAvatarPlaceholder,
+                { width: avatarSize, height: avatarSize, borderRadius: avatarRadius },
+              ]}
+            >
+              <User size={iconSize} color="#8696a0" />
+            </View>
+          )}
+          {!videoEnabled && isSingleParticipant && (
+            <Text style={styles.cameraOffLabel}>Camera off</Text>
+          )}
+        </View>
+      )}
+
+      {/* Speaking indicator ring (only when speaking) */}
+      {isSpeaking && (
+        <View style={styles.speakingRing} pointerEvents="none" />
+      )}
+
+      {/* Name label at bottom of tile */}
+      <View style={styles.nameLabelContainer} pointerEvents="none">
+        {isSpeaking && (
+          <View style={styles.speakingDot} />
+        )}
+        <Text style={styles.nameLabel} numberOfLines={1}>
+          {memberName}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -118,9 +155,11 @@ export default function ActiveCallScreen({
     localStream,
     remoteStreams,
     remoteVideoStates,
+    activeSpeakers,
     isMuted,
     isVideoEnabled,
     isSpeaker,
+    activeChatId,
     endCall,
     toggleMute,
     toggleVideo,
@@ -130,6 +169,18 @@ export default function ActiveCallScreen({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const localUserAvatar = useAuthStore((s) => s.user?.profile?.avatarUrl ?? null);
+  const localUserName = useAuthStore((s) => s.user?.profile?.displayName ?? "You");
+
+  // Resolve member info from chat store
+  const chats = useChatStore((s) => s.chats);
+  const chat = chats.find((c) => c.id === activeChatId) ?? null;
+  const getMemberInfo = (userId: string) => {
+    const member = chat?.members?.find((m: any) => m.userId === userId);
+    return {
+      name: member?.user?.profile?.displayName || "User",
+      avatar: member?.user?.profile?.avatarUrl || null,
+    };
+  };
 
   const [videoRenderKey, setVideoRenderKey] = useState(0);
   const appStateRef = useRef(AppState.currentState);
@@ -226,30 +277,43 @@ export default function ActiveCallScreen({
   const participantIds = Array.from(remoteStreams.keys());
   const participantCount = participantIds.length;
 
-  // Show center avatar: audio calls, or video call during calling/ringing phase
-  const showCenterAvatar = !isVideo || callStatus === "calling" || callStatus === "incoming";
-  // PiP only when video call is connected
+  // ── Layout logic ────────────────────────────────────────────────────────────
+  //
+  // Show the remote grid when:
+  //   - video call: any number of remote participants
+  //   - audio call: 2+ remote participants (group audio → avatar grid)
+  // Show center avatar when:
+  //   - still calling / incoming
+  //   - audio 1:1 call while connected (single remote, audio only)
+
+  const isConnectedWithPeers = callStatus === "connected" && participantCount > 0;
+  const showGrid = isConnectedWithPeers && (isVideo || participantCount >= 2);
+  const showCenterAvatar = !showGrid;
+
+  // Local PiP only shown for video calls once connected
   const showLocalPip = isVideo && callStatus === "connected" && !!localStream;
 
   // ── Remote grid ─────────────────────────────────────────────────────────────
   //
-  // Layout based on number of remote participants:
-  //   1 → full-screen (WhatsApp 1:1 style)
-  //   2 → two equal rows, each full width
-  //   3 → top row: two tiles side-by-side; bottom row: one full-width
-  //   4 → 2×2 grid
+  // 1 remote  → full screen
+  // 2 remotes → 2 stacked rows (full width each)
+  // 3–4       → 2-column grid
+  // 5+        → 2-column scrollable (capped visually at first 6)
 
   const renderRemoteGrid = () => {
-    if (callStatus !== "connected" || participantCount === 0) return null;
+    if (!showGrid) return null;
 
     if (participantCount === 1) {
       const uid = participantIds[0];
+      const { name, avatar } = getMemberInfo(uid);
       return (
         <RemoteParticipantTile
           userId={uid}
           stream={remoteStreams.get(uid)}
-          videoEnabled={remoteVideoStates.get(uid) ?? true}
-          chatAvatar={chatAvatar}
+          videoEnabled={isVideo && (remoteVideoStates.get(uid) ?? true)}
+          memberName={name}
+          memberAvatar={avatar}
+          isSpeaking={activeSpeakers.has(uid)}
           style={StyleSheet.absoluteFillObject}
           videoRenderKey={videoRenderKey}
           isSingleParticipant
@@ -257,8 +321,6 @@ export default function ActiveCallScreen({
       );
     }
 
-    // 2 participants → each in their own row (full width, half height)
-    // 3–4 participants → 2 columns per row
     const colsPerRow = participantCount === 2 ? 1 : 2;
     const rows = chunkArray(participantIds, colsPerRow);
     const numRows = rows.length;
@@ -278,23 +340,27 @@ export default function ActiveCallScreen({
               flexDirection: "row",
             }}
           >
-            {row.map((uid) => (
-              <RemoteParticipantTile
-                key={uid}
-                userId={uid}
-                stream={remoteStreams.get(uid)}
-                videoEnabled={remoteVideoStates.get(uid) ?? true}
-                chatAvatar={chatAvatar}
-                style={{
-                  flex: 1,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: "#0b141a",
-                }}
-                videoRenderKey={videoRenderKey}
-                isSingleParticipant={false}
-              />
-            ))}
-            {/* Fill gap when last row has an odd participant */}
+            {row.map((uid) => {
+              const { name, avatar } = getMemberInfo(uid);
+              return (
+                <RemoteParticipantTile
+                  key={uid}
+                  userId={uid}
+                  stream={remoteStreams.get(uid)}
+                  videoEnabled={isVideo && (remoteVideoStates.get(uid) ?? true)}
+                  memberName={name}
+                  memberAvatar={avatar}
+                  isSpeaking={activeSpeakers.has(uid)}
+                  style={{
+                    flex: 1,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: "#0b141a",
+                  }}
+                  videoRenderKey={videoRenderKey}
+                  isSingleParticipant={false}
+                />
+              );
+            })}
             {row.length < colsPerRow && (
               <View style={{ flex: colsPerRow - row.length, backgroundColor: "#0f171b" }} />
             )}
@@ -309,11 +375,7 @@ export default function ActiveCallScreen({
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* ── Full-screen background / remote grid ── */}
-      {showCenterAvatar ? (
-        <View style={styles.audioBackground} />
-      ) : (
-        renderRemoteGrid()
-      )}
+      {showGrid ? renderRemoteGrid() : <View style={styles.audioBackground} />}
 
       {/* Gradient overlay */}
       <View style={styles.overlay} />
@@ -353,7 +415,7 @@ export default function ActiveCallScreen({
           </View>
         </View>
 
-        {/* ── Center avatar — audio calls and calling state ── */}
+        {/* ── Center avatar — calling state / audio 1:1 ── */}
         {showCenterAvatar && (
           <View style={styles.avatarCenterContainer}>
             <View style={styles.avatarInner}>
@@ -369,11 +431,17 @@ export default function ActiveCallScreen({
                   <User size={80} color="#8696a0" />
                 </View>
               )}
+              {/* Name shown below center avatar in connected audio 1:1 */}
+              {callStatus === "connected" && participantCount === 1 && !isVideo && (
+                <Text style={styles.connectedName}>
+                  {getMemberInfo(participantIds[0]).name}
+                </Text>
+              )}
             </View>
           </View>
         )}
 
-        {/* ── Local PiP (draggable, visible only when connected video) ── */}
+        {/* ── Local PiP (draggable, video calls only) ── */}
         {showLocalPip && (
           <Animated.View
             style={[
@@ -403,6 +471,12 @@ export default function ActiveCallScreen({
                 )}
               </View>
             )}
+            {/* "You" label on local PiP */}
+            <View style={styles.localPipLabel}>
+              <Text style={styles.localPipLabelText} numberOfLines={1}>
+                {localUserName}
+              </Text>
+            </View>
           </Animated.View>
         )}
 
@@ -457,49 +531,63 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#0f171b",
   },
-  // ── Remote tile styles (used by RemoteParticipantTile) ──────────────────────
+  // ── Remote tile ─────────────────────────────────────────────────────────────
   remoteTile: {
     overflow: "hidden",
+    backgroundColor: "#0f171b",
+  },
+  remoteTileSpeaking: {
+    // Green border indicates active speaker
+    borderWidth: 2,
+    borderColor: "#00a884",
   },
   remoteTileAvatarBg: {
-    backgroundColor: "#0f171b",
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-  },
-  // Smaller avatar shown inside a grid tile (2-4 participants)
-  remoteTileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
   },
   remoteTileAvatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     backgroundColor: "#1f2c33",
     alignItems: "center",
     justifyContent: "center",
   },
-  // Larger avatar shown when only one remote (full-screen tile)
-  avatarBgImage: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+  speakingRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 3,
+    borderColor: "#00a884",
+    borderRadius: 0,
+    pointerEvents: "none",
   },
-  avatarBgPlaceholder: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "#1f2c33",
+  nameLabelContainer: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+  },
+  speakingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#00a884",
+  },
+  nameLabel: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    flex: 1,
   },
   cameraOffLabel: {
-    marginTop: 16,
+    marginTop: 12,
     color: "rgba(255,255,255,0.55)",
-    fontSize: 14,
+    fontSize: 13,
   },
-  // ── Overlay & safe area ─────────────────────────────────────────────────────
+  // ── Overlay ─────────────────────────────────────────────────────────────────
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.15)",
@@ -542,7 +630,7 @@ const styles = StyleSheet.create({
   topRightBtns: {
     alignItems: "center",
   },
-  // ── Center avatar (audio / calling) ─────────────────────────────────────────
+  // ── Center avatar ────────────────────────────────────────────────────────────
   avatarCenterContainer: {
     flex: 1,
     alignItems: "center",
@@ -577,6 +665,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.2)",
     zIndex: 1,
   },
+  connectedName: {
+    marginTop: 16,
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "500",
+  },
   // ── Local PiP ───────────────────────────────────────────────────────────────
   localVideoWrapper: {
     position: "absolute",
@@ -601,6 +695,21 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
+  },
+  localPipLabel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    alignItems: "center",
+  },
+  localPipLabelText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
   },
   // ── Bottom controls ─────────────────────────────────────────────────────────
   bottomPillContainer: {

@@ -71,6 +71,8 @@ interface CallContextType {
   remoteStreams: Map<string, MediaStream>;
   // Multi-party: per-user camera on/off state
   remoteVideoStates: Map<string, boolean>;
+  // Set of userIds whose audio is currently active (speaking indicator)
+  activeSpeakers: Set<string>;
   isMuted: boolean;
   isVideoEnabled: boolean;
   isSpeaker: boolean;
@@ -96,6 +98,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
+  const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -146,6 +149,34 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       outgoingSoundRef.current?.unloadAsync().catch(() => {});
     };
   }, []);
+
+  // Poll audio stats every 600ms to detect active speakers
+  useEffect(() => {
+    if (!isCallActive) return;
+    const interval = setInterval(() => {
+      const speaking = new Set<string>();
+      const checks: Promise<void>[] = [];
+      peerConnectionsRef.current.forEach((pc, userId) => {
+        const p = new Promise<void>((resolve) => {
+          try {
+            pc.getStats(null, (statsReport: any) => {
+              const stats: any[] = Array.isArray(statsReport) ? statsReport : [];
+              const active = stats.some((s: any) =>
+                (s.type === 'ssrc' && s.mediaType === 'audio' &&
+                  ((s.audioOutputLevel ?? 0) > 300 || (s.audioInputLevel ?? 0) > 300)) ||
+                (s.type === 'inbound-rtp' && s.kind === 'audio' && (s.audioLevel ?? 0) > 0.01)
+              );
+              if (active) speaking.add(userId);
+              resolve();
+            }, () => resolve());
+          } catch { resolve(); }
+        });
+        checks.push(p);
+      });
+      Promise.all(checks).then(() => setActiveSpeakers(new Set(speaking)));
+    }, 600);
+    return () => clearInterval(interval);
+  }, [isCallActive]);
 
   // Keep refs in sync
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
@@ -707,6 +738,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStream,
         remoteStreams,
         remoteVideoStates,
+        activeSpeakers,
         isMuted,
         isVideoEnabled,
         isSpeaker,
