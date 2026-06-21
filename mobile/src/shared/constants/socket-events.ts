@@ -40,6 +40,8 @@ export const SOCKET_EVENTS = {
   CALL_REJECT: 'call:reject',
   /** Caller timed out — no one answered. Server creates a missed-call message. */
   CALL_MISSED: 'call:missed',
+  /** Broadcast own camera on/off state to everyone in the chat room. */
+  CALL_VIDEO_STATE: 'call:video-state',
 
   // ── Calls: Server → Client ─────────────────────────────────────────────────
   CALL_INCOMING: 'call:incoming',

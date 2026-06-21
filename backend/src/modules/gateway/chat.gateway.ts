@@ -242,6 +242,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.callHandler.handleCallSignal(socket as any, data);
   }
 
+  @SubscribeMessage(SOCKET_EVENTS.CALL_VIDEO_STATE)
+  handleCallVideoState(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string; videoEnabled: boolean },
+  ) {
+    this.callHandler.handleCallVideoState(socket as any, data);
+  }
+
   @SubscribeMessage(SOCKET_EVENTS.CALL_REJECT)
   handleCallReject(
     @ConnectedSocket() socket: AuthenticatedSocket,
