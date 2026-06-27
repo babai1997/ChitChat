@@ -130,6 +130,22 @@ export const chatApi = {
     return response.data;
   },
 
+  uploadGroupAvatar: async (
+    chatId: string,
+    uri: string,
+    filename: string,
+    type: string,
+  ): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', { uri, name: filename, type } as any);
+    const response = await api.post(
+      `/chats/${chatId}/messages/attachments`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return { url: response.data.url };
+  },
+
   markMessagesAsRead: async (
     chatId: string,
     messageIds: string[],

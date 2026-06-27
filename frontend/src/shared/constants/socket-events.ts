@@ -43,9 +43,17 @@ export const SOCKET_EVENTS = {
   CALL_AUDIO_STATE: 'call:audio-state',
   /** Caller timed out — no one answered. Server creates a missed-call message. */
   CALL_MISSED: 'call:missed',
+  /** Invite a specific member of the chat to join an ongoing call. */
+  CALL_ADD_MEMBER: 'call:add-member',
 
   // ── Calls: Server → Client ─────────────────────────────────────────────────
   CALL_INCOMING: 'call:incoming',
+  /** Sent back to the caller after CALL_START to tell them how many recipients are ringing. */
+  CALL_RINGING: 'call:ringing',
+  /** Broadcast to chat room when a call is active — lets non-participants see the "Join" banner. */
+  CALL_ONGOING: 'call:ongoing',
+  /** Broadcast to chat room when the last participant leaves — removes the banner. */
+  CALL_FINISHED: 'call:finished',
   CALL_REJECTED: 'call:rejected',
   CALL_ENDED: 'call:ended',
   CALL_USER_JOINED: 'call:user-joined',

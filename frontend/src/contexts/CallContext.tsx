@@ -18,6 +18,13 @@ interface IncomingCallData {
   type: 'audio' | 'video';
 }
 
+export interface OngoingCallInfo {
+  chatId: string;
+  type: 'audio' | 'video';
+  callerName: string;
+  participantCount: number;
+}
+
 interface CallContextType {
   isCallActive: boolean;
   callStatus: 'idle' | 'calling' | 'incoming' | 'connected';
@@ -33,6 +40,8 @@ interface CallContextType {
   isMinimized: boolean;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  /** Ongoing calls in other chats — keyed by chatId. Used to show the "Tap to join" banner. */
+  ongoingCallsByChatId: Map<string, OngoingCallInfo>;
   startCall: (chatId: string, type: 'audio' | 'video') => void;
   answerCall: () => void;
   rejectCall: () => void;
@@ -40,6 +49,8 @@ interface CallContextType {
   toggleMute: () => void;
   toggleVideo: () => void;
   toggleMinimize: () => void;
+  addToCall: (targetUserId: string) => void;
+  joinOngoingCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -60,6 +71,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
   const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
+  const [ongoingCallsByChatId, setOngoingCallsByChatId] = useState<Map<string, OngoingCallInfo>>(new Map());
 
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -73,11 +85,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   /** Auto-cancel timer — clears when call is answered, rejected, or ended. */
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Auto-dismiss timer on the recipient side — safety net in case CALL_MISSED never arrives. */
+  const incomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitiatorRef = useRef(false);
   const callStartTimeRef = useRef<number | null>(null);
   const callStatusRef = useRef<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
   const callTypeRef = useRef<'audio' | 'video'>('audio');
   const wasRejectedRef = useRef(false);
+  /** Total recipients ringing — set when CALL_RINGING ack arrives from server. */
+  const pendingRecipientCountRef = useRef(0);
+  /** How many recipients have explicitly declined so far. */
+  const rejectedCountRef = useRef(0);
 
   // Keep refs in sync with state
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
@@ -91,10 +109,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('[Call] Cleaning up');
     ringtoneManager.stopAll();
 
-    // Clear the auto-cancel timer if still running
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
+    }
+
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
     }
 
     // Send call history message — only the initiator writes the log to avoid duplicates
@@ -151,6 +173,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isInitiatorRef.current = false;
     callStartTimeRef.current = null;
     wasRejectedRef.current = false;
+    pendingRecipientCountRef.current = 0;
+    rejectedCountRef.current = 0;
   }, []);
 
   // ── Peer factory ───────────────────────────────────────────────────────────
@@ -268,14 +292,46 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingCall(data);
       setCallStatus('incoming');
       setCallType(data.type);
-      
+
       // Bump chat to the top
       useChatStore.getState().updateChat(data.chatId, { updatedAt: new Date().toISOString() });
+
+      // Auto-dismiss after 60s if caller never sends CALL_MISSED — safety net
+      if (incomingTimeoutRef.current) clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = setTimeout(() => {
+        incomingTimeoutRef.current = null;
+        ringtoneManager.stopRingtone();
+        setIncomingCall(null);
+        setCallStatus('idle');
+      }, 60_000);
+    };
+
+    const handleRinging = (data: { recipientCount: number }) => {
+      pendingRecipientCountRef.current = data.recipientCount;
+      rejectedCountRef.current = 0;
+    };
+
+    const handleOngoing = (data: OngoingCallInfo) => {
+      // Don't show the banner for the chat we're already in
+      if (data.chatId === activeChatIdRef.current) return;
+      setOngoingCallsByChatId((prev) => new Map(prev).set(data.chatId, data));
+    };
+
+    const handleFinished = (data: { chatId: string }) => {
+      setOngoingCallsByChatId((prev) => {
+        const next = new Map(prev);
+        next.delete(data.chatId);
+        return next;
+      });
     };
 
     /** Callee side: caller timed out — dismiss the incoming call UI. */
     const handleMissed = () => {
       console.log('[Call] Caller gave up — dismissing incoming call');
+      if (incomingTimeoutRef.current) {
+        clearTimeout(incomingTimeoutRef.current);
+        incomingTimeoutRef.current = null;
+      }
       ringtoneManager.stopRingtone();
       setIncomingCall(null);
       setCallStatus('idle');
@@ -343,11 +399,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const handleRejected = () => {
-      console.log('[Call] Call rejected');
-      toast.error('Call was declined');
-      wasRejectedRef.current = true;
-      cleanupCall();
+    const handleRejected = (data?: { rejectorName?: string }) => {
+      const name = data?.rejectorName || 'Someone';
+      rejectedCountRef.current += 1;
+      console.log(`[Call] ${name} declined (${rejectedCountRef.current}/${pendingRecipientCountRef.current})`);
+
+      // In a group call only end when every recipient has declined and no peer connected
+      const allDeclined = rejectedCountRef.current >= pendingRecipientCountRef.current;
+      const noneConnected = peersRef.current.size === 0;
+
+      if (allDeclined && noneConnected) {
+        // Emit CALL_END so backend decrements count → emits CALL_FINISHED → removes banners
+        if (activeChatIdRef.current) {
+          socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
+        }
+        toast.error(
+          pendingRecipientCountRef.current === 1
+            ? 'Call was declined'
+            : 'Everyone declined the call',
+        );
+        wasRejectedRef.current = true;
+        cleanupCall();
+      } else {
+        toast(`${name} declined`);
+      }
     };
 
     const handleVideoState = (data: unknown) => {
@@ -371,6 +446,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Register via socketManager — handlers persist in its internal registry
     // and are re-attached automatically after each reconnect.
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    socketManager.on(SOCKET_EVENTS.CALL_RINGING, handleRinging as (data: any) => void);
     socketManager.on(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
     socketManager.on(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
     socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
@@ -378,9 +455,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
     socketManager.on(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState);
     socketManager.on(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState);
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    socketManager.on(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
+    socketManager.on(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+      socketManager.off(SOCKET_EVENTS.CALL_RINGING, handleRinging as any);
       socketManager.off(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
       socketManager.off(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
       socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
@@ -388,6 +469,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
       socketManager.off(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState);
       socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState);
+      socketManager.off(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
+      socketManager.off(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
+      /* eslint-enable @typescript-eslint/no-explicit-any */
     };
   // Run once on mount — socketManager.on() persists handlers through reconnects
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -445,10 +529,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     ringtoneManager.stopRingtone();
 
-    // Clear the caller's outgoing timeout — call is now being answered
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
+    }
+
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
     }
 
     try {
@@ -488,6 +576,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const call = incomingCallRef.current;
     console.log('[Call] Rejecting call');
     ringtoneManager.stopRingtone();
+
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
+    }
 
     if (call) {
       socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
@@ -537,6 +630,51 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleMinimize = () => setIsMinimized((prev) => !prev);
 
+  const addToCall = (targetUserId: string) => {
+    if (!activeChatIdRef.current || callStatus !== 'connected') return;
+    socketManager.emit(SOCKET_EVENTS.CALL_ADD_MEMBER, {
+      chatId: activeChatIdRef.current,
+      targetUserId,
+      type: callType,
+    });
+  };
+
+  const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
+    try {
+      activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
+      setCallType(type);
+      callTypeRef.current = type;
+      setCallStatus('calling');
+      setIsCallActive(true);
+      isCallActiveRef.current = true;
+      isInitiatorRef.current = false;
+      callStartTimeRef.current = null;
+
+      // Remove the banner for this chat immediately
+      setOngoingCallsByChatId((prev) => {
+        const next = new Map(prev);
+        next.delete(chatId);
+        return next;
+      });
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: type === 'video',
+        audio: true,
+      });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsVideoEnabled(type === 'video');
+      setIsMuted(false);
+
+      socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId });
+    } catch (err: unknown) {
+      console.error('[Call] Failed to join ongoing call:', err);
+      toast.error(getMediaErrorMessage(err));
+      cleanupCall();
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -554,6 +692,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isMinimized,
         isMuted,
         isVideoEnabled,
+        ongoingCallsByChatId,
         startCall,
         answerCall,
         rejectCall,
@@ -561,6 +700,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleMute,
         toggleVideo,
         toggleMinimize,
+        addToCall,
+        joinOngoingCall,
       }}
     >
       {children}

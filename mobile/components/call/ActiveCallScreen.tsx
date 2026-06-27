@@ -11,6 +11,9 @@ import {
   PanResponder,
   AppState,
   Dimensions,
+  Modal,
+  FlatList,
+  Pressable,
 } from "react-native";
 import {
   Mic,
@@ -24,6 +27,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Volume2,
+  SwitchCamera,
 } from "lucide-react-native";
 import { useCall } from "../../src/contexts/CallContext";
 import { useAuthStore } from "../../src/stores/authStore";
@@ -41,7 +45,8 @@ try {
   console.warn("[ActiveCallScreen] RTCView not available");
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const IS_TABLET = SCREEN_WIDTH >= 768;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +154,62 @@ function RemoteParticipantTile({
   );
 }
 
+// ── Local participant tile (tablet 50/50 view) ────────────────────────────────
+
+function LocalParticipantTile({
+  stream,
+  videoEnabled,
+  localUserName,
+  localUserAvatar,
+  style,
+  videoRenderKey,
+  isFrontCamera,
+}: {
+  stream: MediaStream | null;
+  videoEnabled: boolean;
+  localUserName: string;
+  localUserAvatar: string | null;
+  style?: any;
+  videoRenderKey: number;
+  isFrontCamera: boolean;
+}) {
+  const streamURL = stream ? (stream as any).toURL() : null;
+  const showVideo = videoEnabled && !!streamURL;
+
+  return (
+    <View style={[styles.remoteTile, style]}>
+      {showVideo ? (
+        <RTCView
+          key={`local-tile-${videoRenderKey}`}
+          streamURL={streamURL}
+          style={StyleSheet.absoluteFillObject}
+          objectFit="cover"
+          zOrder={0}
+          mirror={isFrontCamera}
+        />
+      ) : (
+        <View style={styles.remoteTileAvatarBg}>
+          {localUserAvatar ? (
+            <Image
+              source={{ uri: localUserAvatar }}
+              style={{ width: 72, height: 72, borderRadius: 36 }}
+            />
+          ) : (
+            <View style={[styles.remoteTileAvatarPlaceholder, { width: 72, height: 72, borderRadius: 36 }]}>
+              <User size={36} color="#8696a0" />
+            </View>
+          )}
+        </View>
+      )}
+      <View style={styles.nameLabelContainer} pointerEvents="none">
+        <Text style={styles.nameLabel} numberOfLines={1}>
+          You
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface ActiveCallScreenProps {
@@ -176,12 +237,14 @@ export default function ActiveCallScreen({
     toggleMute,
     toggleVideo,
     toggleSpeaker,
+    addToCall,
   } = useCall();
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const localUserAvatar = useAuthStore((s) => s.user?.profile?.avatarUrl ?? null);
   const localUserName = useAuthStore((s) => s.user?.profile?.displayName ?? "You");
+  const currentUserId = useAuthStore((s) => s.user?.id ?? '');
 
   // Resolve member info from chat store
   const chats = useChatStore((s) => s.chats);
@@ -200,14 +263,23 @@ export default function ActiveCallScreen({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Tap PiP to swap full-screen ↔ corner (like WhatsApp)
+  const [isSwapped, setIsSwapped] = useState(false);
+
   const pan = useRef(new Animated.ValueXY()).current;
   const panResponder = useRef(
     PanResponder.create({
+      // Claim the gesture from touch-start so taps also reach onPanResponderRelease
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (_, gestureState) => {
+        // Small movement = tap → swap which stream is full-screen
+        if (Math.abs(gestureState.dx) < 8 && Math.abs(gestureState.dy) < 8) {
+          setIsSwapped((s) => !s);
+        }
         pan.extractOffset();
       },
     }),
@@ -289,6 +361,26 @@ export default function ActiveCallScreen({
   const participantIds = Array.from(remoteStreams.keys());
   const participantCount = participantIds.length;
 
+  // Camera flip (front ↔ back)
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const switchCamera = () => {
+    if (!localStream) return;
+    const videoTrack = (localStream as any).getVideoTracks?.()[0];
+    if (videoTrack) {
+      videoTrack._switchCamera();
+      setIsFrontCamera((f) => !f);
+    }
+  };
+
+  // ── Add-member picker ────────────────────────────────────────────────────────
+  const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
+
+  // Members available to invite: in the chat but not already in the call
+  const alreadyInCall = new Set([currentUserId, ...Array.from(remoteStreams.keys())]);
+  const invitableMembers = (chat?.members ?? []).filter(
+    (m: any) => !alreadyInCall.has(m.userId),
+  );
+
   // ── Layout logic ────────────────────────────────────────────────────────────
   //
   // Show the remote grid when:
@@ -302,15 +394,16 @@ export default function ActiveCallScreen({
   const showGrid = isConnectedWithPeers && (isVideo || participantCount >= 2);
   const showCenterAvatar = !showGrid;
 
-  // Local PiP only shown for video calls once connected
-  const showLocalPip = isVideo && callStatus === "connected" && !!localStream;
+  // Local PiP: video calls only; on tablet 1-on-1 the local stream is a grid tile instead
+  const showLocalPip = isVideo && callStatus === "connected" && !!localStream &&
+    !(IS_TABLET && participantCount === 1);
 
   // ── Remote grid ─────────────────────────────────────────────────────────────
   //
   // 1 remote  → full screen
-  // 2 remotes → 2 stacked rows (full width each)
-  // 3–4       → 2-column grid
-  // 5+        → 2-column scrollable (capped visually at first 6)
+  // 2 remotes → side-by-side 2-column grid (same as WhatsApp)
+  // 3–4       → 2-column grid (2+1 or 2+2)
+  // 5+        → 2-column grid rows
 
   const renderRemoteGrid = () => {
     if (!showGrid) return null;
@@ -318,6 +411,37 @@ export default function ActiveCallScreen({
     if (participantCount === 1) {
       const uid = participantIds[0];
       const { name, avatar } = getMemberInfo(uid);
+
+      if (IS_TABLET && isVideo) {
+        // Tablet 1-on-1 video: equal 50/50 side-by-side tiles
+        return (
+          <View style={[StyleSheet.absoluteFillObject, { flexDirection: "row" }]}>
+            <RemoteParticipantTile
+              userId={uid}
+              stream={remoteStreams.get(uid)}
+              videoEnabled={remoteVideoStates.get(uid) ?? true}
+              memberName={name}
+              memberAvatar={avatar}
+              isSpeaking={activeSpeakers.has(uid)}
+              isRemoteMuted={remoteMuteStates.get(uid) === true}
+              style={{ flex: 1 }}
+              videoRenderKey={videoRenderKey}
+              isSingleParticipant={false}
+            />
+            <LocalParticipantTile
+              stream={localStream as MediaStream | null}
+              videoEnabled={isVideoEnabled}
+              localUserName={localUserName}
+              localUserAvatar={localUserAvatar}
+              style={{ flex: 1 }}
+              videoRenderKey={videoRenderKey}
+              isFrontCamera={isFrontCamera}
+            />
+          </View>
+        );
+      }
+
+      // Phone: single remote fills the entire screen
       return (
         <RemoteParticipantTile
           userId={uid}
@@ -334,7 +458,8 @@ export default function ActiveCallScreen({
       );
     }
 
-    const colsPerRow = participantCount === 2 ? 1 : 2;
+    // Always 2 columns so 2 participants appear side-by-side, not stacked
+    const colsPerRow = 2;
     const rows = chunkArray(participantIds, colsPerRow);
     const numRows = rows.length;
     const rowHeight = SCREEN_HEIGHT / numRows;
@@ -389,7 +514,27 @@ export default function ActiveCallScreen({
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* ── Full-screen background / remote grid ── */}
-      {showGrid ? renderRemoteGrid() : <View style={styles.audioBackground} />}
+      {showGrid ? (
+        isSwapped && participantCount === 1 && isVideo && !!localStream ? (
+          // Swapped: local camera fills the background
+          isVideoEnabled ? (
+            <RTCView
+              key={`local-fullscreen-${videoRenderKey}`}
+              streamURL={(localStream as any).toURL()}
+              style={StyleSheet.absoluteFillObject}
+              objectFit="cover"
+              zOrder={0}
+              mirror={isFrontCamera}
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFillObject, styles.audioBackground]} />
+          )
+        ) : (
+          renderRemoteGrid()
+        )
+      ) : (
+        <View style={styles.audioBackground} />
+      )}
 
       {/* Gradient overlay */}
       <View style={styles.overlay} />
@@ -416,7 +561,7 @@ export default function ActiveCallScreen({
           <View style={styles.topRightBtns}>
             <TouchableOpacity
               style={styles.topIconBtn}
-              onPress={() => console.log("Add user")}
+              onPress={() => setShowAddMemberPicker(true)}
             >
               <UserPlus size={24} color="#fff" />
             </TouchableOpacity>
@@ -455,7 +600,7 @@ export default function ActiveCallScreen({
           </View>
         )}
 
-        {/* ── Local PiP (draggable, video calls only) ── */}
+        {/* ── PiP (draggable) — tap to flip full-screen ↔ corner ── */}
         {showLocalPip && (
           <Animated.View
             style={[
@@ -464,33 +609,69 @@ export default function ActiveCallScreen({
             ]}
             {...panResponder.panHandlers}
           >
-            {isVideoEnabled ? (
-              <RTCView
-                key={`local-pip-${videoRenderKey}`}
-                streamURL={(localStream as any).toURL()}
-                style={{ flex: 1 }}
-                objectFit="cover"
-                zOrder={1}
-                mirror
-              />
+            {isSwapped && participantCount === 1 ? (
+              // Swapped: show remote stream in the corner PiP
+              (() => {
+                const uid = participantIds[0];
+                const remoteStream = remoteStreams.get(uid);
+                const remoteStreamURL = remoteStream ? (remoteStream as any).toURL() : null;
+                const remoteVideoOn = remoteVideoStates.get(uid) ?? true;
+                const { name, avatar } = getMemberInfo(uid);
+                return (
+                  <>
+                    {remoteStreamURL && remoteVideoOn ? (
+                      <RTCView
+                        key={`remote-pip-${videoRenderKey}`}
+                        streamURL={remoteStreamURL}
+                        style={{ flex: 1 }}
+                        objectFit="cover"
+                        zOrder={1}
+                      />
+                    ) : (
+                      <View style={styles.localVideoOff}>
+                        {avatar ? (
+                          <Image source={{ uri: avatar }} style={styles.localAvatarPip} />
+                        ) : (
+                          <User size={40} color="#8696a0" />
+                        )}
+                      </View>
+                    )}
+                    <View style={styles.localPipLabel}>
+                      <Text style={styles.localPipLabelText} numberOfLines={1}>
+                        {name}
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()
             ) : (
-              <View style={styles.localVideoOff}>
-                {localUserAvatar ? (
-                  <Image
-                    source={{ uri: localUserAvatar }}
-                    style={styles.localAvatarPip}
+              // Default: show local camera in the corner PiP
+              <>
+                {isVideoEnabled ? (
+                  <RTCView
+                    key={`local-pip-${videoRenderKey}`}
+                    streamURL={(localStream as any).toURL()}
+                    style={{ flex: 1 }}
+                    objectFit="cover"
+                    zOrder={1}
+                    mirror={isFrontCamera}
                   />
                 ) : (
-                  <User size={40} color="#8696a0" />
+                  <View style={styles.localVideoOff}>
+                    {localUserAvatar ? (
+                      <Image source={{ uri: localUserAvatar }} style={styles.localAvatarPip} />
+                    ) : (
+                      <User size={40} color="#8696a0" />
+                    )}
+                  </View>
                 )}
-              </View>
+                <View style={styles.localPipLabel}>
+                  <Text style={styles.localPipLabelText} numberOfLines={1}>
+                    {localUserName}
+                  </Text>
+                </View>
+              </>
             )}
-            {/* "You" label on local PiP */}
-            <View style={styles.localPipLabel}>
-              <Text style={styles.localPipLabelText} numberOfLines={1}>
-                {localUserName}
-              </Text>
-            </View>
           </Animated.View>
         )}
 
@@ -510,6 +691,11 @@ export default function ActiveCallScreen({
                 <VideoOff size={24} color="#fff" />
               )}
             </TouchableOpacity>
+            {isVideo && isVideoEnabled && (
+              <TouchableOpacity style={styles.pillIconBtn} onPress={switchCamera}>
+                <SwitchCamera size={24} color="#fff" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.pillIconBtn, isSpeaker && styles.pillBtnActive]}
               onPress={toggleSpeaker}
@@ -532,6 +718,55 @@ export default function ActiveCallScreen({
           </View>
         </View>
       </SafeAreaView>
+
+      {/* ── Add member picker modal ── */}
+      <Modal
+        visible={showAddMemberPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddMemberPicker(false)}
+      >
+        <Pressable
+          style={styles.pickerBackdrop}
+          onPress={() => setShowAddMemberPicker(false)}
+        />
+        <View style={styles.pickerSheet}>
+          <View style={styles.pickerHandle} />
+          <Text style={styles.pickerTitle}>Add to call</Text>
+
+          {invitableMembers.length === 0 ? (
+            <Text style={styles.pickerEmpty}>All chat members are already in the call.</Text>
+          ) : (
+            <FlatList
+              data={invitableMembers}
+              keyExtractor={(item: any) => item.userId}
+              renderItem={({ item }: { item: any }) => {
+                const name = item.user?.profile?.displayName || item.user?.phone || 'User';
+                const avatar = item.user?.profile?.avatarUrl;
+                return (
+                  <TouchableOpacity
+                    style={styles.pickerRow}
+                    onPress={() => {
+                      addToCall(item.userId);
+                      setShowAddMemberPicker(false);
+                    }}
+                  >
+                    <View style={styles.pickerAvatar}>
+                      {avatar ? (
+                        <Image source={{ uri: avatar }} style={styles.pickerAvatarImg} />
+                      ) : (
+                        <User size={24} color="#8696a0" />
+                      )}
+                    </View>
+                    <Text style={styles.pickerName}>{name}</Text>
+                    <UserPlus size={18} color="#00a884" />
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -768,5 +1003,67 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff253a",
     alignItems: "center",
     justifyContent: "center",
+  },
+  // ── Add-member picker ────────────────────────────────────────────────────────
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  pickerSheet: {
+    backgroundColor: "#202c33",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+    maxHeight: "60%",
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#8696a0",
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  pickerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#e9edef",
+    textAlign: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#2a3942",
+  },
+  pickerEmpty: {
+    color: "#8696a0",
+    fontSize: 14,
+    textAlign: "center",
+    padding: 24,
+  },
+  pickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 14,
+  },
+  pickerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#2a3942",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  pickerAvatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  pickerName: {
+    flex: 1,
+    fontSize: 16,
+    color: "#e9edef",
   },
 });

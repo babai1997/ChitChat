@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, User, Users, Phone, Video, Search, ArrowLeft, Trash2, UserPlus } from 'lucide-react-native';
+import { X, User, Users, Phone, Video, ArrowLeft, Trash2, UserPlus, Camera } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { chatApi } from '../../src/api';
 import { useChatStore } from '../../src/stores/chatStore';
 import type { Chat, ChatMember } from '../../src/types';
@@ -17,6 +18,45 @@ interface ChatInfoModalProps {
 export default function ChatInfoModal({ visible, onClose, chat, currentUserId, onAddMember }: ChatInfoModalProps) {
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleAvatarUpload = async () => {
+    if (!chat || isUploading) return;
+
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permission Required', 'Allow photo library access to change the group photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    setIsUploading(true);
+    try {
+      const { url } = await chatApi.uploadGroupAvatar(
+        chat.id,
+        asset.uri,
+        asset.fileName || 'group-avatar.jpg',
+        asset.mimeType || 'image/jpeg',
+      );
+      const updatedChat = await chatApi.updateGroup(chat.id, { avatarUrl: url });
+      const { chats, setChats, activeChat, setActiveChat } = useChatStore.getState();
+      setChats(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+      if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
+    } catch (err) {
+      console.error('Failed to upload group avatar:', err);
+      Alert.alert('Upload Failed', 'Could not update the group photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   if (!chat || !visible) return null;
 
@@ -35,12 +75,9 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
 
   const otherMember = !isGroup ? chat.members.find(m => m.userId !== currentUserId) : null;
   const avatarUrl = isGroup ? chat.avatarUrl : otherMember?.user.profile?.avatarUrl;
-  const name = isGroup
+  const displayName = isGroup
     ? (chat.name || 'Group Chat')
     : (otherMember?.user.profile?.displayName || 'Unknown User');
-  const about = isGroup
-    ? 'Group Description'
-    : (otherMember?.user.profile?.about || 'Hey there! I am using ChitChat');
 
   const handleRemoveMember = async () => {
     if (!selectedMember || isRemoving) return;
@@ -76,9 +113,8 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
           </View>
 
           <ScrollView style={styles.scrollView}>
-            {/* Avatar + name */}
             <View style={[styles.mainInfoCard, { paddingBottom: 32 }]}>
-              <View style={styles.avatarContainer}>
+              <View style={styles.avatarWrap}>
                 {selectedMember.user.profile?.avatarUrl ? (
                   <Image source={{ uri: selectedMember.user.profile.avatarUrl }} style={styles.avatar} />
                 ) : (
@@ -98,7 +134,6 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
               )}
             </View>
 
-            {/* About */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>About</Text>
               <Text style={styles.aboutText}>
@@ -106,7 +141,6 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
               </Text>
             </View>
 
-            {/* Remove from group — admin only, not self */}
             {isCurrentUserAdmin && selectedMember.userId !== currentUserId && (
               <View style={styles.dangerSection}>
                 <TouchableOpacity
@@ -143,40 +177,71 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
         <ScrollView style={styles.scrollView}>
           {/* Main Info Card */}
           <View style={styles.mainInfoCard}>
-            <View style={styles.avatarContainer}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  {isGroup ? <Users size={60} color="#8696a0" /> : <User size={60} color="#8696a0" />}
+            {/* Avatar — tappable for groups to change photo */}
+            {isGroup ? (
+              <TouchableOpacity
+                style={styles.avatarWrap}
+                onPress={() => void handleAvatarUpload()}
+                activeOpacity={0.8}
+                disabled={isUploading}
+              >
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Users size={60} color="#8696a0" />
+                  </View>
+                )}
+                <View style={styles.cameraOverlay}>
+                  {isUploading
+                    ? <ActivityIndicator size="small" color="white" />
+                    : <Camera size={18} color="white" />
+                  }
                 </View>
-              )}
-            </View>
-            <Text style={styles.nameText}>{name}</Text>
-            {otherMember?.user.phone && (
-              <Text style={styles.phoneText}>{otherMember.user.phone}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.avatarWrap}>
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <User size={60} color="#8696a0" />
+                  </View>
+                )}
+              </View>
             )}
 
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity style={styles.actionButton}>
-                <Phone size={24} color="#00a884" />
-                <Text style={styles.actionButtonText}>Audio</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Video size={24} color="#00a884" />
-                <Text style={styles.actionButtonText}>Video</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Search size={24} color="#00a884" />
-                <Text style={styles.actionButtonText}>Search</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.nameText}>{displayName}</Text>
+
+            {isGroup ? (
+              <Text style={styles.phoneText}>Group · {chat.members.length} participants</Text>
+            ) : otherMember?.user.phone ? (
+              <Text style={styles.phoneText}>{otherMember.user.phone}</Text>
+            ) : null}
+
+            {/* Action buttons — direct chats only */}
+            {!isGroup && (
+              <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity style={styles.actionButton}>
+                  <Phone size={24} color="#00a884" />
+                  <Text style={styles.actionButtonText}>Audio</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton}>
+                  <Video size={24} color="#00a884" />
+                  <Text style={styles.actionButtonText}>Video</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
-          {/* About */}
+          {/* About / Description */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{isGroup ? 'Description' : 'About'}</Text>
-            <Text style={styles.aboutText}>{about}</Text>
+            <Text style={styles.aboutText}>
+              {isGroup
+                ? 'Welcome to the group!'
+                : (otherMember?.user.profile?.about || 'Hey there! I am using ChitChat')}
+            </Text>
           </View>
 
           {/* Participants (groups only) */}
@@ -237,12 +302,12 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             </View>
           )}
 
-          {/* Block / Report (direct only) */}
+          {/* Block option (direct only) */}
           {!isGroup && (
             <View style={styles.dangerSection}>
               <TouchableOpacity style={[styles.dangerButton, { borderBottomWidth: 0 }]}>
                 <X size={20} color="#ef4444" />
-                <Text style={styles.dangerButtonText}>Block {name}</Text>
+                <Text style={styles.dangerButtonText}>Block {displayName}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -266,19 +331,42 @@ const styles = StyleSheet.create({
     alignItems: 'center', paddingVertical: 24,
     backgroundColor: '#111b21', marginBottom: 8,
   },
-  avatarContainer: { marginBottom: 16 },
+  avatarWrap: {
+    width: 140, height: 140,
+    marginBottom: 16,
+    position: 'relative',
+  },
   avatar: { width: 140, height: 140, borderRadius: 70 },
   avatarPlaceholder: {
     width: 140, height: 140, borderRadius: 70,
     backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center',
   },
+  cameraOverlay: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#00a884',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#111b21',
+  },
+  changePhotoRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#111b21',
+    paddingVertical: 14, paddingHorizontal: 20,
+    marginBottom: 8, gap: 14,
+  },
+  changePhotoIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#2a3942',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  changePhotoText: { fontSize: 16, color: '#00a884', fontWeight: '500' },
   nameText: { fontSize: 24, fontWeight: '500', color: '#e9edef', marginBottom: 4 },
-  phoneText: { fontSize: 16, color: '#8696a0', marginBottom: 16 },
-  actionButtonsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 32, marginTop: 16 },
+  phoneText: { fontSize: 15, color: '#8696a0', marginBottom: 8 },
+  actionButtonsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 40, marginTop: 16 },
   actionButton: { alignItems: 'center', gap: 8 },
   actionButtonText: { color: '#00a884', fontSize: 14 },
   section: { backgroundColor: '#111b21', padding: 16, marginBottom: 8 },
-  sectionTitle: { fontSize: 14, color: '#8696a0', marginBottom: 8 },
+  sectionTitle: { fontSize: 13, color: '#8696a0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
   aboutText: { fontSize: 16, color: '#e9edef' },
   participantsHeader: {
     flexDirection: 'row', alignItems: 'center',
@@ -292,9 +380,9 @@ const styles = StyleSheet.create({
   addMemberBtnText: { color: '#00a884', fontSize: 13, fontWeight: '500' },
   memberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   memberAvatarContainer: { marginRight: 12 },
-  memberAvatar: { width: 44, height: 44, borderRadius: 22 },
+  memberAvatar: { width: 46, height: 46, borderRadius: 23 },
   memberAvatarPlaceholder: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 46, height: 46, borderRadius: 23,
     backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center',
   },
   memberInfo: { flex: 1 },

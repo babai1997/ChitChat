@@ -19,10 +19,19 @@ interface Server {
   to: (room: string) => { emit: (event: string, data: unknown) => void };
 }
 
+interface ActiveCall {
+  type: 'audio' | 'video';
+  callerId: string;
+  callerName: string;
+  participantCount: number;
+}
+
 @Injectable()
 export class CallHandler {
   private readonly logger = new Logger(CallHandler.name);
   private server: Server;
+  /** In-memory registry of currently active calls, keyed by chatId. */
+  private readonly activeCalls = new Map<string, ActiveCall>();
 
   constructor(
     private readonly chatsService: ChatsService,
@@ -32,6 +41,10 @@ export class CallHandler {
 
   setServer(server: Server) {
     this.server = server;
+  }
+
+  getActiveCall(chatId: string) {
+    return this.activeCalls.get(chatId) ?? null;
   }
 
   async handleCallStart(
@@ -64,6 +77,27 @@ export class CallHandler {
       });
     });
 
+    // Tell the caller how many people are ringing so the client can track
+    // rejections correctly and only end the call when ALL have declined.
+    socket.emit(SOCKET_EVENTS.CALL_RINGING, {
+      chatId,
+      recipientCount: recipientIds.length,
+    });
+
+    // Track this as an active call and broadcast the banner to everyone else
+    this.activeCalls.set(chatId, {
+      type,
+      callerId: sender.id,
+      callerName: sender.profile?.displayName || 'Unknown',
+      participantCount: 1,
+    });
+    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
+      chatId,
+      type,
+      callerName: sender.profile?.displayName || 'Unknown',
+      participantCount: 1,
+    });
+
     this.logger.log(
       `[Call] ${sender.id} started ${type} call in chat ${chatId}`,
     );
@@ -92,6 +126,18 @@ export class CallHandler {
       userId,
       chatId,
     });
+
+    // Update participant count and re-broadcast the banner with the new count
+    const active = this.activeCalls.get(chatId);
+    if (active) {
+      active.participantCount++;
+      this.server?.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
+        chatId,
+        type: active.type,
+        callerName: active.callerName,
+        participantCount: active.participantCount,
+      });
+    }
   }
 
   /**
@@ -148,6 +194,42 @@ export class CallHandler {
     });
   }
 
+  /**
+   * Invite a chat member to join an ongoing call.
+   * Emits CALL_INCOMING to the target — they answer just like a normal incoming call.
+   */
+  async handleAddToCall(
+    socket: AuthSocket,
+    data: { chatId: string; targetUserId: string; type: 'audio' | 'video' },
+  ) {
+    const { chatId, targetUserId, type } = data;
+    const sender = socket.user;
+
+    const memberIds = await this.chatsService.getChatMemberIds(chatId);
+    if (!memberIds.includes(sender.id)) {
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+    if (!memberIds.includes(targetUserId)) {
+      socket.emit('error', {
+        message: 'Target user is not a member of this chat',
+      });
+      return;
+    }
+
+    this.logger.log(
+      `[Call] ${sender.id} invited ${targetUserId} to join call in chat ${chatId}`,
+    );
+
+    this.registry.emitToUser(targetUserId, SOCKET_EVENTS.CALL_INCOMING, {
+      chatId,
+      callerId: sender.id,
+      callerName: sender.profile?.displayName || 'Unknown',
+      callerAvatar: sender.profile?.avatarUrl,
+      type,
+    });
+  }
+
   handleCallVideoState(
     socket: AuthSocket,
     data: { chatId: string; videoEnabled: boolean },
@@ -189,6 +271,29 @@ export class CallHandler {
       chatId,
       enderId: senderId,
     });
+
+    // Decrement participant count; when zero broadcast CALL_FINISHED to remove banners
+    const active = this.activeCalls.get(chatId);
+    if (active) {
+      active.participantCount--;
+      if (active.participantCount <= 0) {
+        this.activeCalls.delete(chatId);
+        if (this.server) {
+          this.server
+            .to(`chat:${chatId}`)
+            .emit(SOCKET_EVENTS.CALL_FINISHED, { chatId });
+        }
+      } else {
+        if (this.server) {
+          this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
+            chatId,
+            type: active.type,
+            callerName: active.callerName,
+            participantCount: active.participantCount,
+          });
+        }
+      }
+    }
   }
 
   /**
@@ -244,6 +349,17 @@ export class CallHandler {
       this.server
         .to(`chat:${chatId}`)
         .emit(SOCKET_EVENTS.MESSAGE_NEW, missedMsg);
+    }
+
+    // 4. Clean up the active-call registry — nobody answered so the call is over.
+    //    Remove the entry and broadcast CALL_FINISHED so any "Tap to join" banners disappear.
+    if (this.activeCalls.has(chatId)) {
+      this.activeCalls.delete(chatId);
+      if (this.server) {
+        this.server
+          .to(`chat:${chatId}`)
+          .emit(SOCKET_EVENTS.CALL_FINISHED, { chatId });
+      }
     }
   }
 }

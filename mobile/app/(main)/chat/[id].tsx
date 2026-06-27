@@ -26,6 +26,7 @@ import MessageBubble from '../../../components/chat/MessageBubble';
 import ChatInput from '../../../components/chat/ChatInput';
 import ChatInfoModal from '../../../components/chat/ChatInfoModal';
 import AddMemberModal from '../../../components/chat/AddMemberModal';
+import GroupCreatedCard from '../../../components/chat/GroupCreatedCard';
 import TypingIndicator from '../../../components/common/TypingIndicator';
 import OnlineStatus from '../../../components/common/OnlineStatus';
 import ActiveCallScreen from '../../../components/call/ActiveCallScreen';
@@ -41,7 +42,7 @@ export default function ChatRoomScreen() {
   const { user } = useAuthStore();
   const { chats, messages, messageHasMore, setMessages, prependMessages, typingUsers, onlineUsers } = useChatStore();
   const { joinChat, leaveChat, markAsRead, deleteMessage, editMessage } = useSocketContext();
-  const { isCallActive, activeChatId, callType, startCall } = useCall();
+  const { isCallActive, activeChatId, callType, startCall, ongoingCallsByChatId, joinOngoingCall, callStatus } = useCall();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -314,6 +315,33 @@ export default function ChatRoomScreen() {
           </View>
         </View>
 
+        {/* Ongoing call banner */}
+        {(() => {
+          const ongoing = ongoingCallsByChatId.get(chatId);
+          if (!ongoing || callStatus !== 'idle') return null;
+          return (
+            <TouchableOpacity
+              onPress={() => joinOngoingCall(chatId, ongoing.type)}
+              style={styles.ongoingBanner}
+              activeOpacity={0.85}
+            >
+              <View style={styles.ongoingBannerIcon}>
+                {ongoing.type === 'video'
+                  ? <Video size={16} color="#fff" />
+                  : <Phone size={16} color="#fff" />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ongoingBannerTitle}>
+                  {ongoing.type === 'video' ? 'Ongoing video call' : 'Ongoing voice call'}
+                </Text>
+                <Text style={styles.ongoingBannerSub}>
+                  {ongoing.participantCount} participant{ongoing.participantCount !== 1 ? 's' : ''} · Tap to join
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })()}
+
         {/* Messages */}
         <View style={styles.content}>
           {isLoading ? (
@@ -331,6 +359,12 @@ export default function ChatRoomScreen() {
               ListFooterComponent={
                 isLoadingMore ? (
                   <ActivityIndicator size="small" color="#8696a0" style={{ padding: 16 }} />
+                ) : !hasMoreRef.current && chat?.type === 'group' ? (
+                  <GroupCreatedCard
+                    chat={chat}
+                    currentUserId={user?.id}
+                    onAddMember={() => setShowAddMember(true)}
+                  />
                 ) : null
               }
             />
@@ -625,5 +659,31 @@ const styles = StyleSheet.create({
   actionSheetItemText: {
     fontSize: 16,
     color: '#e9edef',
+  },
+  ongoingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#00a884',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  ongoingBannerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ongoingBannerTitle: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  ongoingBannerSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 1,
   },
 });

@@ -13,6 +13,7 @@ type RawChatMember = {
     profile: {
       displayName: string | null;
       avatarUrl: string | null;
+      about: string;
       isOnline: boolean;
     } | null;
   };
@@ -88,6 +89,7 @@ export class ChatsMapper {
             ? {
                 displayName: m.user.profile.displayName,
                 avatarUrl: m.user.profile.avatarUrl,
+                about: m.user.profile.about,
                 isOnline: m.user.profile.isOnline,
               }
             : null,
