@@ -18,6 +18,7 @@ import { MessageBubble } from "./MessageBubble";
 import { ChatViewSkeleton } from "./ChatViewSkeleton";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { GroupInfoModal } from "./GroupInfoModal";
+import { AddMemberModal } from "./AddMemberModal";
 import { useCall } from "../../contexts/CallContext";
 import EmojiPicker, { type EmojiClickData, Theme } from "emoji-picker-react";
 import {
@@ -40,6 +41,8 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -84,6 +87,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
 
   const chatMessages = messages[chat.id] || [];
   const typingUserIds = typingUsers[chat.id] || [];
+  const isCurrentUserAdmin = chat.members.find(m => m.userId === currentUserId)?.role === 'admin';
 
   // Fetch messages
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -158,8 +162,40 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     // Note: We intentionally do NOT leave the chat room when unmounting.
   }, [chat.id, joinChat, markAsRead, updateChat]);
 
+  // Captured before fetchNextPage() so we can restore the anchor after older
+  // messages are prepended and the DOM height increases.
+  const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const isInitialLoadRef = useRef(true);
+
+  // Reset initial-load flag whenever the chat changes
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    isInitialLoadRef.current = true;
+  }, [chat.id]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || chatMessages.length === 0) return;
+
+    // After loading older messages: restore the viewport to the same visual position
+    if (scrollAnchorRef.current) {
+      const { scrollHeight: prev, scrollTop } = scrollAnchorRef.current;
+      container.scrollTop = scrollTop + (container.scrollHeight - prev);
+      scrollAnchorRef.current = null;
+      return;
+    }
+
+    // First render for this chat: jump to bottom instantly
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
+    // New message arrived: only scroll if the user is already near the bottom
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 150) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [chatMessages.length]);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -645,9 +681,57 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
           >
             <Phone size={20} />
           </button>
-          <button style={buttonStyle}>
-            <MoreVertical size={20} />
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button style={buttonStyle} onClick={() => setShowChatMenu(s => !s)}>
+              <MoreVertical size={20} />
+            </button>
+            {showChatMenu && (
+              <>
+                {/* Click-outside overlay */}
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+                  onClick={() => setShowChatMenu(false)}
+                />
+                <div style={{
+                  position: 'absolute', top: '40px', right: 0, zIndex: 99,
+                  backgroundColor: '#233138', borderRadius: '8px',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                  minWidth: '180px', overflow: 'hidden',
+                }}>
+                  {chat.type === 'group' && (
+                    <button
+                      onClick={() => { setIsContactInfoOpen(true); setShowChatMenu(false); }}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      Group Info
+                    </button>
+                  )}
+                  {chat.type === 'group' && isCurrentUserAdmin && (
+                    <button
+                      onClick={() => { setShowAddMember(true); setShowChatMenu(false); }}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      Add Member
+                    </button>
+                  )}
+                  {chat.type === 'direct' && (
+                    <button
+                      onClick={() => { setIsContactInfoOpen(true); setShowChatMenu(false); }}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      Contact Info
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -668,7 +752,16 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
             {hasNextPage && (
               <div style={{ textAlign: "center", marginBottom: "16px" }}>
                 <button
-                  onClick={() => fetchNextPage()}
+                  onClick={() => {
+                    const container = messagesContainerRef.current;
+                    if (container) {
+                      scrollAnchorRef.current = {
+                        scrollHeight: container.scrollHeight,
+                        scrollTop: container.scrollTop,
+                      };
+                    }
+                    fetchNextPage();
+                  }}
                   disabled={isFetchingNextPage}
                   style={{
                     color: "#25d366",
@@ -1137,6 +1230,17 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         <GroupInfoModal
           isOpen={isContactInfoOpen}
           onClose={() => setIsContactInfoOpen(false)}
+          chat={chat}
+          currentUserId={currentUserId}
+          onAddMember={() => { setIsContactInfoOpen(false); setShowAddMember(true); }}
+        />
+      )}
+
+      {/* Add Member Modal */}
+      {chat.type === "group" && (
+        <AddMemberModal
+          isOpen={showAddMember}
+          onClose={() => setShowAddMember(false)}
           chat={chat}
           currentUserId={currentUserId}
         />

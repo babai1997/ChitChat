@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import type { Chat, Message, MessageStatus } from '../types';
 
+const MAX_MESSAGES = 200;
+
 interface ChatState {
   // ── State ──────────────────────────────────────────────────────────────────
   chats: Chat[];
   activeChat: Chat | null;
   messages: Record<string, Message[]>;
+  messageHasMore: Record<string, boolean>; // chatId → older history exists beyond window
   typingUsers: Record<string, string[]>; // chatId → userId[]
   onlineUsers: Set<string>;
   lastSeen: Record<string, string>; // userId → ISO timestamp
@@ -22,6 +25,7 @@ interface ChatState {
 
   // ── Message actions ────────────────────────────────────────────────────────
   setMessages: (chatId: string, messages: Message[]) => void;
+  setMessageHasMore: (chatId: string, hasMore: boolean) => void;
   /**
    * Adds a message, deduplicating by both real id AND tempId.
    * This prevents duplicates when message:new arrives before message:sent.
@@ -56,6 +60,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
   activeChat: null,
   messages: {},
+  messageHasMore: {},
   typingUsers: {},
   lastSeen: {},
   onlineUsers: new Set(),
@@ -110,7 +115,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── Message actions ────────────────────────────────────────────────────────
 
   setMessages: (chatId, messages) => {
-    set((state) => ({ messages: { ...state.messages, [chatId]: messages } }));
+    set((state) => ({
+      messages: { ...state.messages, [chatId]: messages },
+      messageHasMore: { ...state.messageHasMore, [chatId]: false },
+    }));
+  },
+
+  setMessageHasMore: (chatId, hasMore) => {
+    set((state) => ({
+      messageHasMore: { ...state.messageHasMore, [chatId]: hasMore },
+    }));
   },
 
   addMessage: (chatId, message) => {
@@ -124,8 +138,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       );
       if (alreadyExists) return state;
 
+      const appended = [...existing, message];
+      const trimmed = appended.length > MAX_MESSAGES;
+      const capped = trimmed ? appended.slice(-MAX_MESSAGES) : appended;
+
       return {
-        messages: { ...state.messages, [chatId]: [...existing, message] },
+        messages: { ...state.messages, [chatId]: capped },
+        ...(trimmed && { messageHasMore: { ...state.messageHasMore, [chatId]: true } }),
       };
     });
   },
@@ -228,6 +247,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chats: [],
       activeChat: null,
       messages: {},
+      messageHasMore: {},
       typingUsers: {},
       onlineUsers: new Set(),
       lastSeen: {},

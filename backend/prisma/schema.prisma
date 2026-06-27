@@ -136,8 +136,7 @@ model ChatMember {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chatId, userId])
-  @@index([chatId])
-  @@index([userId])
+  @@index([userId, chatId])
   @@map("chat_members")
 }
 

@@ -130,10 +130,20 @@ export const HomePage = () => {
     enabled: !!user?.id,
   });
 
-  // Update store when query succeeds
+  // Update store when query succeeds.
+  // Merge carefully: if the user already cleared a badge locally (unreadCount=0),
+  // don't let a racing server refetch resurrect it before lastReadAt has committed.
   useEffect(() => {
     if (chatsData) {
-      setChats(chatsData);
+      const currentChats = useChatStore.getState().chats;
+      const merged = chatsData.map((serverChat) => {
+        const local = currentChats.find((c) => c.id === serverChat.id);
+        return {
+          ...serverChat,
+          unreadCount: local?.unreadCount === 0 ? 0 : (serverChat.unreadCount ?? 0),
+        };
+      });
+      setChats(merged);
     }
   }, [chatsData, setChats]);
 
@@ -163,7 +173,7 @@ export const HomePage = () => {
   };
 
   const handleChatCreated = (chat: Chat) => {
-    setChats([chat, ...chats]);
+    setChats([chat, ...chats.filter(c => c.id !== chat.id)]);
     setActiveChat(chat);
     refetch();
   };

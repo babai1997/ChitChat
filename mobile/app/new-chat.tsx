@@ -1,88 +1,177 @@
-import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  Image, 
+import { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Image,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Search, User, Users, ChevronRight } from 'lucide-react-native';
+import { X, Search, Users, Check, MessageSquare, ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../src/stores/authStore';
 import { usersApi, chatApi } from '../src/api';
-import type { Profile, Chat, UserWithProfile } from '../src/types';
-
+import type { Profile, UserWithProfile } from '../src/types';
 import { useChatStore } from '../src/stores/chatStore';
 import { useRouter } from 'expo-router';
+
+type ScreenView = 'list' | 'group-details';
+
+type ListItem =
+  | { kind: 'header'; label: string }
+  | { kind: 'user'; user: UserWithProfile; isSelected: boolean };
+
+function memberToUserWithProfile(member: {
+  userId: string;
+  user: {
+    id: string;
+    phone: string | null;
+    email: string | null;
+    profile: {
+      displayName: string | null;
+      avatarUrl: string | null;
+      about: string | null;
+      isOnline: boolean;
+    } | null;
+    lastSeen?: string | null;
+  };
+}): UserWithProfile {
+  return {
+    id: member.userId,
+    phone: member.user.phone,
+    email: member.user.email,
+    isVerified: false,
+    lastSeen: member.user.lastSeen ?? null,
+    profile: member.user.profile as Profile | null,
+  };
+}
 
 export default function NewChatScreen() {
   const { user } = useAuthStore();
   const { chats, setChats } = useChatStore();
   const router = useRouter();
+
+  const [view, setView] = useState<ScreenView>('list');
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<UserWithProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [searchResults, setSearchResults] = useState<UserWithProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<UserWithProfile[]>([]);
   const [groupName, setGroupName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showGroupHint, setShowGroupHint] = useState(false);
+
   const insets = useSafeAreaInsets();
 
-
+  const contacts: UserWithProfile[] = chats
+    .filter(c => c.type === 'direct')
+    .flatMap(c => {
+      const other = c.members.find(m => m.userId !== user?.id);
+      if (!other) return [];
+      return [memberToUserWithProfile(other)];
+    });
 
   useEffect(() => {
-    const searchTimeout = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       if (searchQuery.trim().length >= 2) {
-        setIsLoading(true);
+        setIsSearching(true);
         try {
           const results = await usersApi.searchUsers(searchQuery);
-          // Filter out current user
-          setUsers(results.filter(p => p.id !== user?.id));
+          setSearchResults(results.filter(p => p.id !== user?.id));
         } catch (error) {
           console.error('Failed to search users:', error);
         } finally {
-          setIsLoading(false);
+          setIsSearching(false);
         }
       } else {
-        setUsers([]);
+        setSearchResults([]);
       }
     }, 500);
-
-    return () => clearTimeout(searchTimeout);
+    return () => clearTimeout(timer);
   }, [searchQuery, user?.id]);
 
-  const handleUserSelect = async (selectedUser: UserWithProfile) => {
-    if (isCreatingGroup) {
-      // Toggle selection for group
-      const isSelected = selectedUsers.find(u => u.id === selectedUser.id);
-      if (isSelected) {
-        setSelectedUsers(prev => prev.filter(u => u.id !== selectedUser.id));
-      } else {
-        setSelectedUsers(prev => [...prev, selectedUser]);
+  const filteredContacts = contacts.filter(c => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const name = c.profile?.displayName?.toLowerCase() ?? '';
+    const phone = c.phone?.toLowerCase() ?? '';
+    return name.includes(q) || phone.includes(q);
+  });
+
+  const contactIds = new Set(contacts.map(c => c.id));
+  const selectedIds = new Set(selectedUsers.map(u => u.id));
+  const novelSearchResults = searchResults.filter(u => !contactIds.has(u.id));
+
+  const buildListData = useCallback((): ListItem[] => {
+    const items: ListItem[] = [];
+
+    if (selectedUsers.length > 0) {
+      items.push({ kind: 'header', label: 'Selected' });
+      for (const u of selectedUsers) {
+        items.push({ kind: 'user', user: u, isSelected: true });
       }
+    }
+
+    const unselectedContacts = filteredContacts.filter(c => !selectedIds.has(c.id));
+    items.push({
+      kind: 'header',
+      label: searchQuery.trim() ? `Contacts (${unselectedContacts.length})` : 'Contacts',
+    });
+    for (const u of unselectedContacts) {
+      items.push({ kind: 'user', user: u, isSelected: false });
+    }
+
+    const novelUnselected = novelSearchResults.filter(u => !selectedIds.has(u.id));
+    if (searchQuery.trim().length >= 2 && novelUnselected.length > 0) {
+      items.push({ kind: 'header', label: 'Search results' });
+      for (const u of novelUnselected) {
+        items.push({ kind: 'user', user: u, isSelected: false });
+      }
+    }
+
+    return items;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUsers, filteredContacts, novelSearchResults, searchQuery]);
+
+  const listData = buildListData();
+
+  const toggleUser = (u: UserWithProfile) => {
+    if (selectedIds.has(u.id)) {
+      setSelectedUsers(prev => prev.filter(p => p.id !== u.id));
     } else {
-      // Create direct chat
-      setIsSubmitting(true);
-      try {
-        const chat = await chatApi.createDirectChat(selectedUser.id);
-        setChats([chat, ...chats.filter(c => c.id !== chat.id)]);
-        router.replace(`/(main)/chat/${chat.id}`);
-      } catch (error) {
-        console.error('Failed to create chat:', error);
-      } finally {
-        setIsSubmitting(false);
-      }
+      setSelectedUsers(prev => [...prev, u]);
+    }
+  };
+
+  const handleDirectMessage = async () => {
+    if (selectedUsers.length !== 1 || isSubmitting) return;
+    const target = selectedUsers[0];
+
+    const existing = chats.find(
+      c => c.type === 'direct' && c.members.some(m => m.userId === target.id),
+    );
+    if (existing) {
+      router.replace(`/(main)/chat/${existing.id}`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const chat = await chatApi.createDirectChat(target.id);
+      setChats([chat, ...chats.filter(c => c.id !== chat.id)]);
+      router.replace(`/(main)/chat/${chat.id}`);
+    } catch (error) {
+      console.error('Failed to open chat:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedUsers.length === 0) return;
-    
+    if (!groupName.trim() || selectedUsers.length < 2 || isSubmitting) return;
     setIsSubmitting(true);
     try {
       const memberIds = selectedUsers.map(u => u.id);
@@ -96,145 +185,229 @@ export default function NewChatScreen() {
     }
   };
 
-  const renderUserItem = ({ item }: { item: UserWithProfile }) => {
-    const isSelected = selectedUsers.find(u => u.id === item.id);
+  const handleBack = () => {
+    if (view === 'group-details') {
+      setView('list');
+    } else {
+      router.back();
+    }
+  };
 
+  const renderItem = ({ item, index }: { item: ListItem; index: number }) => {
+    if (item.kind === 'header') {
+      return (
+        <View key={`h-${index}`} style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>{item.label}</Text>
+        </View>
+      );
+    }
+
+    const { user: u, isSelected } = item;
     return (
-      <TouchableOpacity 
-        style={styles.userItem} 
-        onPress={() => handleUserSelect(item)}
+      <TouchableOpacity
+        style={[styles.userItem, isSelected && styles.userItemSelected]}
+        onPress={() => toggleUser(u)}
+        activeOpacity={0.7}
       >
         <View style={styles.avatarContainer}>
-          {item.profile?.avatarUrl ? (
-            <Image source={{ uri: item.profile.avatarUrl }} style={styles.avatar} />
+          {u.profile?.avatarUrl ? (
+            <Image source={{ uri: u.profile.avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarText}>
-                {item.profile?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                {u.profile?.displayName?.charAt(0)?.toUpperCase() || 'U'}
               </Text>
             </View>
           )}
         </View>
+
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.profile?.displayName || item.phone || 'Unknown User'}</Text>
-          {item.profile?.about ? (
-            <Text style={styles.userAbout} numberOfLines={1}>{item.profile.about}</Text>
+          <Text style={styles.userName}>
+            {u.profile?.displayName || u.phone || 'Unknown User'}
+          </Text>
+          {u.profile?.about ? (
+            <Text style={styles.userAbout} numberOfLines={1}>
+              {u.profile.about}
+            </Text>
           ) : null}
         </View>
-        
-        {isCreatingGroup && (
-          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-            {isSelected && <X size={14} color="white" />}
-          </View>
-        )}
+
+        {/* Checkbox — always shown */}
+        <View style={isSelected ? styles.checkboxSelected : styles.checkbox}>
+          {isSelected && <Check size={13} color="white" strokeWidth={3} />}
+        </View>
       </TouchableOpacity>
     );
   };
 
+  const keyExtractor = (item: ListItem, index: number): string => {
+    if (item.kind === 'header') return `header-${index}`;
+    return `user-${item.user.id}-${item.isSelected ? 'sel' : 'unsel'}`;
+  };
+
+  // ─── Group details screen ──────────────────────────────────────────────────
+  if (view === 'group-details') {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+            <ArrowLeft size={24} color="#e9edef" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>New Group</Text>
+        </View>
+
+        <View style={styles.groupDetailsContent}>
+          <Text style={styles.groupMembersPreview}>
+            {selectedUsers.map(u => u.profile?.displayName || u.phone).join(', ')}
+          </Text>
+
+          <TextInput
+            style={styles.groupNameInput}
+            placeholder="Group name"
+            placeholderTextColor="#8696a0"
+            value={groupName}
+            onChangeText={setGroupName}
+            autoFocus
+            maxLength={50}
+            returnKeyType="done"
+            onSubmitEditing={() => void handleCreateGroup()}
+          />
+
+          <TouchableOpacity
+            style={[styles.createGroupBtn, (!groupName.trim() || isSubmitting) && styles.createGroupBtnDisabled]}
+            onPress={() => void handleCreateGroup()}
+            disabled={!groupName.trim() || isSubmitting}
+            activeOpacity={0.8}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Check size={20} color="white" />
+            )}
+            <Text style={styles.createGroupBtnText}>Create Group</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── List screen ───────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-                <X size={24} color="#e9edef" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>
-                {isCreatingGroup ? 'New group' : 'New chat'}
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.contentWrapper}>
-            {isCreatingGroup && (
-            <View style={styles.groupSetupContainer}>
-              <TextInput
-                style={styles.groupInput}
-                placeholder="Group subject"
-                placeholderTextColor="#8696a0"
-                value={groupName}
-                onChangeText={setGroupName}
-                maxLength={25}
-              />
-              <Text style={styles.selectionText}>
-                {selectedUsers.length} selected
-              </Text>
-            </View>
-          )}
-
-          {/* Search */}
-          <View style={styles.searchContainer}>
-            <Search size={20} color="#8696a0" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search name or phone number"
-              placeholderTextColor="#8696a0"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* New Group Button (only if not already creating group and no search query) */}
-          {!isCreatingGroup && !searchQuery && (
-            <TouchableOpacity 
-              style={styles.newGroupBtn} 
-              onPress={() => setIsCreatingGroup(true)}
-            >
-              <View style={styles.newGroupIcon}>
-                <Users size={20} color="white" />
-              </View>
-              <Text style={styles.newGroupText}>New group</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Results list */}
-          {isLoading ? (
-            <ActivityIndicator size="large" color="#00a884" style={{ marginTop: 40 }} />
-          ) : (
-            <FlatList
-              data={users}
-              keyExtractor={(item) => item.id}
-              renderItem={renderUserItem}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={() => (
-                searchQuery.length >= 2 ? (
-                  <Text style={styles.emptyText}>No users found</Text>
-                ) : null
-              )}
-            />
-          )}
-
-          {/* Floating Action Button for Group Creation */}
-          {isCreatingGroup && selectedUsers.length > 0 && groupName.trim().length > 0 && (
-            <TouchableOpacity 
-              style={styles.fab} 
-              onPress={handleCreateGroup}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <ChevronRight size={28} color="white" />
-              )}
-            </TouchableOpacity>
-          )}
-          </View>
-      </KeyboardAvoidingView>
-      
-      {/* Loading Overlay for Direct Chat Creation */}
-      {isSubmitting && !isCreatingGroup && (
-        <View style={StyleSheet.absoluteFillObject}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#00a884" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+            <X size={24} color="#e9edef" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>New Chat</Text>
+            {selectedUsers.length > 0 && (
+              <Text style={styles.headerSubtitle}>{selectedUsers.length} selected</Text>
+            )}
           </View>
         </View>
-      )}
+
+        {/* Search bar */}
+        <View style={styles.searchContainer}>
+          <Search size={18} color="#8696a0" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search name or phone number"
+            placeholderTextColor="#8696a0"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {isSearching ? (
+            <ActivityIndicator size="small" color="#8696a0" />
+          ) : searchQuery.length > 0 ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={16} color="#8696a0" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* New Group row — hidden while searching */}
+        {!searchQuery && (
+          <TouchableOpacity
+            style={styles.newGroupRow}
+            onPress={() => setShowGroupHint(h => !h)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.newGroupIconCircle}>
+              <Users size={22} color="white" />
+            </View>
+            <Text style={styles.newGroupRowText}>New Group</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Hint banner */}
+        {showGroupHint && selectedUsers.length < 2 && (
+          <View style={styles.groupHintBanner}>
+            <Users size={15} color="#00a884" />
+            <Text style={styles.groupHintText}>
+              Select 2 or more contacts to create a group
+            </Text>
+            <TouchableOpacity onPress={() => setShowGroupHint(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={14} color="#8696a0" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* User list — always visible, no full-screen loader */}
+        <FlatList<ListItem>
+          data={listData}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            contacts.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Users size={48} color="#2a3942" />
+                <Text style={styles.emptyText}>No contacts yet</Text>
+                <Text style={styles.emptySubtext}>Search to start a new chat</Text>
+              </View>
+            ) : null
+          }
+        />
+
+        {/* Bottom action bar — appears when ≥1 user selected */}
+        {selectedUsers.length > 0 && (
+          <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            {selectedUsers.length === 1 ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, isSubmitting && styles.actionBtnDisabled]}
+                onPress={() => void handleDirectMessage()}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <MessageSquare size={18} color="white" />
+                )}
+                <Text style={styles.actionBtnText}>Direct Message</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => setView('group-details')}
+                activeOpacity={0.8}
+              >
+                <Users size={18} color="white" />
+                <Text style={styles.actionBtnText}>
+                  Create Group ({selectedUsers.length} members)
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -242,25 +415,16 @@ export default function NewChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#202c33',
-  },
-  contentWrapper: {
-    flex: 1,
     backgroundColor: '#111b21',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#202c33',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  closeBtn: {
+  backBtn: {
     marginRight: 16,
   },
   headerTitle: {
@@ -268,28 +432,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#e9edef',
   },
-  groupSetupContainer: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#202c33',
-  },
-  groupInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#00a884',
-    paddingVertical: 8,
-    color: '#e9edef',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  selectionText: {
+  headerSubtitle: {
+    fontSize: 12,
     color: '#8696a0',
-    fontSize: 13,
+    marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#202c33',
-    margin: 16,
+    margin: 12,
     borderRadius: 8,
     paddingHorizontal: 12,
   },
@@ -300,56 +452,51 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     color: '#e9edef',
-    fontSize: 16,
+    fontSize: 15,
   },
-  newGroupBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sectionHeader: {
+    backgroundColor: '#1f2c34',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 5,
   },
-  newGroupIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#00a884',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  newGroupText: {
-    fontSize: 16,
-    color: '#e9edef',
-    fontWeight: '500',
+  sectionHeaderText: {
+    color: '#8696a0',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   listContent: {
-    paddingBottom: 80,
+    paddingBottom: 16,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+  },
+  userItemSelected: {
+    backgroundColor: '#182229',
   },
   avatarContainer: {
-    marginRight: 16,
+    marginRight: 14,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
   avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#6a7f8a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   userInfo: {
@@ -357,47 +504,142 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#e9edef',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   userAbout: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8696a0',
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#8696a0',
+    borderColor: '#3b4a54',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#00a884',
-    borderColor: '#00a884',
-  },
-  emptyText: {
-    color: '#8696a0',
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 15,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#00a884',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+  },
+  newGroupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a3942',
+  },
+  newGroupIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#00a884',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  newGroupRowText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#e9edef',
+  },
+  groupHintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#182229',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a3942',
+  },
+  groupHintText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#8696a0',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    color: '#8696a0',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    color: '#8696a0',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  actionBar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: '#202c33',
+    borderTopWidth: 1,
+    borderTopColor: '#2a3942',
+  },
+  actionBtn: {
+    backgroundColor: '#00a884',
+    borderRadius: 24,
+    paddingVertical: 13,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionBtnDisabled: {
+    backgroundColor: '#2a3942',
+  },
+  actionBtnText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  // ─── Group details screen ──────────────────────────────────────────────────
+  groupDetailsContent: {
+    flex: 1,
+    padding: 24,
+  },
+  groupMembersPreview: {
+    color: '#8696a0',
+    fontSize: 13,
+    marginBottom: 24,
+    lineHeight: 18,
+  },
+  groupNameInput: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#00a884',
+    paddingVertical: 8,
+    color: '#e9edef',
+    fontSize: 18,
+    marginBottom: 32,
+  },
+  createGroupBtn: {
+    backgroundColor: '#00a884',
+    borderRadius: 24,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  createGroupBtnDisabled: {
+    backgroundColor: '#2a3942',
+  },
+  createGroupBtnText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

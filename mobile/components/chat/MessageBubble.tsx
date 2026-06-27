@@ -23,10 +23,10 @@ import {
   Trash2,
   Edit2,
   Ban,
-  PhoneMissed,
   Video,
   Phone,
-  PhoneOff,
+  PhoneIncoming,
+  PhoneOutgoing,
   X,
   Forward,
   Download,
@@ -182,92 +182,84 @@ export default function MessageBubble({
     );
   }
 
-  // ── Missed call ─────────────────────────────────────────────────────────────
+  // ── Call log ─────────────────────────────────────────────────────────────────
   if (message.type === "missed_call") {
-    let callLog = { status: "missed", duration: 0, isVideo: false };
+    let callLog: { status: string; duration: number; isVideo: boolean } = { status: "missed", duration: 0, isVideo: false };
     try {
-      if (message.content) {
-        // Handle legacy or plain text just in case
-        if (message.content.startsWith("{")) {
-          callLog = JSON.parse(message.content);
-        } else {
-          callLog.isVideo = message.content.includes("video");
-          callLog.status = message.content.includes("ended")
-            ? "ended"
-            : "missed";
-        }
+      if (message.content?.startsWith("{")) {
+        callLog = JSON.parse(message.content);
+      } else if (message.content) {
+        callLog.isVideo = message.content.includes("video");
+        callLog.status = message.content.includes("ended") ? "ended" : "missed";
       }
-    } catch (e) {}
+    } catch { /* ignore */ }
 
-    const isVideo = callLog.isVideo;
+    const isVideo  = callLog.isVideo;
+    const ended    = callLog.status === "ended";
+    const rejected = callLog.status === "rejected";
+    // isOwn = the caller (initiator wrote the log)
 
-    let icon = <PhoneMissed size={16} color="#ea4335" />;
-    if (callLog.status === "ended") {
-      icon = isVideo ? (
-        <Video size={16} color={isOwn ? OWN_TEXT : THEIR_TEXT} />
-      ) : (
-        <Phone size={16} color={isOwn ? OWN_TEXT : THEIR_TEXT} />
-      );
-    } else if (callLog.status === "rejected") {
-      icon = <PhoneOff size={16} color="#ea4335" />;
-    } else if (callLog.status === "missed") {
-      if (isOwn) {
-        icon = isVideo ? (
-          <Video size={16} color={OWN_TEXT} />
-        ) : (
-          <Phone size={16} color={OWN_TEXT} />
-        );
-      } else {
-        icon = isVideo ? (
-          <Video size={16} color="#ea4335" />
-        ) : (
-          <PhoneMissed size={16} color="#ea4335" />
-        );
-      }
-    }
+    // ── Title ──
+    const title = ended || rejected
+      ? isVideo ? "Video Call" : "Voice Call"
+      : isOwn
+        ? isVideo ? "Video Call" : "Voice Call"
+        : isVideo ? "Missed Video Call" : "Missed Voice Call";
 
-    let text = "Missed call";
-    if (callLog.status === "ended") {
-      const m = Math.floor(callLog.duration / 60);
-      const s = callLog.duration % 60;
-      text = `Call ended • ${m}:${s.toString().padStart(2, "0")}`;
-    } else if (callLog.status === "rejected") {
-      text = "Call rejected";
+    // ── Subtitle ──
+    const formatDur = (s: number) => {
+      if (s < 60)   return `${s}s`;
+      if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+    };
+    const duration = ended && callLog.duration > 0 ? formatDur(callLog.duration) : null;
+    const subtitle = duration ?? (rejected ? "Call declined" : "No answer");
+
+    // ── Icon + colours ──
+    // ended        → green  | PhoneOutgoing (own) / PhoneIncoming (theirs) / Video
+    // outgoing missed (isOwn) → neutral | PhoneOutgoing / Video
+    // incoming missed (!isOwn) → red    | PhoneIncoming / Video
+    let iconColor: string;
+    let iconBg: string;
+    let AudioIcon: typeof Phone;
+
+    if (ended) {
+      iconColor = "#25d366";
+      iconBg    = "rgba(37,211,102,0.15)";
+      AudioIcon = isOwn ? PhoneOutgoing : PhoneIncoming;
+    } else if (isOwn) {
+      iconColor = "rgba(233,237,239,0.65)";
+      iconBg    = "rgba(255,255,255,0.08)";
+      AudioIcon = PhoneOutgoing;
     } else {
-      if (isOwn) {
-        text = isVideo ? "Video call\nNo answer" : "Voice call\nNo answer";
-      } else {
-        text = isVideo ? "Missed video call" : "Missed voice call";
-      }
+      iconColor = "#ea4335";
+      iconBg    = "rgba(234,67,53,0.15)";
+      AudioIcon = PhoneIncoming;
     }
 
     return (
       <Wrapper isOwn={isOwn}>
-        <View
-          style={[
-            styles.bubble,
-            isOwn ? styles.bubbleOwn : styles.bubbleTheirs,
-            { paddingBottom: 8, minWidth: 120 },
-          ]}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 4,
-            }}
-          >
-            <View style={styles.callIcon}>{icon}</View>
-            <Text
-              style={[
-                styles.msgText,
-                { marginLeft: 8, color: isOwn ? OWN_TEXT : THEIR_TEXT },
-              ]}
-            >
-              {text}
-            </Text>
+        <View style={[
+          styles.callBubble,
+          isOwn ? styles.bubbleOwn : styles.bubbleTheirs,
+        ]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={[styles.callIcon, { backgroundColor: iconBg }]}>
+              {isVideo ? (
+                <Video size={20} color={iconColor} />
+              ) : (
+                <AudioIcon size={20} color={iconColor} />
+              )}
+            </View>
+            <View>
+              <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: "600", color: isOwn ? OWN_TEXT : THEIR_TEXT, lineHeight: 20 }}>
+                {title}
+              </Text>
+              <Text numberOfLines={1} style={{ fontSize: 12, color: TIME_COLOR, marginTop: 1 }}>
+                {subtitle} · {formatTime(message.createdAt)}
+              </Text>
+            </View>
           </View>
-          <Meta standalone />
         </View>
       </Wrapper>
     );
@@ -633,14 +625,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Missed call icon
+  // ── Call log bubble (dedicated — no text-bubble padding hacks)
+  callBubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    minWidth: 230,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+
+  // ── Call icon circle
   callIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "rgba(234,67,53,0.18)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
   },
 
   // ── Context menu

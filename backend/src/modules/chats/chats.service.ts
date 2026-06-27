@@ -27,6 +27,7 @@ export class ChatsService {
   // ============================================
 
   async getUserChats(userId: string) {
+    // Query 1: load all chat data with members + last message in one round-trip.
     const chatMembers = await this.prisma.chatMember.findMany({
       where: { userId },
       include: {
@@ -58,20 +59,29 @@ export class ChatsService {
       },
     });
 
-    const formattedChats = await Promise.all(
-      chatMembers.map(async (cm) => {
-        const unreadCount = await this.prisma.message.count({
-          where: {
-            chatId: cm.chatId,
-            createdAt: { gt: cm.lastReadAt || cm.joinedAt },
-            senderId: { not: userId },
-          },
-        });
-        return ChatsMapper.toDto(cm.chat, userId, unreadCount);
-      }),
+    // Query 2: batch unread counts for all chats in a single SQL round-trip.
+    // Each row uses that membership's own lastReadAt (or joinedAt) as the threshold,
+    // so we avoid one COUNT query per chat (the N+1 that the loop above produced).
+    const unreadRows = await this.prisma.$queryRaw<
+      { chat_id: string; count: bigint }[]
+    >`
+      SELECT m.chat_id, COUNT(*) AS count
+      FROM messages m
+      JOIN chat_members cm
+        ON  cm.chat_id = m.chat_id
+        AND cm.user_id = ${userId}
+      WHERE m.sender_id != ${userId}
+        AND m.created_at > COALESCE(cm.last_read_at, cm.joined_at)
+      GROUP BY m.chat_id
+    `;
+
+    const unreadMap = new Map(
+      unreadRows.map((r) => [r.chat_id, Number(r.count)]),
     );
 
-    return formattedChats;
+    return chatMembers.map((cm) =>
+      ChatsMapper.toDto(cm.chat, userId, unreadMap.get(cm.chatId) ?? 0),
+    );
   }
 
   async getChatById(chatId: string, userId: string) {
@@ -140,6 +150,14 @@ export class ChatsService {
     });
 
     return members.map((m) => m.userId);
+  }
+
+  async isChatMember(chatId: string, userId: string): Promise<boolean> {
+    const member = await this.prisma.chatMember.findFirst({
+      where: { chatId, userId },
+      select: { userId: true },
+    });
+    return member !== null;
   }
 
   // ============================================
@@ -279,7 +297,7 @@ export class ChatsService {
   // ============================================
 
   async updateGroup(chatId: string, userId: string, dto: UpdateGroupDto) {
-    const chat = await this.getChatWithMemberCheck(chatId, userId, true);
+    await this.getChatWithMemberCheck(chatId, userId, true);
 
     const updated = await this.prisma.chat.update({
       where: { id: chatId },
@@ -422,23 +440,25 @@ export class ChatsService {
   // Call History
   // ============================================
 
-  async getCallHistory(userId: string, chatId?: string) {
-    const whereClause: any = {
-      type: { in: ['missed_call', 'call_log'] },
-      chat: {
-        members: {
-          some: { userId },
+  async getCallHistory(
+    userId: string,
+    chatId?: string,
+    cursor?: string,
+    take = 20,
+  ) {
+    const messages = await this.prisma.message.findMany({
+      where: {
+        type: { in: ['missed_call', 'call_log'] },
+        ...(chatId ? { chatId } : {}),
+        chat: {
+          members: {
+            some: { userId },
+          },
         },
       },
-    };
-
-    if (chatId) {
-      whereClause.chatId = chatId;
-    }
-
-    const messages = await this.prisma.message.findMany({
-      where: whereClause,
       orderBy: { createdAt: 'desc' },
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
         sender: { include: { profile: true } },
         chat: {
@@ -453,7 +473,11 @@ export class ChatsService {
       },
     });
 
-    return messages;
+    const hasMore = messages.length > take;
+    const data = hasMore ? messages.slice(0, take) : messages;
+    const nextCursor = hasMore ? data[data.length - 1].id : null;
+
+    return { data, nextCursor };
   }
 
   // ============================================

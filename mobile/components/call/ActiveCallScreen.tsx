@@ -60,6 +60,7 @@ function RemoteParticipantTile({
   memberName,
   memberAvatar,
   isSpeaking,
+  isRemoteMuted,
   style,
   videoRenderKey,
   isSingleParticipant,
@@ -70,6 +71,7 @@ function RemoteParticipantTile({
   memberName: string;
   memberAvatar: string | null;
   isSpeaking: boolean;
+  isRemoteMuted: boolean;
   style?: any;
   videoRenderKey: number;
   isSingleParticipant: boolean;
@@ -125,11 +127,20 @@ function RemoteParticipantTile({
         <View style={styles.speakingRing} pointerEvents="none" />
       )}
 
+      {/* Mic-off badge (top-right) */}
+      {isRemoteMuted && (
+        <View style={styles.muteBadge} pointerEvents="none">
+          <MicOff size={14} color="#fff" />
+        </View>
+      )}
+
       {/* Name label at bottom of tile */}
       <View style={styles.nameLabelContainer} pointerEvents="none">
-        {isSpeaking && (
+        {isRemoteMuted ? (
+          <MicOff size={12} color="#ea4335" />
+        ) : isSpeaking ? (
           <View style={styles.speakingDot} />
-        )}
+        ) : null}
         <Text style={styles.nameLabel} numberOfLines={1}>
           {memberName}
         </Text>
@@ -155,6 +166,7 @@ export default function ActiveCallScreen({
     localStream,
     remoteStreams,
     remoteVideoStates,
+    remoteMuteStates,
     activeSpeakers,
     isMuted,
     isVideoEnabled,
@@ -314,6 +326,7 @@ export default function ActiveCallScreen({
           memberName={name}
           memberAvatar={avatar}
           isSpeaking={activeSpeakers.has(uid)}
+          isRemoteMuted={remoteMuteStates.get(uid) === true}
           style={StyleSheet.absoluteFillObject}
           videoRenderKey={videoRenderKey}
           isSingleParticipant
@@ -351,6 +364,7 @@ export default function ActiveCallScreen({
                   memberName={name}
                   memberAvatar={avatar}
                   isSpeaking={activeSpeakers.has(uid)}
+                  isRemoteMuted={remoteMuteStates.get(uid) === true}
                   style={{
                     flex: 1,
                     borderWidth: StyleSheet.hairlineWidth,
@@ -586,6 +600,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "rgba(255,255,255,0.55)",
     fontSize: 13,
+  },
+  muteBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(234,67,53,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   // ── Overlay ─────────────────────────────────────────────────────────────────
   overlay: {

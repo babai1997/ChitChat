@@ -20,13 +20,14 @@ import { SOCKET_EVENTS } from '../shared/constants/socket-events';
  */
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const { accessToken, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       socketManager.disconnect();
       // Use setTimeout to avoid synchronous setState inside useEffect warning
-      setTimeout(() => setIsConnected(false), 0);
+      setTimeout(() => { setIsConnected(false); setIsReconnecting(false); }, 0);
       return;
     }
 
@@ -34,15 +35,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketManager.connect(SOCKET_URL, accessToken);
 
     // Track connection state
-    const onConnect = () => setIsConnected(true);
-    const onDisconnect = () => setIsConnected(false);
+    const onConnect = () => { setIsConnected(true); setIsReconnecting(false); };
+    const onDisconnect = (reason: unknown) => {
+      setIsConnected(false);
+      // Intentional disconnects (server kicked or client called disconnect()) are not reconnecting states
+      const intentional = reason === 'io client disconnect' || reason === 'io server disconnect';
+      setIsReconnecting(!intentional);
+    };
     const onConnectError = (err: Error) => {
       console.error('[Socket] Connection error:', err.message);
       setIsConnected(false);
+      setIsReconnecting(true);
     };
 
     socketManager.on('connect', onConnect);
-    socketManager.on('disconnect', onDisconnect);
+    socketManager.on('disconnect', onDisconnect as any);
     socketManager.on('connect_error', onConnectError as any);
 
     // Register domain handlers — each returns a cleanup function
@@ -137,6 +144,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         socket: socketManager.instance,
         isConnected,
+        isReconnecting,
         joinChat,
         leaveChat,
         sendMessage,

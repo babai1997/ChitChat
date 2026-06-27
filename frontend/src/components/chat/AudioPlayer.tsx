@@ -70,8 +70,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url }) => {
       maxWidth: '100%',
     }}>
       <audio ref={audioRef} src={url} preload="metadata" />
-      
-      <button 
+
+      <button
         onClick={togglePlay}
         style={{
           background: 'none',
@@ -86,13 +86,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url }) => {
       >
         {isPlaying ? <Pause size={24} fill="#8696a0" /> : <Play size={24} fill="#8696a0" />}
       </button>
-      
+
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <input 
-          type="range" 
-          min="0" 
-          max={duration || 100} 
-          value={currentTime} 
+        <input
+          type="range"
+          min="0"
+          max={duration || 100}
+          value={currentTime}
           onChange={handleSliderChange}
           style={{
             width: '100%',

@@ -102,15 +102,15 @@ export default function AudioPlayer({ uri, isOwn }: { uri: string; isOwn: boolea
   };
 
   // Default duration visual before loading if we don't have it
-  const displayTime = duration > 0 
-    ? formatTime(isPlaying || position > 0 ? position : duration) 
+  const displayTime = duration > 0
+    ? formatTime(isPlaying || position > 0 ? position : duration)
     : '0:00';
 
   const progress = duration > 0 ? (position / duration) * 100 : 0;
 
   // Fake waveform pattern
   const WAVEFORM = [
-    3, 5, 8, 12, 15, 20, 24, 18, 12, 8, 5, 10, 16, 22, 28, 24, 18, 12, 8, 5, 
+    3, 5, 8, 12, 15, 20, 24, 18, 12, 8, 5, 10, 16, 22, 28, 24, 18, 12, 8, 5,
     8, 14, 20, 26, 22, 16, 10, 6, 4, 8, 14, 22, 28, 30, 24, 16, 10, 6, 4, 3
   ];
 
