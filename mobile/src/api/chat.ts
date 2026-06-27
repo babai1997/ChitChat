@@ -8,7 +8,8 @@ export const chatApi = {
       ? `/chats/calls/history?chatId=${chatId}`
       : "/chats/calls/history";
     const response = await api.get(url);
-    return response.data;
+    // Backend returns { data: Message[], nextCursor } — unwrap the array
+    return response.data?.data ?? response.data ?? [];
   },
 
   getChats: async (): Promise<Chat[]> => {

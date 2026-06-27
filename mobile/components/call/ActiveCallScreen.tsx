@@ -394,9 +394,9 @@ export default function ActiveCallScreen({
   const showGrid = isConnectedWithPeers && (isVideo || participantCount >= 2);
   const showCenterAvatar = !showGrid;
 
-  // Local PiP: video calls only; on tablet 1-on-1 the local stream is a grid tile instead
+  // PiP only for 1:1 video — group calls (2+ remotes) include local as a grid tile instead
   const showLocalPip = isVideo && callStatus === "connected" && !!localStream &&
-    !(IS_TABLET && participantCount === 1);
+    participantCount === 1 && !IS_TABLET;
 
   // ── Remote grid ─────────────────────────────────────────────────────────────
   //
@@ -458,9 +458,12 @@ export default function ActiveCallScreen({
       );
     }
 
-    // Always 2 columns so 2 participants appear side-by-side, not stacked
+    // Group call: include local user as a grid tile (no PiP for 3+ people).
+    // A tile alone in its row gets flex:2 so it spans the full row width.
+    const LOCAL_KEY = "__local__";
     const colsPerRow = 2;
-    const rows = chunkArray(participantIds, colsPerRow);
+    const allIds = [...participantIds, LOCAL_KEY];
+    const rows = chunkArray(allIds, colsPerRow);
     const numRows = rows.length;
     const rowHeight = SCREEN_HEIGHT / numRows;
 
@@ -479,6 +482,25 @@ export default function ActiveCallScreen({
             }}
           >
             {row.map((uid) => {
+              const tileStyle = {
+                flex: row.length === 1 ? colsPerRow : 1,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: "#0b141a",
+              };
+              if (uid === LOCAL_KEY) {
+                return (
+                  <LocalParticipantTile
+                    key={LOCAL_KEY}
+                    stream={localStream as any}
+                    videoEnabled={isVideoEnabled}
+                    localUserName={localUserName}
+                    localUserAvatar={localUserAvatar}
+                    style={tileStyle}
+                    videoRenderKey={videoRenderKey}
+                    isFrontCamera={isFrontCamera}
+                  />
+                );
+              }
               const { name, avatar } = getMemberInfo(uid);
               return (
                 <RemoteParticipantTile
@@ -490,19 +512,12 @@ export default function ActiveCallScreen({
                   memberAvatar={avatar}
                   isSpeaking={activeSpeakers.has(uid)}
                   isRemoteMuted={remoteMuteStates.get(uid) === true}
-                  style={{
-                    flex: 1,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: "#0b141a",
-                  }}
+                  style={tileStyle}
                   videoRenderKey={videoRenderKey}
                   isSingleParticipant={false}
                 />
               );
             })}
-            {row.length < colsPerRow && (
-              <View style={{ flex: colsPerRow - row.length, backgroundColor: "#0f171b" }} />
-            )}
           </View>
         ))}
       </View>

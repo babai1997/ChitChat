@@ -145,6 +145,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.usersService.setOnlineStatus(userId, false);
       await this.usersService.updateLastSeen(userId);
 
+      // Remove from any active call so participant count and banners stay accurate
+      // even when the client disconnects without emitting CALL_END.
+      this.callHandler.handleUserDisconnect(userId);
+
       const userChatIds = await this.chatsService.getUserChatIds(userId);
       userChatIds.forEach((chatId) => {
         // Clear any stuck typing indicator before going offline
@@ -312,9 +316,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     socket.join(`chat:${data.chatId}`);
 
-    // If a call is already active in this chat, send the banner immediately to the joiner
+    // Only send the banner if the call already has ≥2 participants (truly active).
     const activeCall = this.callHandler.getActiveCall(data.chatId);
-    if (activeCall) {
+    if (activeCall && activeCall.participantCount >= 2) {
       socket.emit(SOCKET_EVENTS.CALL_ONGOING, {
         chatId: data.chatId,
         type: activeCall.type,

@@ -6,6 +6,12 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
   SendOtpDto,
@@ -17,6 +23,7 @@ import { Public, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../../common/guards';
 import type { User } from '@prisma/client';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -28,6 +35,8 @@ export class AuthController {
   @Public()
   @Post('otp/send')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send OTP to phone number' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
   async sendOtp(@Body() dto: SendOtpDto) {
     return this.authService.sendOtp(dto);
   }
@@ -35,6 +44,9 @@ export class AuthController {
   @Public()
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP and get tokens' })
+  @ApiResponse({ status: 200, description: 'Returns access & refresh tokens' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired OTP' })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
   }
@@ -46,6 +58,8 @@ export class AuthController {
   @Public()
   @Post('google')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in with Google ID token' })
+  @ApiResponse({ status: 200, description: 'Returns access & refresh tokens' })
   async googleAuth(@Body() dto: GoogleAuthDto) {
     return this.authService.googleAuth(dto);
   }
@@ -57,6 +71,12 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns new access & refresh tokens',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
   async refreshTokens(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshTokens(dto);
   }
@@ -64,6 +84,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout and invalidate refresh token' })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
   async logout(@CurrentUser() user: User) {
     return this.authService.logout(user.id);
   }
@@ -75,6 +98,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('me')
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the authenticated user with profile',
+  })
   async me(
     @CurrentUser()
     user: User & {

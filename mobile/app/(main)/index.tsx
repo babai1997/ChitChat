@@ -22,14 +22,18 @@ import {
   Search,
   MessageSquarePlus,
   X,
+  Phone,
+  Video,
 } from "lucide-react-native";
 import type { Chat } from "../../src/types";
 import { ChatListSkeleton } from "../../components/common/SkeletonLoader";
+import { useCall } from "../../src/contexts/CallContext";
 
 export default function ChatsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { chats, setChats, setActiveChat, onlineUsers } = useChatStore();
+  const { ongoingCallsByChatId, joinOngoingCall, callStatus } = useCall();
   const insets = useSafeAreaInsets();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +121,14 @@ export default function ChatsScreen() {
     router.push(`/(main)/chat/${chat.id}`);
   };
 
+  const handleJoinCall = async (chat: Chat) => {
+    const ongoing = ongoingCallsByChatId.get(chat.id);
+    if (!ongoing) return;
+    setActiveChat(chat);
+    await joinOngoingCall(chat.id, ongoing.type);
+    router.push(`/(main)/chat/${chat.id}`);
+  };
+
   // Filter and sort chats by search query and recent activity
   const filteredChats = chats
     .filter((chat) => {
@@ -141,6 +153,9 @@ export default function ChatsScreen() {
       if (otherMember) isOnline = onlineUsers.has(otherMember.userId);
     }
     const avatar = getChatAvatar(chat);
+    const ongoing = chat.type === "group" && callStatus === "idle"
+      ? ongoingCallsByChatId.get(chat.id)
+      : undefined;
 
     return (
       <TouchableOpacity
@@ -178,6 +193,26 @@ export default function ChatsScreen() {
             )}
           </View>
 
+          {/* Ongoing call join strip — replaces last-message row when a call is active */}
+          {ongoing ? (
+            <View style={styles.ongoingCallRow}>
+              <View style={styles.ongoingCallLeft}>
+                {ongoing.type === "video"
+                  ? <Video size={13} color="#00a884" />
+                  : <Phone size={13} color="#00a884" />}
+                <Text style={styles.ongoingCallText}>
+                  Ongoing {ongoing.type} call · {ongoing.participantCount} joined
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.joinBtn}
+                onPress={() => handleJoinCall(chat)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.joinBtnText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.chatFooter}>
             <View style={styles.lastMessageContainer}>
               {chat.lastMessage ? (
@@ -247,6 +282,7 @@ export default function ChatsScreen() {
               </View>
             )}
           </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -529,5 +565,34 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
+  },
+  ongoingCallRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ongoingCallLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flex: 1,
+  },
+  ongoingCallText: {
+    fontSize: 13,
+    color: "#00a884",
+    fontWeight: "500",
+    flexShrink: 1,
+  },
+  joinBtn: {
+    backgroundColor: "#00a884",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginLeft: 8,
+  },
+  joinBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

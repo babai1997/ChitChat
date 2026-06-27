@@ -23,7 +23,8 @@ interface ActiveCall {
   type: 'audio' | 'video';
   callerId: string;
   callerName: string;
-  participantCount: number;
+  /** Set of userIds currently connected in this call. */
+  participantUserIds: Set<string>;
 }
 
 @Injectable()
@@ -44,7 +45,9 @@ export class CallHandler {
   }
 
   getActiveCall(chatId: string) {
-    return this.activeCalls.get(chatId) ?? null;
+    const call = this.activeCalls.get(chatId);
+    if (!call) return null;
+    return { ...call, participantCount: call.participantUserIds.size };
   }
 
   async handleCallStart(
@@ -84,18 +87,13 @@ export class CallHandler {
       recipientCount: recipientIds.length,
     });
 
-    // Track this as an active call and broadcast the banner to everyone else
+    // Track this as an active call. The banner (CALL_ONGOING) is only broadcast
+    // once a second participant joins — a call with 1 person is not yet "active".
     this.activeCalls.set(chatId, {
       type,
       callerId: sender.id,
       callerName: sender.profile?.displayName || 'Unknown',
-      participantCount: 1,
-    });
-    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
-      chatId,
-      type,
-      callerName: sender.profile?.displayName || 'Unknown',
-      participantCount: 1,
+      participantUserIds: new Set([sender.id]),
     });
 
     this.logger.log(
@@ -127,16 +125,19 @@ export class CallHandler {
       chatId,
     });
 
-    // Update participant count and re-broadcast the banner with the new count
+    // Update participant set. Broadcast banner once ≥2 people are connected.
     const active = this.activeCalls.get(chatId);
     if (active) {
-      active.participantCount++;
-      this.server?.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
-        chatId,
-        type: active.type,
-        callerName: active.callerName,
-        participantCount: active.participantCount,
-      });
+      active.participantUserIds.add(userId);
+      const count = active.participantUserIds.size;
+      if (this.server) {
+        this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
+          chatId,
+          type: active.type,
+          callerName: active.callerName,
+          participantCount: count,
+        });
+      }
     }
   }
 
@@ -272,11 +273,12 @@ export class CallHandler {
       enderId: senderId,
     });
 
-    // Decrement participant count; when zero broadcast CALL_FINISHED to remove banners
+    // Remove user from the active set. Emit CALL_FINISHED when fewer than 2 remain.
     const active = this.activeCalls.get(chatId);
     if (active) {
-      active.participantCount--;
-      if (active.participantCount <= 0) {
+      active.participantUserIds.delete(senderId);
+      const count = active.participantUserIds.size;
+      if (count <= 1) {
         this.activeCalls.delete(chatId);
         if (this.server) {
           this.server
@@ -289,7 +291,7 @@ export class CallHandler {
             chatId,
             type: active.type,
             callerName: active.callerName,
-            participantCount: active.participantCount,
+            participantCount: count,
           });
         }
       }
@@ -360,6 +362,42 @@ export class CallHandler {
           .to(`chat:${chatId}`)
           .emit(SOCKET_EVENTS.CALL_FINISHED, { chatId });
       }
+    }
+  }
+
+  /**
+   * Called on socket disconnect. Removes the user from any call they were in
+   * so the participant count stays accurate even when the app crashes or loses
+   * connection without emitting CALL_END.
+   */
+  handleUserDisconnect(userId: string) {
+    for (const [chatId, active] of this.activeCalls.entries()) {
+      if (!active.participantUserIds.has(userId)) continue;
+
+      active.participantUserIds.delete(userId);
+      const count = active.participantUserIds.size;
+
+      if (count <= 1) {
+        this.activeCalls.delete(chatId);
+        if (this.server) {
+          this.server
+            .to(`chat:${chatId}`)
+            .emit(SOCKET_EVENTS.CALL_FINISHED, { chatId });
+        }
+      } else {
+        if (this.server) {
+          this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
+            chatId,
+            type: active.type,
+            callerName: active.callerName,
+            participantCount: count,
+          });
+        }
+      }
+
+      this.logger.log(
+        `[Call] User ${userId} removed from call in chat ${chatId} via disconnect (remaining: ${count})`,
+      );
     }
   }
 }
