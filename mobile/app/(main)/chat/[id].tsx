@@ -256,7 +256,8 @@ export default function ChatRoomScreen() {
     <View style={styles.container}>
       {/* KeyboardAvoidingView wraps header + messages + input so iOS padding
           pushes the input above the keyboard without covering it.
-          On Android, softwareKeyboardLayoutMode="pan" in app.json handles it. */}
+          On Android, softwareKeyboardLayoutMode="adjustResize" in app.json shrinks
+          the window so the flex layout naturally keeps ChatInput above the keyboard. */}
       <KeyboardAvoidingView
         style={styles.innerContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
