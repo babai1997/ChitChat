@@ -71,6 +71,8 @@ interface CallContextType {
   remoteStreams: Map<string, MediaStream>;
   // Multi-party: per-user camera on/off state
   remoteVideoStates: Map<string, boolean>;
+  // Multi-party: per-user mic muted state
+  remoteMuteStates: Map<string, boolean>;
   // Set of userIds whose audio is currently active (speaking indicator)
   activeSpeakers: Set<string>;
   isMuted: boolean;
@@ -98,6 +100,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
+  const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -267,6 +270,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLocalStream(null);
     setRemoteStreams(new Map());
     setRemoteVideoStates(new Map());
+    setRemoteMuteStates(new Map());
     setIncomingCall(null);
     setCallStatus('idle');
     setIsCallActive(false);
@@ -326,6 +330,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         peerConnectionsRef.current.delete(targetUserId);
         setRemoteStreams(prev => { const m = new Map(prev); m.delete(targetUserId); return m; });
         setRemoteVideoStates(prev => { const m = new Map(prev); m.delete(targetUserId); return m; });
+        setRemoteMuteStates(prev => { const m = new Map(prev); m.delete(targetUserId); return m; });
         pendingCandidatesRef.current.delete(targetUserId);
 
         if (peerConnectionsRef.current.size === 0 && isCallActiveRef.current) {
@@ -490,6 +495,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         peerConnectionsRef.current.delete(enderId);
         setRemoteStreams(prev => { const m = new Map(prev); m.delete(enderId); return m; });
         setRemoteVideoStates(prev => { const m = new Map(prev); m.delete(enderId); return m; });
+        setRemoteMuteStates(prev => { const m = new Map(prev); m.delete(enderId); return m; });
         pendingCandidatesRef.current.delete(enderId);
 
         // If all peers have left, end the call locally too
@@ -512,6 +518,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRemoteVideoStates(prev => new Map(prev).set(data.senderId, data.videoEnabled));
     };
 
+    const handleAudioState = (data: { senderId: string; isMuted: boolean }) => {
+      console.log('[Call] Remote audio state from', data.senderId, '→ muted:', data.isMuted);
+      setRemoteMuteStates(prev => new Map(prev).set(data.senderId, data.isMuted));
+    };
+
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
     socketManager.on(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
     socketManager.on(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
@@ -519,6 +530,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
     socketManager.on(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
     socketManager.on(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
+    socketManager.on(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState as any);
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -528,6 +540,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
       socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
       socketManager.off(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
+      socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState as any);
     };
   }, [createPeerConnection, cleanupCall]);
 
@@ -558,6 +571,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await requestPermissions();
 
       setCallType(type);
+      callTypeRef.current = type;
       setCallStatus('calling');
       setIsCallActive(true);
       setActiveChatId(chatId);
@@ -635,6 +649,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeChatIdRef.current = call.chatId;
       isInitiatorRef.current = false;
       callStartTimeRef.current = null;
+      callTypeRef.current = call.type;
 
       try {
         if (incomingSoundRef.current) {
@@ -671,6 +686,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsVideoEnabled(videoAvailable);
       setIsMuted(false);
       setCallType(call.type);
+      callTypeRef.current = call.type;
 
       // Speaker starts OFF — user taps the speaker button to enable it
       setIsSpeaker(false);
@@ -705,10 +721,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleMute = () => {
+    const newMuted = !isMuted;
     localStreamRef.current?.getAudioTracks().forEach((t: any) => {
-      t.enabled = !t.enabled;
+      t.enabled = !newMuted;
     });
-    setIsMuted((prev) => !prev);
+    setIsMuted(newMuted);
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_AUDIO_STATE, {
+        chatId: activeChatIdRef.current,
+        isMuted: newMuted,
+      });
+    }
   };
 
   const toggleVideo = () => {
@@ -738,6 +761,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStream,
         remoteStreams,
         remoteVideoStates,
+        remoteMuteStates,
         activeSpeakers,
         isMuted,
         isVideoEnabled,

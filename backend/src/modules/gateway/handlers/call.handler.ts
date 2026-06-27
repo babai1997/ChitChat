@@ -42,6 +42,15 @@ export class CallHandler {
     const sender = socket.user;
 
     const memberIds = await this.chatsService.getChatMemberIds(chatId);
+
+    if (!memberIds.includes(sender.id)) {
+      this.logger.warn(
+        `[Call] Unauthorized call attempt by ${sender.id} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     const recipientIds = memberIds.filter((id) => id !== sender.id);
 
     recipientIds.forEach((recipientId) => {
@@ -64,9 +73,17 @@ export class CallHandler {
    * Receiver joins the call room.
    * Existing participants receive CALL_USER_JOINED and initiate WebRTC peer connections.
    */
-  handleCallJoin(socket: AuthSocket, data: { chatId: string }) {
+  async handleCallJoin(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const userId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, userId))) {
+      this.logger.warn(
+        `[Call] Unauthorized join attempt by ${userId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
 
     this.logger.log(`[Call] User ${userId} joined call in chat ${chatId}`);
 
@@ -105,12 +122,20 @@ export class CallHandler {
     });
   }
 
-  handleCallReject(
+  async handleCallReject(
     socket: AuthSocket,
     data: { chatId: string; callerId: string },
   ) {
     const { chatId, callerId } = data;
     const rejectorId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, rejectorId))) {
+      this.logger.warn(
+        `[Call] Unauthorized reject attempt by ${rejectorId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
 
     this.logger.log(
       `[Call] User ${rejectorId} rejected call from ${callerId} in chat ${chatId}`,
@@ -128,16 +153,34 @@ export class CallHandler {
     data: { chatId: string; videoEnabled: boolean },
   ) {
     const { chatId, videoEnabled } = data;
-    // Broadcast to everyone else in the room so they update the avatar/video UI
     socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
       senderId: socket.user.id,
       videoEnabled,
     });
   }
 
-  handleCallEnd(socket: AuthSocket, data: { chatId: string }) {
+  handleCallAudioState(
+    socket: AuthSocket,
+    data: { chatId: string; isMuted: boolean },
+  ) {
+    const { chatId, isMuted } = data;
+    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_AUDIO_STATE, {
+      senderId: socket.user.id,
+      isMuted,
+    });
+  }
+
+  async handleCallEnd(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const senderId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, senderId))) {
+      this.logger.warn(
+        `[Call] Unauthorized end attempt by ${senderId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
 
     this.logger.log(`[Call] User ${senderId} ended call in chat ${chatId}`);
 
@@ -169,6 +212,15 @@ export class CallHandler {
 
     // 1. Stop ringing on all callee devices
     const memberIds = await this.chatsService.getChatMemberIds(chatId);
+
+    if (!memberIds.includes(callerId)) {
+      this.logger.warn(
+        `[Call] Unauthorized missed-call attempt by ${callerId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     const recipientIds = memberIds.filter((id) => id !== callerId);
     recipientIds.forEach((recipientId) => {
       this.registry.emitToUser(recipientId, SOCKET_EVENTS.CALL_MISSED, {

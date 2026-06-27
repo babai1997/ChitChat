@@ -74,6 +74,12 @@ export default function ChatInput({ chatId }: ChatInputProps) {
       keyboardDidShowListener.remove();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      // Emit stop so the remote typing indicator clears when navigating away
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        stopTyping(chatId);
       }
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);

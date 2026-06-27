@@ -8,12 +8,17 @@ import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useChatStore } from '../stores/chatStore';
 import * as Crypto from 'expo-crypto';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.2.95:3000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+if (!API_URL) {
+  throw new Error('EXPO_PUBLIC_API_URL is not set. Add it to your .env file.');
+}
 
 // ── Context type ────────────────────────────────────────────────────────────
 
 interface SocketContextType {
   isConnected: boolean;
+  isReconnecting: boolean;
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
   sendMessage: (chatId: string, content: string, type?: string, replyToId?: string, attachments?: any[], customTempId?: string) => string | null;
@@ -30,6 +35,7 @@ const SocketContext = createContext<SocketContextType | null>(null);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const { accessToken, isAuthenticated } = useAuthStore();
 
   // Connect / disconnect based on auth state
@@ -37,16 +43,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isAuthenticated || !accessToken) {
       socketManager.disconnect();
       setIsConnected(false);
+      setIsReconnecting(false);
       return;
     }
 
     socketManager.connect(API_URL, accessToken);
 
-    const onConnect = () => setIsConnected(true);
-    const onDisconnect = () => setIsConnected(false);
+    const onConnect = () => { setIsConnected(true); setIsReconnecting(false); };
+    const onDisconnect = (reason: unknown) => {
+      setIsConnected(false);
+      const intentional = reason === 'io client disconnect' || reason === 'io server disconnect';
+      setIsReconnecting(!intentional);
+    };
     const onConnectError = (err: Error) => {
       console.error('[Socket] Connection error:', err.message);
       setIsConnected(false);
+      setIsReconnecting(true);
     };
 
     socketManager.on('connect', onConnect);
@@ -192,6 +204,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     <SocketContext.Provider
       value={{
         isConnected,
+        isReconnecting,
         joinChat,
         leaveChat,
         sendMessage,

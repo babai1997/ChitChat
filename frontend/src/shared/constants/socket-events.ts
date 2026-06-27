@@ -37,6 +37,10 @@ export const SOCKET_EVENTS = {
   CALL_SIGNAL: 'call:signal',
   CALL_END: 'call:end',
   CALL_REJECT: 'call:reject',
+  /** Notify peers that this user toggled their camera on/off. Server relays to the room. */
+  CALL_VIDEO_STATE: 'call:video-state',
+  /** Notify peers that this user muted/unmuted their mic. Server relays to the room. */
+  CALL_AUDIO_STATE: 'call:audio-state',
   /** Caller timed out — no one answered. Server creates a missed-call message. */
   CALL_MISSED: 'call:missed',
 

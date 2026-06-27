@@ -13,6 +13,7 @@ import { chatApi } from "../../api";
 import { useChatStore } from "../../stores/chatStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useCall } from "../../contexts/CallContext";
+import type { Message } from "../../types";
 
 interface CallInfoViewProps {
   chatId: string;
@@ -58,9 +59,9 @@ export const CallInfoView = ({
   useEffect(() => {
     const loadCallHistory = async () => {
       try {
-        const data = await chatApi.getCallHistory(chatId);
+        const { data: raw } = await chatApi.getCallHistory({ chatId });
 
-        const records = data.map((msg: any) => {
+        const records = raw.map((msg: Message) => {
           const isMine = msg.senderId === user?.id;
           let callLog = { status: "missed", duration: 0, isVideo: false };
           try {

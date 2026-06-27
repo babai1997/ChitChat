@@ -110,12 +110,30 @@ const AppContent = () => {
 
 import { CallProvider } from './contexts/CallContext';
 import { CallModal } from './components/call/CallModal';
+import { useSocketContext } from './contexts/SocketContextShared';
+
+function ReconnectBanner() {
+  const { isReconnecting } = useSocketContext();
+  if (!isReconnecting) return null;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+      background: '#2a3942', color: '#e9edef',
+      fontSize: 13, textAlign: 'center', padding: '6px 12px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0a500', display: 'inline-block', animation: 'pulse 1.2s ease-in-out infinite' }} />
+      Reconnecting…
+    </div>
+  );
+}
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SocketProvider>
         <CallProvider>
+          <ReconnectBanner />
           <AppContent />
           <CallModal />
           {/* Toast notifications */}

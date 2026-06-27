@@ -25,6 +25,10 @@ interface CallContextType {
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
+  /** userId → whether that peer has video enabled. Absent = unknown (assume enabled). */
+  remoteVideoStates: Map<string, boolean>;
+  /** userId → whether that peer has their mic muted. Absent = unknown (assume unmuted). */
+  remoteMuteStates: Map<string, boolean>;
   activeChatId: string | null;
   isMinimized: boolean;
   isMuted: boolean;
@@ -54,6 +58,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
+  const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
 
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -67,10 +73,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   /** Auto-cancel timer — clears when call is answered, rejected, or ended. */
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitiatorRef = useRef(false);
+  const callStartTimeRef = useRef<number | null>(null);
+  const callStatusRef = useRef<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
+  const callTypeRef = useRef<'audio' | 'video'>('audio');
+  const wasRejectedRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
   useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
+  useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
+  useEffect(() => { callTypeRef.current = callType; }, [callType]);
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
@@ -82,6 +95,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
+    }
+
+    // Send call history message — only the initiator writes the log to avoid duplicates
+    if (
+      isInitiatorRef.current &&
+      activeChatIdRef.current &&
+      callStatusRef.current !== 'idle' &&
+      callStatusRef.current !== 'incoming'
+    ) {
+      let duration = 0;
+      let status = 'missed';
+
+      if (callStatusRef.current === 'connected' && callStartTimeRef.current) {
+        duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+        status = 'ended';
+      } else if (wasRejectedRef.current) {
+        status = 'rejected';
+      }
+      // 'calling' → stays 'missed'
+
+      const payload = JSON.stringify({ status, duration, isVideo: callTypeRef.current === 'video' });
+      const capturedChatId = activeChatIdRef.current;
+      setTimeout(() => {
+        socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+          chatId: capturedChatId,
+          content: payload,
+          type: 'missed_call',
+          tempId: `temp-call-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        });
+      }, 50);
     }
 
     peersRef.current.forEach((peer) => {
@@ -96,6 +139,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setLocalStream(null);
     setRemoteStreams(new Map());
+    setRemoteVideoStates(new Map());
+    setRemoteMuteStates(new Map());
     setIncomingCall(null);
     setCallStatus('idle');
     setIsCallActive(false);
@@ -103,6 +148,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveChatId(null);
     isCallActiveRef.current = false;
     activeChatIdRef.current = null;
+    isInitiatorRef.current = false;
+    callStartTimeRef.current = null;
+    wasRejectedRef.current = false;
   }, []);
 
   // ── Peer factory ───────────────────────────────────────────────────────────
@@ -169,6 +217,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         // Transition to connected state when we have a stream
         setCallStatus('connected');
+        if (!callStartTimeRef.current) {
+          callStartTimeRef.current = Date.now();
+        }
       });
 
       peer.on('connect', () => {
@@ -295,7 +346,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleRejected = () => {
       console.log('[Call] Call rejected');
       toast.error('Call was declined');
+      wasRejectedRef.current = true;
       cleanupCall();
+    };
+
+    const handleVideoState = (data: unknown) => {
+      const { senderId, videoEnabled } = data as { senderId: string; videoEnabled: boolean };
+      setRemoteVideoStates((prev) => {
+        const next = new Map(prev);
+        next.set(senderId, videoEnabled);
+        return next;
+      });
+    };
+
+    const handleAudioState = (data: unknown) => {
+      const { senderId, isMuted } = data as { senderId: string; isMuted: boolean };
+      setRemoteMuteStates((prev) => {
+        const next = new Map(prev);
+        next.set(senderId, isMuted);
+        return next;
+      });
     };
 
     // Register via socketManager — handlers persist in its internal registry
@@ -306,6 +376,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
     socketManager.on(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
     socketManager.on(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
+    socketManager.on(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState);
+    socketManager.on(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState);
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -314,6 +386,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
       socketManager.off(SOCKET_EVENTS.CALL_ENDED, handleEnded as any);
       socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
+      socketManager.off(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState);
+      socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState);
     };
   // Run once on mount — socketManager.on() persists handlers through reconnects
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,9 +400,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeChatIdRef.current = chatId;
       setActiveChatId(chatId);
       setCallType(type);
+      callTypeRef.current = type;
       setCallStatus('calling');
       setIsCallActive(true);
-      isCallActiveRef.current = true; // Set ref immediately
+      isCallActiveRef.current = true;
+      isInitiatorRef.current = true;
+      callStartTimeRef.current = null;
 
       // Instantly bump chat to the top of the chat list
       useChatStore.getState().updateChat(chatId, { updatedAt: new Date().toISOString() });
@@ -379,7 +456,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Status is 'calling' (not 'connected') — actual connection established when stream arrives
       setCallStatus('calling');
       setIsCallActive(true);
-      isCallActiveRef.current = true; // Set ref immediately
+      isCallActiveRef.current = true;
+      isInitiatorRef.current = false;
+      callStartTimeRef.current = null;
+      callTypeRef.current = call.type;
       activeChatIdRef.current = call.chatId;
       setActiveChatId(call.chatId);
 
@@ -427,18 +507,32 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleMute = () => {
+    const newMuted = !isMuted;
     localStreamRef.current?.getAudioTracks().forEach((t) => {
-      t.enabled = !t.enabled;
+      t.enabled = !newMuted;
     });
-    setIsMuted((prev) => !prev);
+    setIsMuted(newMuted);
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_AUDIO_STATE, {
+        chatId: activeChatIdRef.current,
+        isMuted: newMuted,
+      });
+    }
   };
 
   const toggleVideo = () => {
     if (callType !== 'video') return;
+    const newEnabled = !isVideoEnabled;
     localStreamRef.current?.getVideoTracks().forEach((t) => {
-      t.enabled = !t.enabled;
+      t.enabled = newEnabled;
     });
-    setIsVideoEnabled((prev) => !prev);
+    setIsVideoEnabled(newEnabled);
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
+        chatId: activeChatIdRef.current,
+        videoEnabled: newEnabled,
+      });
+    }
   };
 
   const toggleMinimize = () => setIsMinimized((prev) => !prev);
@@ -454,6 +548,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         incomingCall,
         localStream,
         remoteStreams,
+        remoteVideoStates,
+        remoteMuteStates,
         activeChatId,
         isMinimized,
         isMuted,

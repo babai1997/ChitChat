@@ -7,7 +7,9 @@ import {
   Pencil,
   Trash2,
   Ban,
-  PhoneOff,
+  Phone,
+  PhoneIncoming,
+  PhoneOutgoing,
   Video,
   X,
   Forward,
@@ -254,56 +256,83 @@ export const MessageBubble = ({
     );
   }
 
-  // Missed call — render as WhatsApp-style pill (no context menu, not editable)
-  if (message.type === "missed_call") {
-    const isVideoCall = message.content?.includes("video");
+  // Call log — render as WhatsApp-style pill (no context menu, not editable)
+  if (message.type === "missed_call" || message.type === "call_log") {
+    type CallPayload = { status: "ended" | "missed" | "rejected"; duration: number; isVideo: boolean };
+    let call: CallPayload | null = null;
+    try {
+      const parsed = JSON.parse(message.content ?? "");
+      if (parsed && typeof parsed === "object" && "status" in parsed) call = parsed as CallPayload;
+    } catch { /* plain-text fallback */ }
+
+    const isVideo  = call ? call.isVideo : (message.content?.toLowerCase().includes("video") ?? false);
+    const ended    = call?.status === "ended";
+    const rejected = call?.status === "rejected";
+    // isOwn = the person who placed the call (initiator wrote the log)
+
+    // ── Title ──
+    const title = ended || rejected
+      ? isVideo ? "Video Call" : "Voice Call"
+      : isOwn
+        ? isVideo ? "Video Call" : "Voice Call"          // outgoing, not answered
+        : isVideo ? "Missed Video Call" : "Missed Voice Call"; // incoming, missed
+
+    // ── Subtitle ──
+    const formatDuration = (s: number) => {
+      if (s < 60)   return `${s}s`;
+      if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+    };
+    const duration  = ended && call && call.duration > 0 ? formatDuration(call.duration) : null;
+    const subtitle  = duration ?? (rejected ? "Call declined" : "No answer");
+
+    // ── Icon ──
+    // ended   → green  | outgoing arrow (own) or incoming arrow (theirs)
+    // outgoing missed → neutral white | outgoing arrow
+    // incoming missed → red           | incoming arrow
+    let iconColor: string;
+    let iconBg: string;
+    let AudioIcon: typeof Phone;
+
+    if (ended) {
+      iconColor = "#25d366";
+      iconBg    = "rgba(37,211,102,0.12)";
+      AudioIcon = isOwn ? PhoneOutgoing : PhoneIncoming;
+    } else if (isOwn) {
+      iconColor = "rgba(233,237,239,0.65)";
+      iconBg    = "rgba(255,255,255,0.07)";
+      AudioIcon = PhoneOutgoing;
+    } else {
+      iconColor = "#ea4335";
+      iconBg    = "rgba(234,67,53,0.12)";
+      AudioIcon = PhoneIncoming;
+    }
+
     return (
-      <div
-        className="animate-slide-up"
-        style={{
-          display: "flex",
-          justifyContent: isOwn ? "flex-end" : "flex-start",
-          marginBottom: "4px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 14px",
-            backgroundColor: isOwn ? "#005c4b" : "#202c33",
-            borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
-            boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
-            maxWidth: "280px",
-          }}
-        >
-          <div
-            style={{
-              width: "34px",
-              height: "34px",
-              borderRadius: "50%",
-              backgroundColor: "rgba(234, 67, 53, 0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            {isVideoCall ? (
-              <Video size={17} color="#ea4335" />
-            ) : (
-              <PhoneOff size={17} color="#ea4335" />
-            )}
+      <div className="animate-slide-up" style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start", marginBottom: "4px" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "10px",
+          padding: "8px 14px 8px 10px",
+          backgroundColor: isOwn ? "#005c4b" : "#202c33",
+          borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
+          boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+          maxWidth: "280px",
+        }}>
+          <div style={{
+            width: "36px", height: "36px", borderRadius: "50%",
+            backgroundColor: iconBg, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {isVideo
+              ? <Video size={17} color={iconColor} />
+              : <AudioIcon size={17} color={iconColor} />}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <span
-              style={{ fontSize: "14px", color: "#e9edef", lineHeight: "18px" }}
-            >
-              {message.content}
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "#e9edef", lineHeight: "18px" }}>
+              {title}
             </span>
             <span style={{ fontSize: "11px", color: "rgba(233,237,239,0.5)" }}>
-              {formatTime(message.createdAt)}
+              {subtitle} · {formatTime(message.createdAt)}
             </span>
           </div>
         </div>

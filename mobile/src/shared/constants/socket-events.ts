@@ -20,7 +20,6 @@ export const SOCKET_EVENTS = {
   // ── Typing ─────────────────────────────────────────────────────────────────
   TYPING_START: 'typing:start',
   TYPING_STOP: 'typing:stop',
-  TYPING_UPDATE: 'typing:update',
 
   // ── Presence ───────────────────────────────────────────────────────────────
   USER_ONLINE: 'user:online',
@@ -42,6 +41,8 @@ export const SOCKET_EVENTS = {
   CALL_MISSED: 'call:missed',
   /** Broadcast own camera on/off state to everyone in the chat room. */
   CALL_VIDEO_STATE: 'call:video-state',
+  /** Notify peers that this user muted/unmuted their mic. Server relays to the room. */
+  CALL_AUDIO_STATE: 'call:audio-state',
 
   // ── Calls: Server → Client ─────────────────────────────────────────────────
   CALL_INCOMING: 'call:incoming',

@@ -2,6 +2,19 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Decode JWT payload and check exp — no signature verification needed here.
+// Returns true when the token is missing, malformed, or past its expiry.
+function isJwtExpired(token: string): boolean {
+  try {
+    const part = token.split('.')[1];
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const { exp } = JSON.parse(json) as { exp?: number };
+    return typeof exp !== 'number' || Date.now() >= exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 interface User {
   id: string;
   phone: string | null;
@@ -104,6 +117,13 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      // AsyncStorage hydration is async so useAuthStore is always assigned by
+      // the time this callback fires — no microtask deferral needed.
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken && isJwtExpired(state.accessToken)) {
+          useAuthStore.setState({ accessToken: null, isAuthenticated: false, user: null });
+        }
+      },
     }
   )
 );

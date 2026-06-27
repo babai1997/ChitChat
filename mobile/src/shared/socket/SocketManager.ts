@@ -36,6 +36,8 @@ class SocketManager {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
     });
 
     // Attach all handlers that were registered before this connect() call

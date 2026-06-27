@@ -3,11 +3,12 @@ import type { Chat, Message, MessagesResponse, Profile } from '../types';
 
 export const chatApi = {
   // Calls
-  getCallHistory: async (chatId?: string): Promise<Message[]> => {
-    const url = chatId
-      ? `/chats/calls/history?chatId=${chatId}`
-      : "/chats/calls/history";
-    const response = await api.get(url);
+  getCallHistory: async (params?: { chatId?: string; cursor?: string }): Promise<{ data: Message[]; nextCursor: string | null }> => {
+    const query = new URLSearchParams();
+    if (params?.chatId) query.append('chatId', params.chatId);
+    if (params?.cursor) query.append('cursor', params.cursor);
+    const qs = query.toString();
+    const response = await api.get(`/chats/calls/history${qs ? `?${qs}` : ''}`);
     return response.data;
   },
 

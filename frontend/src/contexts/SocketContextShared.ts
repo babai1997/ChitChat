@@ -10,6 +10,7 @@ export const SOCKET_URL =
 export interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  isReconnecting: boolean;
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
   sendMessage: (

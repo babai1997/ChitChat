@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,6 +14,11 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
+  resolve: {
+    alias: {
+      '@chitchat/types': path.resolve(__dirname, '../packages/types/index.ts'),
+    },
+  },
   server: {
     port: 5173,
     proxy: {

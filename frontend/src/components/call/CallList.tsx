@@ -1,8 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { Phone, PhoneMissed, PhoneIncoming, PhoneOutgoing, Video, User } from 'lucide-react';
+import React, { useRef, useCallback } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { Phone, PhoneMissed, PhoneIncoming, PhoneOutgoing, Video, User, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCall } from '../../contexts/CallContext';
 import { chatApi } from '../../api';
+
+interface RawCallMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  chat?: {
+    type: string;
+    name?: string;
+    avatarUrl?: string | null;
+    members: Array<{
+      userId: string;
+      user?: {
+        phone?: string;
+        email?: string;
+        profile?: {
+          displayName?: string;
+          avatarUrl?: string | null;
+        };
+      };
+    }>;
+  };
+  sender?: {
+    phone?: string;
+    profile?: {
+      displayName?: string;
+      avatarUrl?: string | null;
+    };
+  };
+}
 
 interface CallRecord {
   id: string;
@@ -19,139 +51,145 @@ interface CallListProps {
   onChatSelect: (chatId: string) => void;
 }
 
+function buildCallRecords(messages: RawCallMessage[], currentUserId: string): CallRecord[] {
+  const records: CallRecord[] = [];
+
+  for (const msg of messages) {
+    const isMine = msg.senderId === currentUserId;
+    let chatName = 'Unknown';
+    let avatarUrl: string | null = null;
+    let otherUserId = msg.senderId;
+
+    if (msg.chat) {
+      if (msg.chat.type === 'direct') {
+        const otherMember = msg.chat.members.find((m) => m.userId !== currentUserId);
+        if (otherMember?.user?.profile) {
+          chatName = otherMember.user.profile.displayName ?? 'Unknown';
+          avatarUrl = otherMember.user.profile.avatarUrl ?? null;
+          otherUserId = otherMember.userId;
+        } else if (otherMember?.user) {
+          chatName = otherMember.user.phone ?? otherMember.user.email ?? 'Unknown';
+          otherUserId = otherMember.userId;
+        }
+      } else {
+        chatName = msg.chat.name ?? 'Group';
+        avatarUrl = msg.chat.avatarUrl ?? null;
+      }
+    } else if (msg.sender) {
+      chatName = msg.sender.profile?.displayName ?? msg.sender.phone ?? 'Unknown';
+      avatarUrl = msg.sender.profile?.avatarUrl ?? null;
+    }
+
+    let callLog = { status: 'missed', isVideo: false };
+    try {
+      if (msg.content) {
+        if (msg.content.startsWith('{')) {
+          const parsed = JSON.parse(msg.content) as { status?: string; isVideo?: boolean };
+          callLog = { status: parsed.status ?? 'missed', isVideo: parsed.isVideo ?? false };
+        } else {
+          callLog.isVideo = msg.content.includes('video');
+          callLog.status = msg.content.includes('ended') ? 'ended' : 'missed';
+        }
+      }
+    } catch {
+      // ignore parse error
+    }
+
+    let direction: 'missed' | 'outgoing' | 'incoming' = 'missed';
+    if (isMine) {
+      direction = 'outgoing';
+    } else if (callLog.status === 'ended') {
+      direction = 'incoming';
+    } else {
+      direction = 'missed';
+    }
+
+    records.push({
+      id: msg.id,
+      chatId: msg.chatId,
+      chatName,
+      avatarUrl,
+      type: callLog.isVideo ? 'video' : 'audio',
+      direction,
+      time: msg.createdAt,
+      otherUserId,
+    });
+  }
+
+  return records;
+}
+
 export const CallList = ({ onChatSelect }: CallListProps) => {
   const { user } = useAuthStore();
   const { startCall } = useCall();
-  const [callRecords, setCallRecords] = useState<CallRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const buildCallRecords = (messages: any[], currentUserId: string): CallRecord[] => {
-    const records: CallRecord[] = [];
-
-    for (const msg of messages) {
-      const isMine = msg.senderId === currentUserId;
-      let chatName = 'Unknown';
-      let avatarUrl = null;
-      let otherUserId = msg.senderId;
-
-      if (msg.chat) {
-        if (msg.chat.type === 'direct') {
-          const otherMember = msg.chat.members.find((m: any) => m.userId !== currentUserId);
-          if (otherMember?.user?.profile) {
-            chatName = otherMember.user.profile.displayName || 'Unknown';
-            avatarUrl = otherMember.user.profile.avatarUrl;
-            otherUserId = otherMember.userId;
-          } else if (otherMember?.user) {
-            chatName = otherMember.user.phone || otherMember.user.email || 'Unknown';
-            otherUserId = otherMember.userId;
-          }
-        } else {
-          chatName = msg.chat.name || 'Group';
-          avatarUrl = msg.chat.avatarUrl;
-        }
-      } else {
-        // Fallback to sender
-        chatName = msg.sender?.profile?.displayName || msg.sender?.phone || 'Unknown';
-        avatarUrl = msg.sender?.profile?.avatarUrl || null;
-      }
-
-      let callLog = { status: 'missed', duration: 0, isVideo: false };
-      try {
-        if (msg.content) {
-          if (msg.content.startsWith('{')) {
-            callLog = JSON.parse(msg.content);
-          } else {
-            callLog.isVideo = msg.content.includes('video');
-            callLog.status = msg.content.includes('ended') ? 'ended' : 'missed';
-          }
-        }
-      } catch {
-        // ignore parse error
-      }
-
-      let direction: 'missed' | 'outgoing' | 'incoming' = 'missed';
-      if (isMine) {
-        direction = 'outgoing';
-      } else if (callLog.status === 'ended') {
-        direction = 'incoming';
-      } else {
-        direction = 'missed';
-      }
-
-      records.push({
-        id: msg.id,
-        chatId: msg.chatId,
-        chatName,
-        avatarUrl,
-        type: callLog.isVideo ? 'video' : 'audio',
-        direction,
-        time: msg.createdAt,
-        otherUserId,
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['call-history', user?.id],
+    queryFn: async ({ pageParam }) => {
+      const raw = await chatApi.getCallHistory({
+        cursor: pageParam as string | undefined,
       });
-    }
+      return {
+        records: user?.id ? buildCallRecords(raw.data as RawCallMessage[], user.id) : [],
+        nextCursor: raw.nextCursor,
+      };
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+  });
 
-    return records;
-  };
-
-  useEffect(() => {
-    const loadCalls = async () => {
-      setIsLoading(true);
-      try {
-        const data = await chatApi.getCallHistory();
-        if (user?.id) {
-          setCallRecords(buildCallRecords(data, user.id));
+  // Sentinel ref for auto-load-more on scroll
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) observerRef.current.disconnect();
+      if (!node) return;
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          void fetchNextPage();
         }
-      } catch (err) {
-        console.error('Failed to load call history:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      });
+      observerRef.current.observe(node);
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
 
-    loadCalls();
-  }, [user?.id]);
+  const callRecords = data?.pages.flatMap((p) => p.records) ?? [];
 
   const handleCallBack = (e: React.MouseEvent, record: CallRecord) => {
     e.stopPropagation();
     startCall(record.chatId, record.type);
   };
 
-  const handleRecordClick = (record: CallRecord) => {
-    // We notify the parent (HomePage) to open the chat
-    onChatSelect(record.chatId);
-  };
-
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    }
+    if (diffDays === 0) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'short' });
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   const getCallIcon = (record: CallRecord) => {
-    if (record.direction === 'missed') {
-      return <PhoneMissed size={16} color="#ef4444" />;
-    }
-    if (record.direction === 'outgoing') {
-      return <PhoneOutgoing size={16} color="#00a884" />;
-    }
+    if (record.direction === 'missed') return <PhoneMissed size={16} color="#ef4444" />;
+    if (record.direction === 'outgoing') return <PhoneOutgoing size={16} color="#00a884" />;
     return <PhoneIncoming size={16} color="#53bdeb" />;
   };
 
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
-        <div style={{ color: '#00a884', animation: 'spin 1s linear infinite' }}>
-           <Phone size={24} />
-        </div>
+        <Loader2 size={24} color="#00a884" style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -171,7 +209,7 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
       {callRecords.map((item) => (
         <button
           key={item.id}
-          onClick={() => handleRecordClick(item)}
+          onClick={() => onChatSelect(item.chatId)}
           style={{
             width: '100%',
             padding: '14px 16px',
@@ -183,28 +221,21 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
             borderBottom: '1px solid #202c33',
             cursor: 'pointer',
             textAlign: 'left',
-            transition: 'background-color 0.2s ease'
+            transition: 'background-color 0.2s ease',
           }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#202c33'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#202c33')}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          {/* Avatar */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {item.avatarUrl ? (
-                <img 
-                  src={item.avatarUrl} 
-                  referrerPolicy="no-referrer"
-                  alt={item.chatName} 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                <img src={item.avatarUrl} referrerPolicy="no-referrer" alt={item.chatName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <User size={24} color="#8696a0" />
               )}
             </div>
           </div>
 
-          {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
               <span style={{ fontWeight: 500, color: item.direction === 'missed' ? '#ef4444' : '#e9edef', fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -218,18 +249,26 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
               <span> · {formatTime(item.time)}</span>
             </div>
           </div>
-          
-          {/* Call Back Button */}
-          <div 
-             onClick={(e) => handleCallBack(e, item)}
-             style={{ padding: '8px', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
-             onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 168, 132, 0.1)'}
-             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+
+          <div
+            onClick={(e) => handleCallBack(e, item)}
+            style={{ padding: '8px', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'rgba(0, 168, 132, 0.1)')}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-             {item.type === 'video' ? <Video size={22} /> : <Phone size={22} />}
+            {item.type === 'video' ? <Video size={22} /> : <Phone size={22} />}
           </div>
         </button>
       ))}
+
+      {/* Sentinel triggers next page fetch when scrolled into view */}
+      <div ref={sentinelRef} style={{ height: '1px' }} />
+
+      {isFetchingNextPage && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+          <Loader2 size={20} color="#00a884" style={{ animation: 'spin 1s linear infinite' }} />
+        </div>
+      )}
     </div>
   );
 };

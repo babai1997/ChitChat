@@ -4,9 +4,19 @@ import { useAuthStore } from '../src/stores/authStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text } from 'react-native';
-import { SocketProvider } from '../src/contexts/SocketProvider';
+import { SocketProvider, useSocketContext } from '../src/contexts/SocketProvider';
 import { CallProvider } from '../src/contexts/CallContext';
 import IncomingCallModal from '../components/call/IncomingCallModal';
+
+function ReconnectBanner() {
+  const { isReconnecting } = useSocketContext();
+  if (!isReconnecting) return null;
+  return (
+    <View style={{ backgroundColor: '#2a3942', paddingVertical: 5, alignItems: 'center' }}>
+      <Text style={{ color: '#e9edef', fontSize: 12 }}>⟳ Reconnecting…</Text>
+    </View>
+  );
+}
 
 /**
  * Wait for Zustand persist to finish reading from AsyncStorage.
@@ -70,6 +80,7 @@ export default function RootLayout() {
       <StatusBar style="light" backgroundColor="transparent" translucent />
       <SocketProvider>
         <CallProvider>
+          <ReconnectBanner />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#111b21' }, animation: 'slide_from_right' }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(main)" options={{ headerShown: false }} />

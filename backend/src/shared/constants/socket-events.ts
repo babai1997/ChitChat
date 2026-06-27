@@ -41,6 +41,8 @@ export const SOCKET_EVENTS = {
   CALL_MISSED: 'call:missed',
   /** Broadcast own camera on/off state to everyone in the chat room. */
   CALL_VIDEO_STATE: 'call:video-state',
+  /** Broadcast own mic muted/unmuted state to everyone in the chat room. */
+  CALL_AUDIO_STATE: 'call:audio-state',
 
   // ── Calls: Server → Client ─────────────────────────────────────────────────
   CALL_INCOMING: 'call:incoming',

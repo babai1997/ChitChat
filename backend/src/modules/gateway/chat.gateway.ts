@@ -10,7 +10,8 @@ import {
 } from '@nestjs/websockets';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseFilters } from '@nestjs/common';
+import { WsExceptionFilter } from '../../common/filters/ws-exception.filter';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -29,12 +30,15 @@ interface AuthenticatedSocket extends Socket {
   user: User & { profile: Profile | null };
 }
 
+@UseFilters(WsExceptionFilter)
 @WebSocketGateway({
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
   namespace: '/chat',
+  pingInterval: 25000,
+  pingTimeout: 20000,
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -143,6 +147,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const userChatIds = await this.chatsService.getUserChatIds(userId);
       userChatIds.forEach((chatId) => {
+        // Clear any stuck typing indicator before going offline
+        this.server
+          .to(`chat:${chatId}`)
+          .emit(SOCKET_EVENTS.TYPING_STOP, { chatId, userId });
         this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.USER_OFFLINE, {
           userId,
           chatId,
@@ -248,6 +256,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: string; videoEnabled: boolean },
   ) {
     this.callHandler.handleCallVideoState(socket as any, data);
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.CALL_AUDIO_STATE)
+  handleCallAudioState(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string; isMuted: boolean },
+  ) {
+    this.callHandler.handleCallAudioState(socket as any, data);
   }
 
   @SubscribeMessage(SOCKET_EVENTS.CALL_REJECT)

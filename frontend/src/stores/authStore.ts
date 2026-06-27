@@ -1,6 +1,19 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+// Decode JWT payload and check exp — no signature verification needed here.
+// Returns true when the token is missing, malformed, or past its expiry.
+function isJwtExpired(token: string): boolean {
+  try {
+    const part = token.split('.')[1];
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const { exp } = JSON.parse(json) as { exp?: number };
+    return typeof exp !== 'number' || Date.now() >= exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 interface User {
   id: string;
   phone: string | null;
@@ -106,6 +119,16 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      // Clear expired tokens before any component renders.
+      // sessionStorage hydration is synchronous so we defer via microtask to
+      // ensure `useAuthStore` is assigned before calling setState.
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken && isJwtExpired(state.accessToken)) {
+          Promise.resolve().then(() => {
+            useAuthStore.setState({ accessToken: null, isAuthenticated: false, user: null });
+          });
+        }
+      },
     }
   )
 );

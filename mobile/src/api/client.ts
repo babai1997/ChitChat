@@ -4,17 +4,20 @@ import { useAuthStore } from '../stores/authStore';
 
 import { router } from 'expo-router';
 
-// Use Mac's local IP address instead of localhost so physical devices can reach it
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.2.95:3000/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('EXPO_PUBLIC_API_URL is not set. Add it to your .env file.');
+}
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = useAuthStore.getState().accessToken;
@@ -26,39 +29,55 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for token refresh
+// One shared promise for any in-flight refresh. Concurrent 401s all wait on it
+// instead of each firing their own POST /auth/refresh, which would race and
+// invalidate each other's single-use refresh token.
+let refreshPromise: Promise<string> | null = null;
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (refreshToken) {
-        try {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          });
-          
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          useAuthStore.getState().setTokens(accessToken, newRefreshToken);
-          
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          useAuthStore.getState().logout();
-          router.replace('/(auth)/login');
-          return Promise.reject(refreshError);
-        }
-      } else {
-        useAuthStore.getState().logout();
-        router.replace('/(auth)/login');
-      }
+
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
     }
-    
-    return Promise.reject(error);
+
+    originalRequest._retry = true;
+
+    const { refreshToken, logout } = useAuthStore.getState();
+
+    if (!refreshToken) {
+      logout();
+      router.replace('/(auth)/login');
+      return Promise.reject(error);
+    }
+
+    if (!refreshPromise) {
+      refreshPromise = axios
+        .post<{ accessToken: string; refreshToken: string }>(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken }
+        )
+        .then((res) => {
+          const { accessToken, refreshToken: newRefreshToken } = res.data;
+          useAuthStore.getState().setTokens(accessToken, newRefreshToken);
+          return accessToken;
+        })
+        .finally(() => {
+          refreshPromise = null;
+        });
+    }
+
+    try {
+      const newToken = await refreshPromise;
+      originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      return api(originalRequest);
+    } catch {
+      logout();
+      router.replace('/(auth)/login');
+      return Promise.reject(error);
+    }
   }
 );
 

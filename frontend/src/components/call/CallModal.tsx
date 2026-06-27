@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCall } from '../../contexts/CallContext';
 import { useChatStore } from '../../stores/chatStore';
+import { useAuthStore } from '../../stores/authStore';
 import {
   Phone, Video, Mic, MicOff, VideoOff, PhoneOff,
   Minimize2, Maximize2, GripHorizontal, Volume2, VolumeX,
@@ -53,9 +54,10 @@ interface ParticipantTileProps {
   memberName: string;
   memberAvatar: string | null;
   isSpeakerOn: boolean;
+  isRemoteMuted: boolean;
 }
 
-const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerOn }: ParticipantTileProps) => {
+const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerOn, isRemoteMuted }: ParticipantTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const isSpeaking = useIsSpeaking(stream);
@@ -134,19 +136,33 @@ const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerO
       {/* Hidden audio element — always present to output remote audio */}
       <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
 
-      {/* Name label with speaking dot */}
+      {/* Mic-off badge — top-right corner */}
+      {isRemoteMuted && (
+        <div style={{
+          position: 'absolute', top: '8px', right: '8px',
+          backgroundColor: 'rgba(234,67,53,0.85)',
+          borderRadius: '50%', width: '28px', height: '28px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <MicOff size={14} color="#fff" />
+        </div>
+      )}
+
+      {/* Name label with speaking dot or muted icon */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
         background: 'linear-gradient(transparent, rgba(0,0,0,0.65))',
         padding: '20px 10px 8px',
         display: 'flex', alignItems: 'center', gap: '6px',
       }}>
-        {isSpeaking && (
+        {isRemoteMuted ? (
+          <MicOff size={12} color="#ea4335" style={{ flexShrink: 0 }} />
+        ) : isSpeaking ? (
           <div style={{
             width: '8px', height: '8px', borderRadius: '50%',
             backgroundColor: '#00a884', flexShrink: 0,
           }} />
-        )}
+        ) : null}
         <span style={{
           color: '#fff', fontSize: '13px', fontWeight: 600,
           textShadow: '0 1px 3px rgba(0,0,0,0.8)',
@@ -179,6 +195,8 @@ export const CallModal = () => {
     incomingCall,
     localStream,
     remoteStreams,
+    remoteVideoStates,
+    remoteMuteStates,
     activeChatId,
     answerCall,
     rejectCall,
@@ -197,6 +215,7 @@ export const CallModal = () => {
 
   // Member info lookup
   const chats = useChatStore((s) => s.chats);
+  const currentUserId = useAuthStore((s) => s.user?.id ?? '');
   const chat = chats.find((c) => c.id === activeChatId) ?? null;
   const getMemberInfo = (userId: string) => {
     const member = chat?.members?.find((m) => m.userId === userId);
@@ -205,6 +224,18 @@ export const CallModal = () => {
       avatar: member?.user?.profile?.avatarUrl || null,
     };
   };
+
+  // Chat-level name + avatar (DM: other member's info; group: group info)
+  const chatName = chat
+    ? chat.type === 'direct'
+      ? (chat.members.find((m) => m.userId !== currentUserId)?.user.profile?.displayName ?? 'Unknown')
+      : (chat.name ?? 'Group')
+    : 'Unknown';
+  const chatAvatar = chat
+    ? chat.type === 'direct'
+      ? (chat.members.find((m) => m.userId !== currentUserId)?.user.profile?.avatarUrl ?? null)
+      : (chat.avatarUrl ?? null)
+    : null;
 
   // PiP drag — minimized remote tile
   const [pipPosition, setPipPosition] = useState({ x: window.innerWidth - 200, y: window.innerHeight - 280 });
@@ -319,7 +350,7 @@ export const CallModal = () => {
             </button>
           </div>
         </div>
-        <style>{`@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,168,83,.7)}70%{box-shadow:0 0 0 10px rgba(52,168,83,0)}100%{box-shadow:0 0 0 0 rgba(52,168,83,0)}}`}</style>
+        <style>{`@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,168,83,.7)}70%{box-shadow:0 0 0 10px rgba(52,168,83,0)}100%{box-shadow:0 0 0 0 rgba(52,168,83,0)}}@keyframes callingPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.15}}@keyframes callingFade{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       </div>
     );
   }
@@ -349,10 +380,11 @@ export const CallModal = () => {
           {firstEntry ? (
             <ParticipantTile
               stream={firstEntry[1]}
-              isVideo={isVideo}
+              isVideo={isVideo && (remoteVideoStates.get(firstEntry[0]) ?? true)}
               memberName={getMemberInfo(firstEntry[0]).name}
               memberAvatar={getMemberInfo(firstEntry[0]).avatar}
               isSpeakerOn={isSpeaker}
+              isRemoteMuted={remoteMuteStates.get(firstEntry[0]) === true}
             />
           ) : (
             <div style={{
@@ -413,10 +445,11 @@ export const CallModal = () => {
                 <div key={userId} style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
                   <ParticipantTile
                     stream={stream}
-                    isVideo={isVideo}
+                    isVideo={isVideo && (remoteVideoStates.get(userId) ?? true)}
                     memberName={name}
                     memberAvatar={avatar}
                     isSpeakerOn={isSpeaker}
+                    isRemoteMuted={remoteMuteStates.get(userId) === true}
                   />
                 </div>
               );
@@ -428,15 +461,43 @@ export const CallModal = () => {
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: '20px',
           }}>
-            <div style={{
-              width: '120px', height: '120px', borderRadius: '50%',
-              backgroundColor: '#2a3942',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '48px', color: '#8696a0',
-            }}>···</div>
-            <p style={{ color: '#e9edef', fontSize: '20px' }}>
-              {callStatus === 'calling' ? 'Calling...' : 'Waiting for others...'}
-            </p>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {callStatus === 'calling' && (
+                <div style={{
+                  position: 'absolute', inset: '-14px', borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  animation: 'callingPulse 1.6s ease-in-out infinite',
+                }} />
+              )}
+              {chatAvatar ? (
+                <img
+                  src={chatAvatar}
+                  referrerPolicy="no-referrer"
+                  alt={chatName}
+                  style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{
+                  width: '120px', height: '120px', borderRadius: '50%',
+                  backgroundColor: '#2a3942',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '48px', fontWeight: 700, color: '#e9edef',
+                }}>
+                  {chatName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#e9edef', fontSize: '20px', fontWeight: 500, margin: '0 0 8px' }}>
+                {chatName}
+              </p>
+              <p style={{
+                color: 'rgba(255,255,255,0.6)', fontSize: '15px', margin: 0,
+                animation: callStatus === 'calling' ? 'callingFade 1.6s ease-in-out infinite' : 'none',
+              }}>
+                {callStatus === 'calling' ? 'Calling...' : 'Waiting for others...'}
+              </p>
+            </div>
           </div>
         )}
 

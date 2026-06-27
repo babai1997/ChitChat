@@ -37,8 +37,12 @@ export class ChatsController {
   }
 
   @Get('calls/history')
-  async getCallHistory(@CurrentUser() user: User, @Query('chatId') chatId?: string) {
-    return this.chatsService.getCallHistory(user.id, chatId);
+  async getCallHistory(
+    @CurrentUser() user: User,
+    @Query('chatId') chatId?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.chatsService.getCallHistory(user.id, chatId, cursor);
   }
 
   @Get(':id')
