@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   X,
   User,
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Trash2,
   Loader2,
+  Camera,
 } from "lucide-react";
 import { chatApi } from "../../api";
 import { useChatStore } from "../../stores";
@@ -29,8 +30,8 @@ export const GroupInfoModal = ({
 }: GroupInfoModalProps) => {
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
-  // const [isUploading, setIsUploading] = useState(false);
-  // const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const isCurrentUserAdmin =
     chat.members.find((m) => m.userId === currentUserId)?.role === "admin";
@@ -44,6 +45,24 @@ export const GroupInfoModal = ({
     const nameB = b.user.profile?.displayName || b.user.phone || "";
     return nameA.localeCompare(nameB);
   });
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || isUploading) return;
+    setIsUploading(true);
+    try {
+      const { url } = await chatApi.uploadAttachment(chat.id, file);
+      const updatedChat = await chatApi.updateGroup(chat.id, { avatarUrl: url });
+      const { chats, setChats, activeChat, setActiveChat } = useChatStore.getState();
+      setChats(chats.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
+      if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
+    } catch (error) {
+      console.error("Failed to upload group avatar:", error);
+    } finally {
+      setIsUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   const handleRemoveMember = async () => {
     if (!selectedMember || isRemoving) return;
@@ -111,94 +130,33 @@ export const GroupInfoModal = ({
           <div style={headerStyle}>
             <button
               onClick={() => setSelectedMember(null)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#e9edef",
-                cursor: "pointer",
-                display: "flex",
-              }}
+              style={{ background: "none", border: "none", color: "#e9edef", cursor: "pointer", display: "flex" }}
             >
               <ArrowLeft size={22} />
             </button>
-            <h2
-              style={{
-                fontSize: "18px",
-                fontWeight: 500,
-                color: "#e9edef",
-                margin: 0,
-              }}
-            >
+            <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#e9edef", margin: 0 }}>
               Member Info
             </h2>
           </div>
 
           <div style={{ overflowY: "auto", flex: 1 }}>
             {/* Avatar + name */}
-            <div
-              style={{
-                padding: "32px 16px 24px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                borderBottom: "8px solid #111b21",
-              }}
-            >
-              <div
-                style={{
-                  width: "100px",
-                  height: "100px",
-                  borderRadius: "50%",
-                  backgroundColor: "#2a3942",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  marginBottom: "16px",
-                }}
-              >
+            <div style={{ padding: "32px 16px 24px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "8px solid #111b21" }}>
+              <div style={{ width: "100px", height: "100px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: "16px" }}>
                 {selectedMember.user.profile?.avatarUrl ? (
-                  <img
-                    src={selectedMember.user.profile.avatarUrl}
-                    alt={memberName}
-                    referrerPolicy="no-referrer"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+                  <img src={selectedMember.user.profile.avatarUrl} alt={memberName} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <User size={48} color="#8696a0" />
                 )}
               </div>
-              <h3
-                style={{
-                  fontSize: "22px",
-                  fontWeight: 600,
-                  color: "#e9edef",
-                  marginBottom: "4px",
-                  textAlign: "center",
-                }}
-              >
+              <h3 style={{ fontSize: "22px", fontWeight: 600, color: "#e9edef", marginBottom: "4px", textAlign: "center" }}>
                 {memberName}
               </h3>
               {selectedMember.user.phone && (
-                <p style={{ fontSize: "14px", color: "#8696a0" }}>
-                  {selectedMember.user.phone}
-                </p>
+                <p style={{ fontSize: "14px", color: "#8696a0" }}>{selectedMember.user.phone}</p>
               )}
               {selectedMember.role === "admin" && (
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "#25d366",
-                    border: "1px solid #25d366",
-                    padding: "2px 8px",
-                    borderRadius: "4px",
-                    marginTop: "6px",
-                  }}
-                >
+                <span style={{ fontSize: "12px", color: "#25d366", border: "1px solid #25d366", padding: "2px 8px", borderRadius: "4px", marginTop: "6px" }}>
                   Group Admin
                 </span>
               )}
@@ -206,18 +164,9 @@ export const GroupInfoModal = ({
 
             {/* About */}
             <div style={{ padding: "16px", borderBottom: "8px solid #111b21" }}>
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "#25d366",
-                  marginBottom: "4px",
-                }}
-              >
-                About
-              </p>
+              <p style={{ fontSize: "13px", color: "#25d366", marginBottom: "4px" }}>About</p>
               <p style={{ fontSize: "15px", color: "#e9edef" }}>
-                {selectedMember.user.profile?.about ||
-                  "Hey there! I am using ChitChat"}
+                {selectedMember.user.profile?.about || "Hey there! I am using ChitChat"}
               </p>
             </div>
 
@@ -227,33 +176,12 @@ export const GroupInfoModal = ({
                 <button
                   onClick={() => void handleRemoveMember()}
                   disabled={isRemoving}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    width: "100%",
-                    padding: "14px 16px",
-                    backgroundColor: "transparent",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: isRemoving ? "not-allowed" : "pointer",
-                    color: "#ef4444",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#2a1a1a")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
+                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isRemoving ? "not-allowed" : "pointer", color: "#ef4444" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a1a1a")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
-                  {isRemoving ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={18} />
-                  )}
-                  <span style={{ fontSize: "15px", fontWeight: 500 }}>
-                    Remove from group
-                  </span>
+                  {isRemoving ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  <span style={{ fontSize: "15px", fontWeight: 500 }}>Remove from group</span>
                 </button>
               </div>
             )}
@@ -268,80 +196,55 @@ export const GroupInfoModal = ({
     <div style={overlayStyle} onClick={onClose}>
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#8696a0",
-              cursor: "pointer",
-              display: "flex",
-            }}
-          >
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#8696a0", cursor: "pointer", display: "flex" }}>
             <X size={24} />
           </button>
-          <h2
-            style={{
-              fontSize: "18px",
-              fontWeight: 500,
-              color: "#e9edef",
-              margin: 0,
-            }}
-          >
+          <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#e9edef", margin: 0 }}>
             Group Info
           </h2>
         </div>
 
-        <div
-          style={{
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
           {/* Avatar + name */}
-          <div
-            style={{
-              padding: "24px 16px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              borderBottom: "10px solid #111b21",
-            }}
-          >
-            <div
-              style={{
-                width: "120px",
-                height: "120px",
-                borderRadius: "50%",
-                backgroundColor: "#2a3942",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "16px",
-                overflow: "hidden",
-              }}
-            >
-              {chat.avatarUrl ? (
-                <img
-                  src={chat.avatarUrl}
-                  alt={chat.name || "Group"}
-                  referrerPolicy="no-referrer"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                <Users size={60} color="#8696a0" />
-              )}
+          <div style={{ padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "10px solid #111b21" }}>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleAvatarUpload}
+            />
+            {/* Avatar with dedicated camera button for group admins */}
+            <div style={{ position: "relative", width: "120px", height: "120px", marginBottom: "16px" }}>
+              <div style={{ width: "120px", height: "120px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {chat.avatarUrl ? (
+                  <img src={chat.avatarUrl} alt={chat.name || "Group"} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <Users size={60} color="#8696a0" />
+                )}
+              </div>
+              <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploading}
+                  title="Change group photo"
+                  style={{
+                    position: "absolute", bottom: "4px", right: "4px",
+                    width: "34px", height: "34px", borderRadius: "50%",
+                    backgroundColor: "#00a884", border: "2px solid #1f2c34",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#017a62")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#00a884")}
+                >
+                  {isUploading
+                    ? <Loader2 size={16} color="white" className="animate-spin" />
+                    : <Camera size={16} color="white" />
+                  }
+                </button>
             </div>
-            <h3
-              style={{
-                fontSize: "22px",
-                fontWeight: 600,
-                color: "#e9edef",
-                marginBottom: "4px",
-                textAlign: "center",
-              }}
-            >
+
+            <h3 style={{ fontSize: "22px", fontWeight: 600, color: "#e9edef", marginBottom: "4px", textAlign: "center" }}>
               {chat.name || "Group Chat"}
             </h3>
             <p style={{ fontSize: "14px", color: "#8696a0" }}>
@@ -351,176 +254,63 @@ export const GroupInfoModal = ({
 
           {/* Description */}
           <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#25d366",
-                marginBottom: "4px",
-              }}
-            >
-              Description
-            </p>
-            <p style={{ fontSize: "15px", color: "#e9edef" }}>
-              Welcome to the group!
-            </p>
+            <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "4px" }}>Description</p>
+            <p style={{ fontSize: "15px", color: "#e9edef" }}>Welcome to the group!</p>
           </div>
 
           {/* Participants */}
           <div style={{ padding: "16px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "12px",
-              }}
-            >
-              <p style={{ fontSize: "14px", color: "#8696a0" }}>
-                {chat.members.length} participants
-              </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+              <p style={{ fontSize: "14px", color: "#8696a0" }}>{chat.members.length} participants</p>
               {isCurrentUserAdmin && (
                 <button
                   onClick={onAddMember}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    backgroundColor: "transparent",
-                    border: "1px solid #00a884",
-                    borderRadius: "16px",
-                    padding: "4px 12px",
-                    cursor: "pointer",
-                    color: "#00a884",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#0d2e25")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
+                  style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "transparent", border: "1px solid #00a884", borderRadius: "16px", padding: "4px 12px", cursor: "pointer", color: "#00a884" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#0d2e25")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   <UserPlus size={14} />
-                  <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                    Add Member
-                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: 500 }}>Add Member</span>
                 </button>
               )}
             </div>
 
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "4px" }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               {sortedMembers.map((member) => {
                 const name =
                   member.userId === currentUserId
                     ? "You"
-                    : member.user.profile?.displayName ||
-                      member.user.phone ||
-                      "Unknown";
-                const clickable =
-                  isCurrentUserAdmin && member.userId !== currentUserId;
+                    : member.user.profile?.displayName || member.user.phone || "Unknown";
+                const clickable = isCurrentUserAdmin && member.userId !== currentUserId;
 
                 return (
                   <div
                     key={member.id}
-                    onClick={
-                      clickable ? () => setSelectedMember(member) : undefined
-                    }
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "8px",
-                      borderRadius: "8px",
-                      cursor: clickable ? "pointer" : "default",
-                    }}
-                    onMouseOver={(e) => {
-                      if (clickable)
-                        e.currentTarget.style.backgroundColor = "#2a3942";
-                    }}
-                    onMouseOut={(e) => {
-                      if (clickable)
-                        e.currentTarget.style.backgroundColor = "transparent";
-                    }}
+                    onClick={clickable ? () => setSelectedMember(member) : undefined}
+                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px", borderRadius: "8px", cursor: clickable ? "pointer" : "default" }}
+                    onMouseOver={(e) => { if (clickable) e.currentTarget.style.backgroundColor = "#2a3942"; }}
+                    onMouseOut={(e) => { if (clickable) e.currentTarget.style.backgroundColor = "transparent"; }}
                   >
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: "#2a3942",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        flexShrink: 0,
-                      }}
-                    >
+                    <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                       {member.user.profile?.avatarUrl ? (
-                        <img
-                          src={member.user.profile.avatarUrl}
-                          alt={name}
-                          referrerPolicy="no-referrer"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
+                        <img src={member.user.profile.avatarUrl} alt={name} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <User size={20} color="#8696a0" />
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <h4
-                          style={{
-                            fontSize: "16px",
-                            color: "#e9edef",
-                            fontWeight: 400,
-                            margin: 0,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <h4 style={{ fontSize: "16px", color: "#e9edef", fontWeight: 400, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {name}
                         </h4>
                         {member.role === "admin" && (
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              color: "#25d366",
-                              border: "1px solid #25d366",
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              marginLeft: "8px",
-                              flexShrink: 0,
-                            }}
-                          >
+                          <span style={{ fontSize: "11px", color: "#25d366", border: "1px solid #25d366", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", flexShrink: 0 }}>
                             Group Admin
                           </span>
                         )}
                       </div>
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "#8696a0",
-                          margin: 0,
-                          marginTop: "2px",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {member.user.profile?.about ||
-                          "Hey there! I am using ChitChat"}
+                      <p style={{ fontSize: "13px", color: "#8696a0", margin: 0, marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {member.user.profile?.about || "Hey there! I am using ChitChat"}
                       </p>
                     </div>
                   </div>

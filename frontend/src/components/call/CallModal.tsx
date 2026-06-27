@@ -4,7 +4,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useAuthStore } from '../../stores/authStore';
 import {
   Phone, Video, Mic, MicOff, VideoOff, PhoneOff,
-  Minimize2, Maximize2, GripHorizontal, Volume2, VolumeX,
+  Minimize2, Maximize2, GripHorizontal, Volume2, VolumeX, UserPlus, X,
 } from 'lucide-react';
 
 // ── Speaking detection via Web Audio API ──────────────────────────────────────
@@ -185,6 +185,72 @@ const LocalVideo = ({ stream }: { stream: MediaStream }) => {
   return <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 };
 
+// ── Local video as an equal grid tile (desktop 1-on-1) ───────────────────────
+
+interface LocalTileProps {
+  stream: MediaStream;
+  isVideoEnabled: boolean;
+  localUserName: string;
+  localUserAvatar: string | null;
+}
+
+const LocalTile = ({ stream, isVideoEnabled, localUserName, localUserAvatar }: LocalTileProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [stream]);
+
+  const initial = localUserName.charAt(0).toUpperCase();
+
+  return (
+    <div style={{
+      width: '100%', height: '100%', backgroundColor: '#111b21',
+      borderRadius: '8px', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative',
+    }}>
+      {isVideoEnabled ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          {localUserAvatar ? (
+            <img src={localUserAvatar} referrerPolicy="no-referrer" alt={localUserName}
+              style={{ width: '88px', height: '88px', borderRadius: '50%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{
+              width: '88px', height: '88px', borderRadius: '50%',
+              backgroundColor: '#2a3942',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '36px', fontWeight: 700, color: '#e9edef',
+            }}>
+              {initial}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.65))',
+        padding: '20px 10px 8px',
+        display: 'flex', alignItems: 'center', gap: '6px',
+      }}>
+        <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+          You
+        </span>
+      </div>
+    </div>
+  );
+};
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export const CallModal = () => {
@@ -204,6 +270,7 @@ export const CallModal = () => {
     toggleMute,
     toggleVideo,
     toggleMinimize,
+    addToCall,
     isMuted,
     isVideoEnabled,
     isMinimized,
@@ -213,10 +280,21 @@ export const CallModal = () => {
   const [isSpeaker, setIsSpeaker] = useState(true);
   const toggleSpeaker = () => setIsSpeaker((p) => !p);
 
+  // Add-member picker
+  const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
+
+  // Tap PiP to swap full-screen ↔ corner (like WhatsApp; applies to mobile 1-on-1)
+  const [isSwapped, setIsSwapped] = useState(false);
+  const localDraggedRef = useRef(false); // true if the pointer moved during this press
+
   // Member info lookup
   const chats = useChatStore((s) => s.chats);
   const currentUserId = useAuthStore((s) => s.user?.id ?? '');
+  const localUserName = useAuthStore((s) => s.user?.profile?.displayName ?? 'You');
+  const localUserAvatar = useAuthStore((s) => s.user?.profile?.avatarUrl ?? null);
   const chat = chats.find((c) => c.id === activeChatId) ?? null;
+  const alreadyInCall = new Set([currentUserId, ...Array.from(remoteStreams.keys())]);
+  const invitableMembers = (chat?.members ?? []).filter((m) => !alreadyInCall.has(m.userId));
   const getMemberInfo = (userId: string) => {
     const member = chat?.members?.find((m) => m.userId === userId);
     return {
@@ -280,6 +358,7 @@ export const CallModal = () => {
   const localPipRef = useRef<HTMLDivElement>(null);
 
   const handleLocalDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    localDraggedRef.current = false;
     setIsLocalDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -289,6 +368,7 @@ export const CallModal = () => {
   useEffect(() => {
     if (!isLocalDragging) return;
     const move = (e: MouseEvent | TouchEvent) => {
+      localDraggedRef.current = true;
       const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
       setLocalPipPosition({
@@ -309,8 +389,19 @@ export const CallModal = () => {
     };
   }, [isLocalDragging, localDragOffset]);
 
+  // Detect mobile viewport for grid layout decisions
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const isVideo = callType === 'video';
   const remoteEntries = Array.from(remoteStreams.entries());
+
+  // Desktop 1-on-1 video: show local + remote as equal 50/50 tiles (no PiP)
+  const showDesktop50x50 = !isMobile && remoteEntries.length === 1 && isVideo && !!localStream && callStatus === 'connected';
 
   if (!isCallActive && callStatus === 'idle') return null;
 
@@ -411,14 +502,23 @@ export const CallModal = () => {
   }
 
   // ── Grid layout ────────────────────────────────────────────────────────────
+  // Always use explicit cols/rows so tiles fill the container on narrow screens.
+  // minmax(300px, 1fr) breaks on mobile because 2×300px > viewport width.
   const getGridStyle = (count: number): React.CSSProperties => {
     if (count <= 1) return { display: 'flex', width: '100%', height: '100%' };
-    if (count === 2) return { display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', height: '100%' };
+
+    // Max 2 columns on mobile, up to 3 on desktop
+    const maxCols = isMobile ? 2 : 3;
+    const cols = count === 2 ? 2 : Math.min(maxCols, Math.ceil(Math.sqrt(count)));
+    const rows = Math.ceil(count / cols);
+
     return {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-      gridTemplateRows: 'repeat(auto-fit, minmax(200px, 1fr))',
-      width: '100%', height: '100%',
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gridTemplateRows: `repeat(${rows}, 1fr)`,
+      width: '100%',
+      height: '100%',
+      gap: '4px',
     };
   };
 
@@ -438,23 +538,57 @@ export const CallModal = () => {
       {/* Participant grid */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '10px' }}>
         {remoteEntries.length > 0 ? (
-          <div style={getGridStyle(remoteEntries.length)}>
-            {remoteEntries.map(([userId, stream]) => {
-              const { name, avatar } = getMemberInfo(userId);
-              return (
-                <div key={userId} style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
-                  <ParticipantTile
-                    stream={stream}
-                    isVideo={isVideo && (remoteVideoStates.get(userId) ?? true)}
-                    memberName={name}
-                    memberAvatar={avatar}
-                    isSpeakerOn={isSpeaker}
-                    isRemoteMuted={remoteMuteStates.get(userId) === true}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          showDesktop50x50 ? (
+            // Desktop 1-on-1: equal 50/50 side-by-side tiles (no swap needed)
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', height: '100%', gap: '4px' }}>
+              <div style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
+                <ParticipantTile
+                  stream={remoteEntries[0][1]}
+                  isVideo={isVideo && (remoteVideoStates.get(remoteEntries[0][0]) ?? true)}
+                  memberName={getMemberInfo(remoteEntries[0][0]).name}
+                  memberAvatar={getMemberInfo(remoteEntries[0][0]).avatar}
+                  isSpeakerOn={isSpeaker}
+                  isRemoteMuted={remoteMuteStates.get(remoteEntries[0][0]) === true}
+                />
+              </div>
+              <div style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
+                <LocalTile
+                  stream={localStream!}
+                  isVideoEnabled={isVideoEnabled}
+                  localUserName={localUserName}
+                  localUserAvatar={localUserAvatar}
+                />
+              </div>
+            </div>
+          ) : isSwapped && isMobile && remoteEntries.length === 1 && isVideo && !!localStream ? (
+            // Mobile swapped: local stream fills the main area
+            <div style={{ width: '100%', height: '100%', padding: '5px' }}>
+              <LocalTile
+                stream={localStream}
+                isVideoEnabled={isVideoEnabled}
+                localUserName={localUserName}
+                localUserAvatar={localUserAvatar}
+              />
+            </div>
+          ) : (
+            <div style={getGridStyle(remoteEntries.length)}>
+              {remoteEntries.map(([userId, stream]) => {
+                const { name, avatar } = getMemberInfo(userId);
+                return (
+                  <div key={userId} style={{ position: 'relative', width: '100%', height: '100%', padding: '5px' }}>
+                    <ParticipantTile
+                      stream={stream}
+                      isVideo={isVideo && (remoteVideoStates.get(userId) ?? true)}
+                      memberName={name}
+                      memberAvatar={avatar}
+                      isSpeakerOn={isSpeaker}
+                      isRemoteMuted={remoteMuteStates.get(userId) === true}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : (
           <div style={{
             width: '100%', height: '100%',
@@ -501,37 +635,116 @@ export const CallModal = () => {
           </div>
         )}
 
-        {/* Local video PiP */}
-        {localStream && isVideo && (
+        {/* PiP (draggable, tap to flip) — hidden when showing desktop 50/50 grid */}
+        {localStream && isVideo && !showDesktop50x50 && (
           <div
             ref={localPipRef}
             onMouseDown={handleLocalDragStart}
             onTouchStart={handleLocalDragStart}
+            onClick={() => {
+              if (!localDraggedRef.current && remoteEntries.length === 1) {
+                setIsSwapped((s) => !s);
+              }
+            }}
             style={{
               position: 'fixed', left: `${localPipPosition.x}px`, top: `${localPipPosition.y}px`,
               width: '120px', height: '160px', borderRadius: '8px', overflow: 'hidden',
               boxShadow: isLocalDragging ? '0 8px 16px rgba(0,0,0,0.5)' : '0 4px 6px rgba(0,0,0,0.3)',
               backgroundColor: '#202c33', zIndex: 20,
-              cursor: isLocalDragging ? 'grabbing' : 'grab',
+              cursor: isLocalDragging ? 'grabbing' : 'pointer',
               transition: isLocalDragging ? 'none' : 'box-shadow 0.2s ease',
             }}
           >
-            <LocalVideo stream={localStream} />
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
-              padding: '14px 6px 4px', textAlign: 'center',
-            }}>
-              <span style={{ color: '#fff', fontSize: '11px', fontWeight: 600 }}>You</span>
-            </div>
+            {isSwapped && remoteEntries.length === 1 ? (
+              // Swapped: remote stream in the corner PiP
+              <ParticipantTile
+                stream={remoteEntries[0][1]}
+                isVideo={isVideo && (remoteVideoStates.get(remoteEntries[0][0]) ?? true)}
+                memberName={getMemberInfo(remoteEntries[0][0]).name}
+                memberAvatar={getMemberInfo(remoteEntries[0][0]).avatar}
+                isSpeakerOn={isSpeaker}
+                isRemoteMuted={remoteMuteStates.get(remoteEntries[0][0]) === true}
+              />
+            ) : (
+              // Default: local stream in the corner PiP
+              <>
+                <LocalVideo stream={localStream} />
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+                  padding: '14px 6px 4px', textAlign: 'center',
+                }}>
+                  <span style={{ color: '#fff', fontSize: '11px', fontWeight: 600 }}>You</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Add-member picker overlay */}
+      {showAddMemberPicker && (
+        <div style={{
+          position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+          width: 'min(320px, 90vw)', backgroundColor: '#202c33',
+          borderRadius: '12px', zIndex: 30, overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', borderBottom: '1px solid #2a3942',
+          }}>
+            <span style={{ color: '#e9edef', fontWeight: 600, fontSize: '15px' }}>Add to call</span>
+            <button onClick={() => setShowAddMemberPicker(false)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: '4px' }}>
+              <X size={18} />
+            </button>
+          </div>
+          {invitableMembers.length === 0 ? (
+            <p style={{ color: '#8696a0', fontSize: '13px', textAlign: 'center', padding: '20px 16px', margin: 0 }}>
+              All chat members are already in the call.
+            </p>
+          ) : (
+            <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+              {invitableMembers.map((m) => {
+                const name = m.user?.profile?.displayName || 'User';
+                const avatar = m.user?.profile?.avatarUrl;
+                return (
+                  <button
+                    key={m.userId}
+                    onClick={() => { addToCall(m.userId); setShowAddMemberPicker(false); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      width: '100%', padding: '10px 16px', background: 'none',
+                      border: 'none', cursor: 'pointer', textAlign: 'left',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2a3942')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '50%',
+                      backgroundColor: '#2a3942', overflow: 'hidden', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {avatar
+                        ? <img src={avatar} referrerPolicy="no-referrer" alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ color: '#e9edef', fontWeight: 700, fontSize: '16px' }}>{name.charAt(0).toUpperCase()}</span>
+                      }
+                    </div>
+                    <span style={{ flex: 1, color: '#e9edef', fontSize: '14px' }}>{name}</span>
+                    <UserPlus size={16} color="#00a884" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Controls bar */}
       <div style={{
         height: '80px', backgroundColor: '#202c33',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
+        position: 'relative',
       }}>
         <button onClick={toggleMute} style={circleBtn(isMuted ? '#ea4335' : '#374045')}>
           {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -549,6 +762,14 @@ export const CallModal = () => {
           style={circleBtn(isSpeaker ? '#374045' : '#555')}
         >
           {isSpeaker ? <Volume2 size={22} /> : <VolumeX size={22} />}
+        </button>
+
+        <button
+          onClick={() => setShowAddMemberPicker((p) => !p)}
+          title="Add member to call"
+          style={circleBtn(showAddMemberPicker ? '#00a884' : '#374045')}
+        >
+          <UserPlus size={22} />
         </button>
 
         <button onClick={endCall} style={circleBtn('#ea4335')}>

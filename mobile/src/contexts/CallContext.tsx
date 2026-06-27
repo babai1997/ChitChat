@@ -21,6 +21,16 @@ try {
   console.warn('[CallContext] react-native-webrtc not available:', e);
 }
 
+// Lazy-load InCallManager — controls speaker/earpiece routing during WebRTC calls.
+// expo-av's setAudioModeAsync does NOT affect WebRTC audio on iOS because
+// react-native-webrtc takes over the AVAudioSession.
+let InCallManager: any = null;
+try {
+  InCallManager = require('react-native-incall-manager').default;
+} catch {
+  console.warn('[CallContext] react-native-incall-manager not available — speaker routing may not work');
+}
+
 // ── ICE Config ────────────────────────────────────────────────────────────────
 
 const ICE_SERVERS = {
@@ -61,24 +71,29 @@ interface IncomingCallData {
   type: 'audio' | 'video';
 }
 
+export interface OngoingCallInfo {
+  chatId: string;
+  type: 'audio' | 'video';
+  callerName: string;
+  participantCount: number;
+}
+
 interface CallContextType {
   isCallActive: boolean;
   callStatus: 'idle' | 'calling' | 'incoming' | 'connected';
   callType: 'audio' | 'video';
   incomingCall: IncomingCallData | null;
   localStream: MediaStream | null;
-  // Multi-party: one stream per remote userId
   remoteStreams: Map<string, MediaStream>;
-  // Multi-party: per-user camera on/off state
   remoteVideoStates: Map<string, boolean>;
-  // Multi-party: per-user mic muted state
   remoteMuteStates: Map<string, boolean>;
-  // Set of userIds whose audio is currently active (speaking indicator)
   activeSpeakers: Set<string>;
   isMuted: boolean;
   isVideoEnabled: boolean;
   isSpeaker: boolean;
   activeChatId: string | null;
+  /** Ongoing calls in other chats — keyed by chatId. Used to show the "Tap to join" banner. */
+  ongoingCallsByChatId: Map<string, OngoingCallInfo>;
   startCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
   answerCall: () => Promise<void>;
   rejectCall: () => void;
@@ -86,6 +101,8 @@ interface CallContextType {
   toggleMute: () => void;
   toggleVideo: () => void;
   toggleSpeaker: () => void;
+  addToCall: (targetUserId: string) => void;
+  joinOngoingCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -102,6 +119,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
   const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [ongoingCallsByChatId, setOngoingCallsByChatId] = useState<Map<string, OngoingCallInfo>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -118,6 +136,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Per-sender ICE candidate queue (buffered before remoteDescription is set)
   const pendingCandidatesRef = useRef<Map<string, any[]>>(new Map());
+  /** Auto-dismiss timer on the recipient side — clears when answered, rejected, or missed. */
+  const incomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const callStartTimeRef = useRef<number | null>(null);
   const isInitiatorRef = useRef<boolean>(false);
@@ -127,6 +147,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const incomingSoundRef = useRef<Audio.Sound | null>(null);
   const outgoingSoundRef = useRef<Audio.Sound | null>(null);
+  /** Total recipients ringing — set when CALL_RINGING ack arrives from server. */
+  const pendingRecipientCountRef = useRef(0);
+  /** How many recipients have explicitly declined so far. */
+  const rejectedCountRef = useRef(0);
 
   // Initialize sounds
   useEffect(() => {
@@ -190,18 +214,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
   // ── Speaker mode ──────────────────────────────────────────────────────────────
+  // react-native-incall-manager properly controls speaker/earpiece routing in a
+  // WebRTC context. expo-av's setAudioModeAsync is ignored by WebRTC on iOS
+  // because react-native-webrtc owns the AVAudioSession while the call is live.
 
-  const applySpeakerMode = async (speaker: boolean) => {
-    try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: !speaker,
-      });
-    } catch (e) {
-      console.warn('[Call] Audio mode set failed:', e);
+  const applySpeakerMode = (speaker: boolean) => {
+    if (InCallManager) {
+      InCallManager.setForceSpeakerphoneOn(speaker);
+    }
+  };
+
+  const startInCallAudio = (type: 'audio' | 'video') => {
+    if (InCallManager) {
+      InCallManager.start({ media: type, auto: false, ringback: '' });
+      InCallManager.setForceSpeakerphoneOn(false);
+    }
+  };
+
+  const stopInCallAudio = () => {
+    if (InCallManager) {
+      InCallManager.stop();
     }
   };
 
@@ -221,8 +253,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callTimeoutRef.current = null;
     }
 
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
+    }
+
     try { incomingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
     try { outgoingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
+    stopInCallAudio();
 
     // Close all peer connections
     peerConnectionsRef.current.forEach((pc) => { try { pc.close(); } catch {} });
@@ -281,6 +319,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pendingCandidatesRef.current.clear();
     callStartTimeRef.current = null;
     isInitiatorRef.current = false;
+    pendingRecipientCountRef.current = 0;
+    rejectedCountRef.current = 0;
   }, []);
 
   // ── PeerConnection factory ────────────────────────────────────────────────────
@@ -380,10 +420,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try { incomingSoundRef.current?.playAsync().catch(() => {}); } catch {}
 
       useChatStore.getState().updateChat(data.chatId, { updatedAt: new Date().toISOString() });
+
+      // Auto-dismiss after 60s if caller never cancels — safety net
+      if (incomingTimeoutRef.current) clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = setTimeout(() => {
+        incomingTimeoutRef.current = null;
+        try { incomingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
+        setIncomingCall(null);
+        setCallStatus('idle');
+      }, 60_000);
+    };
+
+    const handleRinging = (data: { recipientCount: number }) => {
+      pendingRecipientCountRef.current = data.recipientCount;
+      rejectedCountRef.current = 0;
     };
 
     const handleMissed = () => {
       console.log('[Call] Caller gave up');
+      if (incomingTimeoutRef.current) {
+        clearTimeout(incomingTimeoutRef.current);
+        incomingTimeoutRef.current = null;
+      }
+      try { incomingSoundRef.current?.stopAsync().catch(() => {}); } catch {}
       setIncomingCall(null);
       setCallStatus('idle');
     };
@@ -507,10 +566,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const handleRejected = () => {
-      console.log('[Call] Call rejected');
-      callStatusRef.current = 'rejected' as any;
-      cleanupCall();
+    const handleRejected = (data?: { rejectorName?: string }) => {
+      const name = data?.rejectorName || 'Someone';
+      rejectedCountRef.current += 1;
+      console.log(`[Call] ${name} declined (${rejectedCountRef.current}/${pendingRecipientCountRef.current})`);
+
+      const allDeclined = rejectedCountRef.current >= pendingRecipientCountRef.current;
+      const noneConnected = peerConnectionsRef.current.size === 0;
+
+      if (allDeclined && noneConnected) {
+        if (activeChatIdRef.current) {
+          socketManager.emit(SOCKET_EVENTS.CALL_END, { chatId: activeChatIdRef.current });
+        }
+        callStatusRef.current = 'rejected' as any;
+        cleanupCall();
+      }
+      // else: some members still pending or someone already connected — keep ringing
     };
 
     const handleVideoState = (data: { senderId: string; videoEnabled: boolean }) => {
@@ -524,6 +595,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+    socketManager.on(SOCKET_EVENTS.CALL_RINGING, handleRinging as any);
     socketManager.on(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
     socketManager.on(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
     socketManager.on(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
@@ -532,8 +604,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
     socketManager.on(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState as any);
 
+    const handleOngoing = (data: OngoingCallInfo) => {
+      console.log('[Call] CALL_ONGOING received', data, 'activeChatId:', activeChatIdRef.current);
+      if (data.chatId === activeChatIdRef.current) return;
+      setOngoingCallsByChatId((prev) => new Map(prev).set(data.chatId, data));
+    };
+    const handleFinished = (data: { chatId: string }) => {
+      setOngoingCallsByChatId((prev) => {
+        const next = new Map(prev);
+        next.delete(data.chatId);
+        return next;
+      });
+    };
+    socketManager.on(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
+    socketManager.on(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
+
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
+      socketManager.off(SOCKET_EVENTS.CALL_RINGING, handleRinging as any);
       socketManager.off(SOCKET_EVENTS.CALL_MISSED, handleMissed as any);
       socketManager.off(SOCKET_EVENTS.CALL_USER_JOINED, handleUserJoined as any);
       socketManager.off(SOCKET_EVENTS.CALL_SIGNAL, handleSignal as any);
@@ -541,6 +629,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_REJECTED, handleRejected as any);
       socketManager.off(SOCKET_EVENTS.CALL_VIDEO_STATE, handleVideoState as any);
       socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState as any);
+      socketManager.off(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
+      socketManager.off(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
     };
   }, [createPeerConnection, cleanupCall]);
 
@@ -607,9 +697,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsVideoEnabled(videoAvailable);
       setIsMuted(false);
 
-      // Speaker starts OFF — user taps the speaker button to enable it
+      // Speaker starts OFF — InCallManager.start sets up the WebRTC audio session
       setIsSpeaker(false);
-      await applySpeakerMode(false);
+      startInCallAudio(type);
 
       // DO NOT create PC yet — wait for CALL_USER_JOINED to know targetUserId
       socketManager.emit(SOCKET_EVENTS.CALL_START, {
@@ -637,6 +727,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
+    }
+
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
     }
 
     try {
@@ -688,9 +783,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallType(call.type);
       callTypeRef.current = call.type;
 
-      // Speaker starts OFF — user taps the speaker button to enable it
+      // Speaker starts OFF — InCallManager.start sets up the WebRTC audio session
       setIsSpeaker(false);
-      await applySpeakerMode(false);
+      startInCallAudio(call.type);
 
       // Announce join — all existing participants get CALL_USER_JOINED and send offers
       socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId: call.chatId });
@@ -704,6 +799,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const rejectCall = () => {
     const call = incomingCallRef.current;
     console.log('[Call] Rejecting');
+    if (incomingTimeoutRef.current) {
+      clearTimeout(incomingTimeoutRef.current);
+      incomingTimeoutRef.current = null;
+    }
     if (call) {
       socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
         chatId: call.chatId,
@@ -751,6 +850,63 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const addToCall = (targetUserId: string) => {
+    if (!activeChatIdRef.current || callStatus !== 'connected') return;
+    socketManager.emit(SOCKET_EVENTS.CALL_ADD_MEMBER, {
+      chatId: activeChatIdRef.current,
+      targetUserId,
+      type: callType,
+    });
+  };
+
+  const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
+    try {
+      await requestPermissions();
+
+      setCallType(type);
+      callTypeRef.current = type;
+      setCallStatus('calling');
+      setIsCallActive(true);
+      isCallActiveRef.current = true;
+      isInitiatorRef.current = false;
+      activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
+      callStartTimeRef.current = null;
+
+      setOngoingCallsByChatId((prev) => {
+        const next = new Map(prev);
+        next.delete(chatId);
+        return next;
+      });
+
+      let stream: any;
+      if (type === 'video') {
+        try {
+          stream = await mediaDevices.getUserMedia({
+            audio: true,
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
+        } catch {
+          stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+        }
+      } else {
+        stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      }
+
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsVideoEnabled(type === 'video');
+      setIsMuted(false);
+      setIsSpeaker(false);
+      startInCallAudio(type);
+
+      socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId });
+    } catch (err) {
+      console.error('[Call] Failed to join ongoing call:', err);
+      cleanupCall();
+    }
+  };
+
   return (
     <CallContext.Provider
       value={{
@@ -767,6 +923,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isVideoEnabled,
         isSpeaker,
         activeChatId,
+        ongoingCallsByChatId,
         startCall,
         answerCall,
         rejectCall,
@@ -774,6 +931,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleMute,
         toggleVideo,
         toggleSpeaker,
+        addToCall,
+        joinOngoingCall,
       }}
     >
       {children}

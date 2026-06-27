@@ -19,6 +19,7 @@ import { ChatViewSkeleton } from "./ChatViewSkeleton";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { GroupInfoModal } from "./GroupInfoModal";
 import { AddMemberModal } from "./AddMemberModal";
+import { GroupCreatedCard } from "./GroupCreatedCard";
 import { useCall } from "../../contexts/CallContext";
 import EmojiPicker, { type EmojiClickData, Theme } from "emoji-picker-react";
 import {
@@ -35,9 +36,10 @@ interface ChatViewProps {
   chat: Chat;
   onBack: () => void;
   currentUserId: string;
+  isMobile?: boolean;
 }
 
-export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
+export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: ChatViewProps) => {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
@@ -83,7 +85,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
     deleteMessage,
     editMessage,
   } = useSocket();
-  const { startCall } = useCall();
+  const { startCall, ongoingCallsByChatId, joinOngoingCall, callStatus } = useCall();
 
   const chatMessages = messages[chat.id] || [];
   const typingUserIds = typingUsers[chat.id] || [];
@@ -485,14 +487,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
 
   const getOnlineStatus = () => {
     if (chat.type === "group") {
-      const memberNames = chat.members
-        .map((m) =>
-          m.userId === currentUserId
-            ? "You"
-            : m.user.profile?.displayName || m.user.phone || "Unknown",
-        )
-        .sort((a, b) => (a === "You" ? -1 : a.localeCompare(b)));
-      return memberNames.join(", ");
+      return `Group · ${chat.members.length} participants`;
     }
     const otherMember = chat.members.find((m) => m.userId !== currentUserId);
     if (!otherMember) return "Offline";
@@ -662,7 +657,7 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
             >
               {getChatName()}
             </h2>
-            <p style={{ fontSize: "12px", color: "#8696a0", margin: 0 }}>
+            <p style={{ fontSize: "12px", color: "#8696a0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {getTypingText() || getOnlineStatus()}
             </p>
           </div>
@@ -735,6 +730,38 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         </div>
       </div>
 
+      {/* Ongoing call banner */}
+      {(() => {
+        const ongoing = ongoingCallsByChatId.get(chat.id);
+        if (!ongoing || callStatus !== 'idle') return null;
+        return (
+          <div
+            onClick={() => joinOngoingCall(chat.id, ongoing.type)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              backgroundColor: '#00a884', padding: '10px 16px', cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              backgroundColor: 'rgba(0,0,0,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              {ongoing.type === 'video' ? <Video size={16} color="#fff" /> : <Phone size={16} color="#fff" />}
+            </div>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 600, fontSize: '13px' }}>
+                {ongoing.type === 'video' ? 'Ongoing video call' : 'Ongoing voice call'}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px' }}>
+                {ongoing.participantCount} participant{ongoing.participantCount !== 1 ? 's' : ''} · Tap to join
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Messages */}
       <div
         ref={messagesContainerRef}
@@ -742,7 +769,8 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px 32px",
+          overflowX: "hidden",
+          padding: isMobile ? "8px 8px" : "16px 32px",
         }}
       >
         {isLoading ? (
@@ -774,6 +802,14 @@ export const ChatView = ({ chat, onBack, currentUserId }: ChatViewProps) => {
                   {isFetchingNextPage ? "Loading..." : "Load more messages"}
                 </button>
               </div>
+            )}
+
+            {!hasNextPage && chat.type === 'group' && (
+              <GroupCreatedCard
+                chat={chat}
+                currentUserId={currentUserId}
+                onAddMember={() => setShowAddMember(true)}
+              />
             )}
 
             {messageGroups.map((group) => (

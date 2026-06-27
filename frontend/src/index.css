@@ -22,7 +22,9 @@
 
 html, body, #root {
   height: 100%;
+  /* dvh subtracts the mobile browser URL bar; falls back to vh on older browsers */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {

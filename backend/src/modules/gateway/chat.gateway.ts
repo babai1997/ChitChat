@@ -290,6 +290,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.callHandler.handleCallMissed(socket as any, data);
   }
 
+  @SubscribeMessage(SOCKET_EVENTS.CALL_ADD_MEMBER)
+  handleCallAddMember(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody()
+    data: { chatId: string; targetUserId: string; type: 'audio' | 'video' },
+  ) {
+    return this.callHandler.handleAddToCall(socket as any, data);
+  }
+
   // ─── Room Management ───────────────────────────────────────────────────────
 
   @SubscribeMessage(SOCKET_EVENTS.CHAT_JOIN)
@@ -302,6 +311,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('You are not a member of this chat');
     }
     socket.join(`chat:${data.chatId}`);
+
+    // If a call is already active in this chat, send the banner immediately to the joiner
+    const activeCall = this.callHandler.getActiveCall(data.chatId);
+    if (activeCall) {
+      socket.emit(SOCKET_EVENTS.CALL_ONGOING, {
+        chatId: data.chatId,
+        type: activeCall.type,
+        callerName: activeCall.callerName,
+        participantCount: activeCall.participantCount,
+      });
+    }
+
     return { success: true };
   }
 

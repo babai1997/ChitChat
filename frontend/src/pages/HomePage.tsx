@@ -196,7 +196,7 @@ export const HomePage = () => {
   });
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', overflow: 'hidden' }}>
       {/* Desktop Top Navigation Bar */}
       {!isMobile && (
         <div style={{
@@ -449,8 +449,8 @@ export const HomePage = () => {
               </button>
             )}
 
-            {/* Chat List */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            {/* Chat List — paddingBottom on mobile so BottomNav doesn't cover last item */}
+            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: isMobile ? '60px' : 0 }}>
               {isLoading ? (
                 <ChatListSkeleton />
               ) : filteredChats.length > 0 ? (
@@ -508,7 +508,7 @@ export const HomePage = () => {
              }}>
                <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#e9edef' }}>Calls</h1>
              </div>
-             <div style={{ flex: 1, overflowY: 'auto' }}>
+             <div style={{ flex: 1, overflowY: 'auto', paddingBottom: isMobile ? '60px' : 0 }}>
                <CallList onChatSelect={handleCallChatSelect} />
              </div>
              {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -528,10 +528,11 @@ export const HomePage = () => {
         }}
       >
         {activeTab === 'chats' && activeChat ? (
-          <ChatView 
-            chat={activeChat} 
+          <ChatView
+            chat={activeChat}
             onBack={() => setActiveChat(null)}
             currentUserId={user?.id || ''}
+            isMobile={isMobile}
           />
         ) : activeTab === 'calls' && activeCallInfoId ? (
           <CallInfoView 

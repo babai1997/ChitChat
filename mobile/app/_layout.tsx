@@ -1,3 +1,6 @@
+// Suppress react-native-webrtc internal debug logs (rn-webrtc:pc:DEBUG getStats spam)
+try { require('debug').disable(); } catch {}
+
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../src/stores/authStore';
