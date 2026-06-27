@@ -1,15 +1,36 @@
 import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import type { User } from '@prisma/client';
 
+@ApiTags('Users')
+@ApiBearerAuth('access-token')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('search')
+  @ApiOperation({ summary: 'Search users by name, phone, or email' })
+  @ApiQuery({ name: 'q', description: 'Search query string' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Max results (default 20)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of matching users with profiles',
+  })
   async searchUsers(
     @Query('q') query: string,
     @CurrentUser() user: User,
@@ -37,6 +58,10 @@ export class UsersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User with profile' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getUser(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
 

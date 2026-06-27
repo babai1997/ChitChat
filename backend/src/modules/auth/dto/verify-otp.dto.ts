@@ -1,6 +1,8 @@
 import { IsString, IsNotEmpty, Matches, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyOtpDto {
+  @ApiProperty({ example: '+919876543210', description: 'Phone in E.164 format' })
   @IsString()
   @IsNotEmpty()
   @Matches(/^\+[1-9]\d{1,14}$/, {
@@ -8,6 +10,7 @@ export class VerifyOtpDto {
   })
   phone: string;
 
+  @ApiProperty({ example: '123456', description: '6-digit OTP sent via SMS' })
   @IsString()
   @IsNotEmpty()
   @Length(6, 6, { message: 'OTP must be exactly 6 digits' })

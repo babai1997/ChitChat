@@ -865,13 +865,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setCallType(type);
       callTypeRef.current = type;
-      setCallStatus('calling');
+      // Go straight to 'connected' — the call is already in progress, so the user
+      // should land directly in the grid rather than seeing a "calling" screen.
+      setCallStatus('connected');
+      callStatusRef.current = 'connected';
       setIsCallActive(true);
       isCallActiveRef.current = true;
       isInitiatorRef.current = false;
       activeChatIdRef.current = chatId;
       setActiveChatId(chatId);
-      callStartTimeRef.current = null;
+      callStartTimeRef.current = Date.now();
 
       setOngoingCallsByChatId((prev) => {
         const next = new Map(prev);
