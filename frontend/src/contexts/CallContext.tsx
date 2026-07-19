@@ -683,8 +683,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const stopScreenShare = useCallback(() => {
-    if (!screenStreamRef.current) return;
-    screenStreamRef.current.getTracks().forEach((t) => t.stop());
+    const stream = screenStreamRef.current;
+    if (!stream) return;
+    const screenTrack = stream.getVideoTracks()[0];
+
+    // Restore the camera video track in all peer connections — or, for calls
+    // that never had a camera (audio-only calls), remove the video track we
+    // added for sharing entirely, since there's nothing to replace it with.
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    peersRef.current.forEach((peer) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pc = (peer as any)._pc as RTCPeerConnection | undefined;
+      if (!pc) return;
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+      if (!sender) return;
+      if (cameraTrack) {
+        sender.replaceTrack(cameraTrack).catch(console.error);
+      } else if (screenTrack && localStreamRef.current) {
+        // Must pass the same grouping stream used in addTrack() below (the local
+        // mic-only stream, not the screen stream) so simple-peer's internal
+        // sender map can find the sender to remove.
+        try { peer.removeTrack(screenTrack, localStreamRef.current); } catch (err) { console.error(err); }
+      }
+    });
+
+    stream.getTracks().forEach((t) => t.stop());
     screenStreamRef.current = null;
     setIsScreenSharing(false);
     setScreenStream(null);
@@ -693,16 +716,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     pipWindowRef.current = null;
     setPipWindow(null);
-
-    // Restore camera video track in all peer connections
-    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-    peersRef.current.forEach((peer) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pc = (peer as any)._pc as RTCPeerConnection | undefined;
-      if (!pc) return;
-      const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-      if (sender && cameraTrack) sender.replaceTrack(cameraTrack).catch(console.error);
-    });
 
     if (activeChatIdRef.current) {
       socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_STOP, { chatId: activeChatIdRef.current });
@@ -720,13 +733,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setScreenStream(stream);
       setIsScreenSharing(true);
 
-      // Replace video track in all active peer connections
+      // Replace video track in all active peer connections — or, for calls
+      // that never had a camera (audio-only calls), add a new video track
+      // and let simple-peer renegotiate the connection to carry it.
       peersRef.current.forEach((peer) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pc = (peer as any)._pc as RTCPeerConnection | undefined;
         if (!pc) return;
         const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-        if (sender) sender.replaceTrack(videoTrack).catch(console.error);
+        if (sender) {
+          sender.replaceTrack(videoTrack).catch(console.error);
+        } else if (localStreamRef.current) {
+          // Group the new video track under the existing local (audio-only) stream's
+          // id rather than the screen capture stream's — otherwise the remote side
+          // sees it as a brand-new MediaStream and overwrites its audio-bearing one.
+          try { peer.addTrack(videoTrack, localStreamRef.current); } catch (err) { console.error(err); }
+        }
       });
 
       socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_START, { chatId: activeChatIdRef.current });
