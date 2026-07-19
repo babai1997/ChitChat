@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { socketManager } from '../shared/socket/SocketManager';
 import { registerMessageHandlers } from '../shared/socket/handlers/message.handlers';
@@ -7,7 +7,14 @@ import { registerChatHandlers } from '../shared/socket/handlers/chat.handlers';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useChatStore } from '../stores/chatStore';
 import * as Crypto from 'expo-crypto';
+import { router } from 'expo-router';
 import { registerCallPushToken, subscribeToCallPushTokenRefresh } from '../services/callPush';
+import { getMessaging, onMessage as fcmOnMessage } from '@react-native-firebase/messaging';
+import notifee, { EventType } from '@notifee/react-native';
+import {
+  displayMessageNotification,
+  type MessagePushData,
+} from '../services/messagePushNotification';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -38,6 +45,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const { accessToken, isAuthenticated } = useAuthStore();
+  // Tracks which chat the user is currently viewing — used to suppress
+  // foreground push notifications for the chat they're already reading.
+  const activeChatIdRef = useRef<string | null>(null);
 
   // Connect / disconnect based on auth state
   useEffect(() => {
@@ -92,10 +102,45 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const joinChat = useCallback((chatId: string) => {
     socketManager.emit(SOCKET_EVENTS.CHAT_JOIN, { chatId });
+    activeChatIdRef.current = chatId;
   }, []);
 
   const leaveChat = useCallback((chatId: string) => {
     socketManager.emit(SOCKET_EVENTS.CHAT_LEAVE, { chatId });
+    if (activeChatIdRef.current === chatId) activeChatIdRef.current = null;
+  }, []);
+
+  // ── Foreground push notifications for chat messages ────────────────────────
+  useEffect(() => {
+    // FCM delivers foreground messages to onMessage — FCM will NOT auto-display
+    // them, so we display via Notifee. Skip if the user is already in that chat.
+    const unsubFcm = fcmOnMessage(getMessaging(), async (remoteMessage) => {
+      if (remoteMessage.data?.kind !== 'message') return;
+      const chatId = String(remoteMessage.data?.chatId ?? '');
+      if (chatId && activeChatIdRef.current === chatId) return;
+      const data: MessagePushData = {
+        chatId,
+        chatName: String(remoteMessage.data?.chatName ?? remoteMessage.data?.senderName ?? ''),
+        senderId: String(remoteMessage.data?.senderId ?? ''),
+        senderName: String(remoteMessage.data?.senderName ?? ''),
+        messageType: (remoteMessage.data?.messageType as MessagePushData['messageType']) ?? 'text',
+        content: String(remoteMessage.data?.content ?? ''),
+      };
+      await displayMessageNotification(data);
+    });
+
+    // Notifee foreground event — navigate when user taps a message notification
+    const unsubNotifee = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type !== EventType.PRESS) return;
+      if (detail.notification?.data?.kind !== 'message') return;
+      const chatId = detail.notification?.data?.chatId;
+      if (chatId) router.push(`/chat/${chatId}`);
+    });
+
+    return () => {
+      unsubFcm();
+      unsubNotifee();
+    };
   }, []);
 
   const sendMessage = useCallback(
@@ -163,6 +208,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const markAsRead = useCallback((chatId: string, messageIds: string[]) => {
     socketManager.emit(SOCKET_EVENTS.MESSAGE_READ, { chatId, messageIds });
+    const store = useChatStore.getState();
+    const chat = store.chats.find((c) => c.id === chatId);
+    if (chat && (chat.unreadCount || 0) > 0) {
+      store.updateChat(chatId, { unreadCount: 0 });
+    }
   }, []);
 
   const startTyping = useCallback((chatId: string) => {

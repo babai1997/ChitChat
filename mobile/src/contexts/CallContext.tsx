@@ -5,6 +5,7 @@ import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useSocketContext } from './SocketProvider';
 import { useChatStore } from '../stores/chatStore';
+import { router } from 'expo-router';
 import notifee, { EventType } from '@notifee/react-native';
 import {
   getPendingCall,
@@ -704,13 +705,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: pending.type,
       };
 
+      // answerCall() reads the pending call from this ref regardless of action.
       incomingCallRef.current = incoming;
-      setIncomingCall(incoming);
-      setCallStatus('incoming');
-      setCallType(pending.type);
 
       if (pending.action === 'answer') {
+        // Skip the incoming-call modal entirely — setting callStatus to
+        // 'incoming' here would render it for a beat before answerCall()'s
+        // own 'calling' update replaces it, forcing a second manual tap.
+        // Mirrors exactly what IncomingCallModal's own Accept button does:
+        // answer, then land the user in that chat's call screen.
+        setCallType(pending.type);
         await answerCall();
+        router.push(`/chat/${pending.chatId}`);
+      } else {
+        setIncomingCall(incoming);
+        setCallStatus('incoming');
+        setCallType(pending.type);
       }
     };
 
@@ -881,6 +891,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSpeaker(false);
       startInCallAudio(call.type);
 
+      // Dismiss the incoming-call notification — covers the case where the user
+      // answered from the in-app UI rather than the notification action button.
+      if (call.callId) {
+        cancelIncomingCallNotification(call.callId).catch(() => {});
+      }
+
       // Announce join — all existing participants get CALL_USER_JOINED and send offers.
       // On a cold start from tapping the notification's Answer action, the socket may
       // not have finished connecting yet (auth store still hydrating) — wait briefly
@@ -903,6 +919,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       incomingTimeoutRef.current = null;
     }
     if (call) {
+      if (call.callId) {
+        cancelIncomingCallNotification(call.callId).catch(() => {});
+      }
       socketManager.emit(SOCKET_EVENTS.CALL_REJECT, {
         chatId: call.chatId,
         callerId: call.callerId,

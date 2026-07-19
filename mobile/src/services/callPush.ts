@@ -1,7 +1,7 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, getToken, onTokenRefresh } from '@react-native-firebase/messaging';
 import { api } from '../api/client';
 
 const DEVICE_ID_KEY = 'call_push_device_id';
@@ -44,7 +44,7 @@ export async function registerCallPushToken(): Promise<void> {
     }
 
     const deviceId = await getOrCreateDeviceId();
-    const token = await messaging().getToken();
+    const token = await getToken(getMessaging());
 
     await api.post('/push/register', {
       deviceId,
@@ -72,7 +72,7 @@ export async function unregisterCallPushToken(): Promise<void> {
  * Call once from app startup; returns an unsubscribe function.
  */
 export function subscribeToCallPushTokenRefresh(): () => void {
-  return messaging().onTokenRefresh(() => {
+  return onTokenRefresh(getMessaging(), () => {
     void registerCallPushToken();
   });
 }

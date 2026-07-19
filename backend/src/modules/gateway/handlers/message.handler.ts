@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { MessagesService } from '../../messages/messages.service';
 import { ChatsService } from '../../chats/chats.service';
 import { SocketRegistryService } from '../services/socket-registry.service';
+import { PushService } from '../../push/push.service';
 import { SOCKET_EVENTS } from '../../../shared/constants/socket-events';
 import { SendMessageDto, ReadMessagesDto } from '../dto';
 import { MessageType } from '@prisma/client';
@@ -24,6 +25,7 @@ export class MessageHandler {
     private readonly messagesService: MessagesService,
     private readonly chatsService: ChatsService,
     private readonly registry: SocketRegistryService,
+    private readonly pushService: PushService,
   ) {}
 
   setServer(server: Server) {
@@ -88,6 +90,28 @@ export class MessageHandler {
           tempId,
           deliveredTo: onlineRecipients,
         });
+      }
+
+      // Push notification for offline recipients
+      const offlineRecipients = recipientIds.filter(
+        (id) => !this.registry.isOnline(id),
+      );
+      if (offlineRecipients.length > 0) {
+        const senderName =
+          socket.user.profile?.displayName ?? 'Someone';
+        const contentPreview = this.getContentPreview(type, content);
+        await Promise.allSettled(
+          offlineRecipients.map((id) =>
+            this.pushService.sendMessagePush(id, {
+              chatId,
+              chatName: senderName,
+              senderId,
+              senderName,
+              messageType: type as any,
+              content: contentPreview,
+            }),
+          ),
+        );
       }
 
       return { success: true, messageId: message.id };
@@ -175,6 +199,16 @@ export class MessageHandler {
       return result;
     } catch (error) {
       throw new WsException(error.message || 'Failed to edit message');
+    }
+  }
+
+  private getContentPreview(type: MessageType, content: string): string {
+    switch (type) {
+      case MessageType.image: return '📷 Photo';
+      case MessageType.audio: return '🎤 Voice message';
+      case MessageType.video: return '🎬 Video';
+      case MessageType.file:  return '📎 File';
+      default: return content.length > 100 ? content.slice(0, 100) + '…' : content;
     }
   }
 }
