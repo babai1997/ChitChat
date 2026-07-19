@@ -83,6 +83,13 @@ export const useAuthStore = create<AuthState>()(
           useChatStore.getState().clearChatData();
         });
 
+        // Stop this device from receiving call push notifications for this
+        // user — dynamic import avoids a circular dependency (the push
+        // service's API client imports this store).
+        import('../services/callPush').then(({ unregisterCallPushToken }) => {
+          void unregisterCallPushToken();
+        });
+
         set({
           accessToken: null,
           refreshToken: null,

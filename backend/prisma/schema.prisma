@@ -215,3 +215,32 @@ model RefreshToken {
   @@index([token])
   @@map("refresh_tokens")
 }
+
+// ============================================
+// Push Token Model (wakes the app for incoming calls when backgrounded/killed)
+// ============================================
+
+enum PushPlatform {
+  android
+  ios
+}
+
+enum PushTokenType {
+  fcm
+  apns_voip
+}
+
+model PushToken {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  deviceId  String        @map("device_id")
+  platform  PushPlatform
+  tokenType PushTokenType @map("token_type")
+  token     String
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@unique([userId, deviceId, tokenType])
+  @@index([userId])
+  @@map("push_tokens")
+}

@@ -22,6 +22,7 @@ import { ChatsModule } from './modules/chats';
 import { MessagesModule } from './modules/messages';
 import { GatewayModule } from './modules/gateway';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
+import { PushModule } from './modules/push';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     MessagesModule,
     GatewayModule,
     CloudinaryModule,
+    PushModule,
   ],
   providers: [
     // Global JWT Auth Guard
