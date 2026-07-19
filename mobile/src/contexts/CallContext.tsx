@@ -5,6 +5,13 @@ import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useSocketContext } from './SocketProvider';
 import { useChatStore } from '../stores/chatStore';
+import notifee, { EventType } from '@notifee/react-native';
+import {
+  getPendingCall,
+  clearPendingCall,
+  cancelIncomingCallNotification,
+  handleNotifeeCallEvent,
+} from '../services/incomingCallNotification';
 
 // Lazy-load WebRTC to prevent crash on startup if hardware not available
 let RTCPeerConnection: any;
@@ -64,6 +71,7 @@ const ICE_SERVERS = {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface IncomingCallData {
+  callId?: string;
   chatId: string;
   callerId: string;
   callerName: string;
@@ -671,6 +679,54 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_SCREEN_STOPPED, handleScreenStopped as any);
     };
   }, [createPeerConnection, cleanupCall]);
+
+  // ── Reconcile a call surfaced by a push notification ───────────────────────
+  // Covers both: the app cold-starting because the user tapped the
+  // notification (backgrounded/killed — see index.js's background handler),
+  // and the notification's Answer/Decline actions being tapped while the app
+  // is already in the foreground.
+  useEffect(() => {
+    const reconcile = async () => {
+      const pending = await getPendingCall();
+      if (!pending) return;
+      await clearPendingCall(pending.callId);
+      // The OS-level notification/ringtone hands off to the in-app UI now.
+      await cancelIncomingCallNotification(pending.callId);
+
+      if (isCallActiveRef.current) return; // already mid-call — ignore stale ping
+
+      const incoming: IncomingCallData = {
+        callId: pending.callId,
+        chatId: pending.chatId,
+        callerId: pending.callerId,
+        callerName: pending.callerName,
+        callerAvatar: pending.callerAvatar,
+        type: pending.type,
+      };
+
+      incomingCallRef.current = incoming;
+      setIncomingCall(incoming);
+      setCallStatus('incoming');
+      setCallType(pending.type);
+
+      if (pending.action === 'answer') {
+        await answerCall();
+      }
+    };
+
+    void reconcile();
+
+    const unsubscribeForeground = notifee.onForegroundEvent(async ({ type, detail }) => {
+      await handleNotifeeCallEvent({ type, detail });
+      if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'decline') return;
+      await reconcile();
+    });
+
+    return () => {
+      unsubscribeForeground();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Call actions ──────────────────────────────────────────────────────────────
 

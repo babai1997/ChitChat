@@ -9,6 +9,7 @@ import { CallHandler } from './handlers/call.handler';
 import { MessagesModule } from '../messages/messages.module';
 import { ChatsModule } from '../chats/chats.module';
 import { UsersModule } from '../users/users.module';
+import { PushModule } from '../push';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from '../users/users.module';
     MessagesModule,
     ChatsModule,
     UsersModule,
+    PushModule,
   ],
   providers: [
     ChatGateway,

@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Firebase (per-environment, not a shared secret to commit)
+google-services.json
+GoogleService-Info.plist
+
 # Metro
 .metro-health-check*
 

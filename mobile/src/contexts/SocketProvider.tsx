@@ -7,6 +7,7 @@ import { registerChatHandlers } from '../shared/socket/handlers/chat.handlers';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useChatStore } from '../stores/chatStore';
 import * as Crypto from 'expo-crypto';
+import { registerCallPushToken, subscribeToCallPushTokenRefresh } from '../services/callPush';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -49,6 +50,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     socketManager.connect(API_URL, accessToken);
 
+    // Register this device for call wake-up push notifications (Android FCM
+    // for now — see CALL_NOTIFICATIONS_PLAN.md). Idempotent upsert, safe to
+    // call on every reconnect/token-refresh.
+    void registerCallPushToken();
+    const unsubscribeTokenRefresh = subscribeToCallPushTokenRefresh();
+
     const onConnect = () => { setIsConnected(true); setIsReconnecting(false); };
     const onDisconnect = (reason: unknown) => {
       setIsConnected(false);
@@ -77,6 +84,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cleanupMessages();
       cleanupPresence();
       cleanupChats();
+      unsubscribeTokenRefresh();
     };
   }, [isAuthenticated, accessToken]);
 

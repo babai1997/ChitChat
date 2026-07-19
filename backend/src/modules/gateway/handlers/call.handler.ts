@@ -1,9 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { ChatsService } from '../../chats/chats.service';
 import { MessagesService } from '../../messages/messages.service';
 import { SocketRegistryService } from '../services/socket-registry.service';
+import { PushService } from '../../push';
 import { SOCKET_EVENTS } from '../../../shared/constants/socket-events';
 import { MessageType } from '@prisma/client';
+
+/** Nobody answered within this window — treat as a missed call. */
+const RING_TIMEOUT_MS = 45_000;
 
 interface AuthSocket {
   id: string;
@@ -20,11 +25,14 @@ interface Server {
 }
 
 interface ActiveCall {
+  callId: string;
   type: 'audio' | 'video';
   callerId: string;
   callerName: string;
   /** Set of userIds currently connected in this call. */
   participantUserIds: Set<string>;
+  /** The full set of invited recipients — fixed at call start, used to cancel pushes for everyone once the call is over. */
+  recipientIds: string[];
 }
 
 @Injectable()
@@ -33,11 +41,14 @@ export class CallHandler {
   private server: Server;
   /** In-memory registry of currently active calls, keyed by chatId. */
   private readonly activeCalls = new Map<string, ActiveCall>();
+  /** Server-side ring timeout handles, keyed by chatId — cleared once answered/rejected/ended. */
+  private readonly ringTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly chatsService: ChatsService,
     private readonly messagesService: MessagesService,
     private readonly registry: SocketRegistryService,
+    private readonly pushService: PushService,
   ) {}
 
   setServer(server: Server) {
@@ -68,14 +79,28 @@ export class CallHandler {
     }
 
     const recipientIds = memberIds.filter((id) => id !== sender.id);
+    const callId = uuidv4();
+    const callerName = sender.profile?.displayName || 'Unknown';
 
     recipientIds.forEach((recipientId) => {
       this.registry.emitToUser(recipientId, SOCKET_EVENTS.CALL_INCOMING, {
+        callId,
         chatId,
         callerId: sender.id,
-        callerName: sender.profile?.displayName || 'Unknown',
+        callerName,
         callerAvatar: sender.profile?.avatarUrl,
         offer,
+        type,
+      });
+
+      // Wake up the recipient's device even if their socket is disconnected
+      // (backgrounded/killed app) — see CALL_NOTIFICATIONS_PLAN.md.
+      void this.pushService.sendCallPush(recipientId, {
+        callId,
+        chatId,
+        callerId: sender.id,
+        callerName,
+        callerAvatar: sender.profile?.avatarUrl,
         type,
       });
     });
@@ -90,15 +115,45 @@ export class CallHandler {
     // Track this as an active call. The banner (CALL_ONGOING) is only broadcast
     // once a second participant joins — a call with 1 person is not yet "active".
     this.activeCalls.set(chatId, {
+      callId,
       type,
       callerId: sender.id,
-      callerName: sender.profile?.displayName || 'Unknown',
+      callerName,
       participantUserIds: new Set([sender.id]),
+      recipientIds,
     });
 
+    this.startRingTimeout(chatId);
+
     this.logger.log(
-      `[Call] ${sender.id} started ${type} call in chat ${chatId}`,
+      `[Call] ${sender.id} started ${type} call in chat ${chatId} (${callId})`,
     );
+  }
+
+  /**
+   * Server-side counterpart to the caller's own 45s client-side timer — covers
+   * the case where the caller's client dies/loses connection before it can
+   * emit CALL_MISSED itself, so a pushed notification doesn't ring forever.
+   */
+  private startRingTimeout(chatId: string) {
+    this.clearRingTimeout(chatId);
+    const timeout = setTimeout(() => {
+      this.ringTimeouts.delete(chatId);
+      const active = this.activeCalls.get(chatId);
+      // Still nobody but the caller connected → nobody answered in time.
+      if (active && active.participantUserIds.size <= 1) {
+        void this.finalizeMissedCall(chatId, active.callerId, active.type);
+      }
+    }, RING_TIMEOUT_MS);
+    this.ringTimeouts.set(chatId, timeout);
+  }
+
+  private clearRingTimeout(chatId: string) {
+    const existing = this.ringTimeouts.get(chatId);
+    if (existing) {
+      clearTimeout(existing);
+      this.ringTimeouts.delete(chatId);
+    }
   }
 
   /**
@@ -130,6 +185,12 @@ export class CallHandler {
     if (active) {
       active.participantUserIds.add(userId);
       const count = active.participantUserIds.size;
+
+      // Someone answered — stop the server-side ring timeout, and stop
+      // ringing this same user's OTHER devices (multi-device).
+      this.clearRingTimeout(chatId);
+      void this.pushService.sendCancelPush(userId, active.callId);
+
       if (this.server) {
         this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_ONGOING, {
           chatId,
@@ -193,6 +254,12 @@ export class CallHandler {
       rejectorId,
       rejectorName: socket.user.profile?.displayName || 'Unknown',
     });
+
+    // Stop ringing this same user's OTHER devices (multi-device) too.
+    const active = this.activeCalls.get(chatId);
+    if (active) {
+      void this.pushService.sendCancelPush(rejectorId, active.callId);
+    }
   }
 
   /**
@@ -222,10 +289,30 @@ export class CallHandler {
       `[Call] ${sender.id} invited ${targetUserId} to join call in chat ${chatId}`,
     );
 
+    // Reuse the ongoing call's id so a push notification for this invite
+    // correlates with the same call session; fall back to a fresh one if for
+    // some reason there's no tracked active call for this chat.
+    const active = this.activeCalls.get(chatId);
+    const callId = active?.callId ?? uuidv4();
+    const callerName = sender.profile?.displayName || 'Unknown';
+    if (active && !active.recipientIds.includes(targetUserId)) {
+      active.recipientIds.push(targetUserId);
+    }
+
     this.registry.emitToUser(targetUserId, SOCKET_EVENTS.CALL_INCOMING, {
+      callId,
       chatId,
       callerId: sender.id,
-      callerName: sender.profile?.displayName || 'Unknown',
+      callerName,
+      callerAvatar: sender.profile?.avatarUrl,
+      type,
+    });
+
+    void this.pushService.sendCallPush(targetUserId, {
+      callId,
+      chatId,
+      callerId: sender.id,
+      callerName,
       callerAvatar: sender.profile?.avatarUrl,
       type,
     });
@@ -304,6 +391,11 @@ export class CallHandler {
       const count = active.participantUserIds.size;
       if (count <= 1) {
         this.activeCalls.delete(chatId);
+        this.clearRingTimeout(chatId);
+        // Call is over — stop ringing anyone still showing a call notification.
+        active.recipientIds.forEach((recipientId) => {
+          void this.pushService.sendCancelPush(recipientId, active.callId);
+        });
         if (this.server) {
           this.server
             .to(`chat:${chatId}`)
@@ -337,13 +429,7 @@ export class CallHandler {
     const { chatId, type } = data;
     const callerId = socket.user.id;
 
-    this.logger.log(
-      `[Call] Missed ${type} call from ${callerId} in chat ${chatId}`,
-    );
-
-    // 1. Stop ringing on all callee devices
     const memberIds = await this.chatsService.getChatMemberIds(chatId);
-
     if (!memberIds.includes(callerId)) {
       this.logger.warn(
         `[Call] Unauthorized missed-call attempt by ${callerId} in chat ${chatId}`,
@@ -352,16 +438,44 @@ export class CallHandler {
       return;
     }
 
+    await this.finalizeMissedCall(chatId, callerId, type);
+  }
+
+  /**
+   * Shared by both the caller's own client-side 45s timer (handleCallMissed,
+   * above) and the server-side ring timeout (startRingTimeout) — covers the
+   * case where the caller's client dies before it can tell us itself.
+   *
+   * 1. Stop ringing on all callee devices (socket + any push notification)
+   * 2. Persist a "Missed call" message in the chat for both sides to see
+   * 3. Broadcast that message via MESSAGE_NEW so it appears in real-time
+   * 4. Clear the active-call registry
+   */
+  private async finalizeMissedCall(
+    chatId: string,
+    callerId: string,
+    type: 'audio' | 'video',
+  ) {
+    this.logger.log(
+      `[Call] Missed ${type} call from ${callerId} in chat ${chatId}`,
+    );
+
+    const active = this.activeCalls.get(chatId);
+    const memberIds = await this.chatsService.getChatMemberIds(chatId);
     const recipientIds = memberIds.filter((id) => id !== callerId);
+
     recipientIds.forEach((recipientId) => {
       this.registry.emitToUser(recipientId, SOCKET_EVENTS.CALL_MISSED, {
         chatId,
         callerId,
         type,
       });
+      if (active) {
+        void this.pushService.sendCancelPush(recipientId, active.callId);
+      }
     });
 
-    // 2. Persist a "Missed call" system message authored by the caller
+    // Persist a "Missed call" system message authored by the caller
     const label = type === 'video' ? 'Missed video call' : 'Missed audio call';
     const missedMsg = await this.messagesService.createSystemMessage(
       chatId,
@@ -370,15 +484,16 @@ export class CallHandler {
       MessageType.missed_call,
     );
 
-    // 3. Broadcast it to the chat room so it appears in real-time for everyone
+    // Broadcast it to the chat room so it appears in real-time for everyone
     if (this.server) {
       this.server
         .to(`chat:${chatId}`)
         .emit(SOCKET_EVENTS.MESSAGE_NEW, missedMsg);
     }
 
-    // 4. Clean up the active-call registry — nobody answered so the call is over.
-    //    Remove the entry and broadcast CALL_FINISHED so any "Tap to join" banners disappear.
+    // Clean up the active-call registry — nobody answered so the call is over.
+    // Remove the entry and broadcast CALL_FINISHED so any "Tap to join" banners disappear.
+    this.clearRingTimeout(chatId);
     if (this.activeCalls.has(chatId)) {
       this.activeCalls.delete(chatId);
       if (this.server) {
@@ -403,6 +518,10 @@ export class CallHandler {
 
       if (count <= 1) {
         this.activeCalls.delete(chatId);
+        this.clearRingTimeout(chatId);
+        active.recipientIds.forEach((recipientId) => {
+          void this.pushService.sendCancelPush(recipientId, active.callId);
+        });
         if (this.server) {
           this.server
             .to(`chat:${chatId}`)

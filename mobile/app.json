@@ -27,6 +27,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.sudipta.chitchatapp",
       "usesCleartextTraffic": true,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
@@ -36,7 +37,12 @@
         "ACCESS_NETWORK_STATE",
         "INTERNET",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MEDIA_PROJECTION"
+        "FOREGROUND_SERVICE_MEDIA_PROJECTION",
+        "FOREGROUND_SERVICE_PHONE_CALL",
+        "POST_NOTIFICATIONS",
+        "USE_FULL_SCREEN_INTENT",
+        "WAKE_LOCK",
+        "VIBRATE"
       ]
     },
     "web": {
@@ -52,7 +58,10 @@
           "photosPermission": "ChitChat needs access to your photo library to set a profile photo and send images.",
           "cameraPermission": "ChitChat needs access to your camera for video calls."
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "./plugins/withNotifeeAndroidMaven"
     ]
   }
 }
