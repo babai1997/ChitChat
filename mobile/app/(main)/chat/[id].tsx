@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   FlatList,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Image,
   Modal,
@@ -51,7 +52,19 @@ export default function ChatRoomScreen() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const [editText, setEditText] = useState('');
+  const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setAndroidKeyboardOffset(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKeyboardOffset(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const flatListRef = useRef<FlatList>(null);
   const nextCursorRef = useRef<string | null>(null);
@@ -253,11 +266,7 @@ export default function ChatRoomScreen() {
 
   return (
     // Outer fills full screen and provides header background behind the status bar
-    <View style={styles.container}>
-      {/* KeyboardAvoidingView wraps header + messages + input so iOS padding
-          pushes the input above the keyboard without covering it.
-          On Android, softwareKeyboardLayoutMode="adjustResize" in app.json shrinks
-          the window so the flex layout naturally keeps ChatInput above the keyboard. */}
+    <View style={[styles.container, Platform.OS === 'android' && { paddingBottom: androidKeyboardOffset }]}>
       <KeyboardAvoidingView
         style={styles.innerContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -352,6 +361,7 @@ export default function ChatRoomScreen() {
               ref={flatListRef}
               data={getGroupedMessages()}
               inverted
+              keyboardShouldPersistTaps="handled"
               keyExtractor={(item) => (item as any).tempId || item.id}
               renderItem={renderMessageItem}
               contentContainerStyle={styles.messagesList}
