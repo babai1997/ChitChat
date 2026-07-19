@@ -41,7 +41,7 @@ export default function ChatRoomScreen() {
   const router = useRouter();
 
   const { user } = useAuthStore();
-  const { chats, messages, messageHasMore, setMessages, prependMessages, typingUsers, onlineUsers } = useChatStore();
+  const { chats, messages, messageHasMore, setMessages, prependMessages, typingUsers, onlineUsers, setActiveChat } = useChatStore();
   const { joinChat, leaveChat, markAsRead, deleteMessage, editMessage } = useSocketContext();
   const { isCallActive, activeChatId, callType, startCall, ongoingCallsByChatId, joinOngoingCall, callStatus } = useCall();
 
@@ -115,9 +115,15 @@ export default function ChatRoomScreen() {
     loadMessages();
 
     return () => {
+      setActiveChat(null);
       leaveChat(chatId);
     };
   }, [chatId]);
+
+  // Keep activeChat in sync so handleNewMessage can suppress badge while reading
+  useEffect(() => {
+    if (chat) setActiveChat(chat);
+  }, [chat?.id]);
 
   // Mark incoming messages as read when chat is focused
   useEffect(() => {

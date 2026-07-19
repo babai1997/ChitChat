@@ -347,26 +347,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(SOCKET_EVENTS.CHAT_LEAVE)
-  handleLeaveChat(
-    @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() data: { chatId: string },
-  ) {
-    socket.leave(`chat:${data.chatId}`);
+  handleLeaveChat() {
+    // Do NOT call socket.leave() here. The socket must stay in all its chat
+    // rooms so MESSAGE_NEW is always delivered for badge/real-time updates,
+    // even when the user navigates away from that chat screen.
+    // handleConnection() auto-joins all rooms on connect; socket.io auto-removes
+    // rooms on disconnect. The client tracks the active chat separately via
+    // store.activeChat / activeChatIdRef to suppress in-chat notifications.
     return { success: true };
   }
 
   // ─── Internal EventEmitter Listeners ──────────────────────────────────────
 
   @OnEvent('chat.created')
-  handleChatCreated(payload: { chat: any; userIds: string[] }) {
+  handleChatCreated(payload: { chat: { id: string }; userIds: string[] }) {
     const { chat, userIds } = payload;
 
     userIds.forEach((userId) => {
       const socketIds = this.registry.getSocketIds(userId);
       socketIds.forEach((socketId) => {
-        const socket = (this.server.sockets as any).get(socketId);
+        const socket = this.server.sockets.sockets.get(socketId);
         if (socket) {
-          socket.join(`chat:${chat.id}`);
+          void socket.join(`chat:${chat.id}`);
           socket.emit(SOCKET_EVENTS.CHAT_NEW, chat);
         }
       });
@@ -387,7 +389,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ─── HTTP Message Broadcaster ──────────────────────────────────────────────
 
   @OnEvent('message.created')
-  handleMessageCreatedEvent(message: any) {
+  handleMessageCreatedEvent(message: { chatId: string }) {
     this.logger.log(
       `📢 Broadcasting message.created (HTTP) to chat:${message.chatId}`,
     );
@@ -404,9 +406,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const token = this.extractToken(socket);
       if (!token) return null;
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('jwt.secret'),
-      });
+      const payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        token,
+        {
+          secret: this.configService.get<string>('jwt.secret'),
+        },
+      );
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
@@ -422,7 +427,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private extractToken(socket: Socket): string | undefined {
     const auth = socket.handshake?.auth;
-    if (auth?.token) return auth.token;
+    if (auth?.token) return auth.token as string;
 
     const query = socket.handshake?.query;
     if (query?.token) return query.token as string;
