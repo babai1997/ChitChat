@@ -69,7 +69,6 @@ export async function displayIncomingCallNotification(
       channelId: CHANNEL_ID,
       category: AndroidCategory.CALL,
       importance: AndroidImportance.HIGH,
-      asForegroundService: true,
       ongoing: true,
       autoCancel: false,
       loopSound: true,
@@ -98,12 +97,8 @@ export async function displayIncomingCallNotification(
 }
 
 export async function cancelIncomingCallNotification(callId: string): Promise<void> {
-  try {
-    await notifee.stopForegroundService();
-  } catch {
-    // no-op — only relevant if a foreground service is currently running
-  }
-  await notifee.cancelNotification(callId);
+  try { await notifee.cancelNotification(callId); } catch {}
+  try { await notifee.stopForegroundService(); } catch {}
 }
 
 // ── Pending-call storage (cold-start reconciliation) ─────────────────────────
@@ -259,5 +254,6 @@ export async function handleNotifeeCallEvent({
         action: detail.pressAction?.id === 'answer' ? 'answer' : 'ring',
       });
     }
+    await cancelIncomingCallNotification(callId);
   }
 }

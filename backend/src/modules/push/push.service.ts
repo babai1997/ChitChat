@@ -13,6 +13,15 @@ export interface CallPushPayload {
   type: 'audio' | 'video';
 }
 
+export interface MessagePushPayload {
+  chatId: string;
+  chatName: string;
+  senderId: string;
+  senderName: string;
+  messageType: 'text' | 'image' | 'audio' | 'video' | 'file';
+  content: string;
+}
+
 /**
  * Sends wake-up push notifications so incoming calls ring even when the
  * recipient's app is backgrounded or fully killed (see CALL_NOTIFICATIONS_PLAN.md).
@@ -83,6 +92,18 @@ export class PushService implements OnModuleInit {
     await this.sendDataMessage(recipientId, {
       kind: 'call',
       ...payload,
+    });
+  }
+
+  async sendMessagePush(recipientId: string, payload: MessagePushPayload) {
+    await this.sendDataMessage(recipientId, {
+      kind: 'message',
+      chatId: payload.chatId,
+      chatName: payload.chatName,
+      senderId: payload.senderId,
+      senderName: payload.senderName,
+      messageType: payload.messageType,
+      content: payload.content,
     });
   }
 
