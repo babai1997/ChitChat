@@ -796,41 +796,41 @@ export default function ActiveCallScreen({
                   activeOpacity={canShare ? 0.7 : 1}
                 >
                   {isScreenSharing
-                    ? <ScreenShareOff size={30} color="#00a884" />
-                    : <ScreenShare size={30} color="#fff" />}
+                    ? <ScreenShareOff size={22} color="#00a884" />
+                    : <ScreenShare size={22} color="#fff" />}
                 </TouchableOpacity>
               );
             })()}
             <TouchableOpacity style={styles.pillIconBtn} onPress={toggleVideo}>
               {isVideoEnabled ? (
-                <Video size={32} color="#fff" />
+                <Video size={24} color="#fff" />
               ) : (
-                <VideoOff size={32} color="#fff" />
+                <VideoOff size={24} color="#fff" />
               )}
             </TouchableOpacity>
             {isVideo && isVideoEnabled && (
               <TouchableOpacity style={styles.pillIconBtn} onPress={switchCamera}>
-                <SwitchCamera size={32} color="#fff" />
+                <SwitchCamera size={24} color="#fff" />
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[styles.pillIconBtn, isSpeaker && styles.pillBtnActive]}
               onPress={toggleSpeaker}
             >
-              <Volume2 size={32} color={isSpeaker ? "#00a884" : "#fff"} />
+              <Volume2 size={24} color={isSpeaker ? "#00a884" : "#fff"} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pillIconBtn, isMuted && styles.pillBtnActive]}
               onPress={toggleMute}
             >
               {isMuted ? (
-                <MicOff size={32} color="#fff" />
+                <MicOff size={24} color="#fff" />
               ) : (
-                <Mic size={32} color="#fff" />
+                <Mic size={24} color="#fff" />
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
-              <PhoneOff size={30} color="#fff" />
+              <PhoneOff size={22} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1129,22 +1129,22 @@ const styles = StyleSheet.create({
   },
   // ── Bottom controls ─────────────────────────────────────────────────────────
   bottomPillContainer: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingBottom: 32,
   },
   bottomPill: {
     flexDirection: "row",
     backgroundColor: "#1c2227",
-    borderRadius: 46,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderRadius: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     justifyContent: "space-between",
     alignItems: "center",
   },
   pillIconBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -1153,9 +1153,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
   },
   endCallBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: "#ff253a",
     alignItems: "center",
     justifyContent: "center",

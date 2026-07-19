@@ -881,7 +881,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSpeaker(false);
       startInCallAudio(call.type);
 
-      // Announce join — all existing participants get CALL_USER_JOINED and send offers
+      // Announce join — all existing participants get CALL_USER_JOINED and send offers.
+      // On a cold start from tapping the notification's Answer action, the socket may
+      // not have finished connecting yet (auth store still hydrating) — wait briefly
+      // rather than silently dropping this emit (SocketManager.emit() no-ops while
+      // disconnected).
+      await socketManager.waitForConnection();
       socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId: call.chatId });
       setIncomingCall(null);
     } catch (err) {

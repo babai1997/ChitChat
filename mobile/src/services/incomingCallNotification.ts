@@ -8,6 +8,9 @@ import notifee, {
 } from '@notifee/react-native';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const AUTH_STORAGE_KEY = 'chitchat-auth';
+
 export interface IncomingCallPushData {
   callId: string;
   chatId: string;
@@ -127,6 +130,44 @@ export async function clearPendingCall(callId?: string): Promise<void> {
   await AsyncStorage.removeItem(PENDING_CALL_KEY);
 }
 
+// ── Reject via HTTP (headless-safe) ──────────────────────────────────────────
+// Declining from the notification may run with no live socket connection at
+// all (backgrounded/killed app) — a plain HTTP call is the only reliable way
+// to tell the caller immediately, instead of them waiting out the ~45s server
+// ring timeout. Reads the persisted access token directly from AsyncStorage
+// rather than going through the Zustand auth store/api client, since those
+// rely on React being mounted and the persist middleware having hydrated —
+// neither is guaranteed in a cold headless background invocation.
+async function getPersistedAccessToken(): Promise<string | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function rejectCallViaHttp(chatId: string, callerId: string): Promise<void> {
+  if (!API_URL) return;
+  try {
+    const token = await getPersistedAccessToken();
+    if (!token) return;
+
+    await fetch(`${API_URL}/calls/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chatId, callerId }),
+    });
+  } catch (err) {
+    console.warn('[CallPush] Failed to notify caller of decline:', err);
+  }
+}
+
 // ── FCM data message handling (shared by foreground + background handlers) ──
 
 type CallPushMessage =
@@ -198,9 +239,10 @@ export async function handleNotifeeCallEvent({
   if (!callId) return;
 
   if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'decline') {
-    // MVP: dismiss locally. The caller isn't told immediately — they'll see
-    // "no answer" once the existing ~45s ring timeout elapses (see
-    // CALL_NOTIFICATIONS_PLAN.md's Phase 2 notes for the tradeoff).
+    const pending = await getPendingCall();
+    if (pending && pending.callId === callId) {
+      await rejectCallViaHttp(pending.chatId, pending.callerId);
+    }
     await clearPendingCall(callId);
     await cancelIncomingCallNotification(callId);
     return;
