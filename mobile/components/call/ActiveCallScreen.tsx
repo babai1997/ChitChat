@@ -25,9 +25,10 @@ import {
   Minimize2,
   UserPlus,
   MessageSquare,
-  MoreHorizontal,
   Volume2,
   SwitchCamera,
+  ScreenShare,
+  ScreenShareOff,
 } from "lucide-react-native";
 import { useCall } from "../../src/contexts/CallContext";
 import { useAuthStore } from "../../src/stores/authStore";
@@ -238,6 +239,10 @@ export default function ActiveCallScreen({
     toggleVideo,
     toggleSpeaker,
     addToCall,
+    isScreenSharing,
+    sharingUserId,
+    startScreenShare,
+    stopScreenShare,
   } = useCall();
 
   const insets = useSafeAreaInsets();
@@ -259,6 +264,14 @@ export default function ActiveCallScreen({
 
   const [videoRenderKey, setVideoRenderKey] = useState(0);
   const appStateRef = useRef(AppState.currentState);
+  // True from the moment the user confirms sharing until isScreenSharing actually becomes true.
+  // Blocks videoRenderKey bumps during the system picker → prevents avatar flicker.
+  const shareStartingRef = useRef(false);
+  // Update synchronously during render (not in an effect) so the ref is always
+  // current before any AppState event that fires right after a re-render.
+  const isScreenSharingRef = useRef(isScreenSharing);
+  isScreenSharingRef.current = isScreenSharing;
+  if (isScreenSharing) shareStartingRef.current = false;
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -285,12 +298,16 @@ export default function ActiveCallScreen({
     }),
   ).current;
 
-  // Re-render RTCView when returning from background
+  // Re-render RTCView when returning from background.
+  // Skip when sharing is active OR starting (system picker causes a background→active
+  // transition before getDisplayMedia resolves, which would remount RTCViews mid-flow).
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
-        nextState === "active"
+        nextState === "active" &&
+        !isScreenSharingRef.current &&
+        !shareStartingRef.current
       ) {
         setVideoRenderKey((k) => k + 1);
       }
@@ -299,9 +316,13 @@ export default function ActiveCallScreen({
     return () => sub.remove();
   }, []);
 
-  // Bump once after mount to ensure RTCView starts rendering
+  // Bump once after mount to ensure RTCView starts rendering (skip if sharing is already active)
   useEffect(() => {
-    const t = setTimeout(() => setVideoRenderKey((k) => k + 1), 300);
+    const t = setTimeout(() => {
+      if (!isScreenSharingRef.current && !shareStartingRef.current) {
+        setVideoRenderKey((k) => k + 1);
+      }
+    }, 300);
     return () => clearTimeout(t);
   }, []);
 
@@ -350,16 +371,47 @@ export default function ActiveCallScreen({
     };
   }, [callStatus]);
 
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    if (callStatus !== "connected") {
+      setElapsedSeconds(0);
+      return;
+    }
+    const id = setInterval(() => setElapsedSeconds((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [callStatus]);
+
+  const formatDuration = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(sec).padStart(2, "0");
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  };
+
   const statusText =
     callStatus === "calling"
       ? "Calling…"
       : callStatus === "connected"
-        ? "Connected"
+        ? formatDuration(elapsedSeconds)
         : "Connecting…";
 
   const isVideo = callType === "video";
   const participantIds = Array.from(remoteStreams.keys());
   const participantCount = participantIds.length;
+
+  const isRemoteScreenSharing = sharingUserId !== null;
+  const sharingStream = isRemoteScreenSharing ? remoteStreams.get(sharingUserId!) : undefined;
+  // Cache the URL in a ref — toURL() must not be called on every render because a
+  // new string value changes the RTCView key and causes it to remount (flash).
+  const sharingStreamURLRef = useRef<string | null>(null);
+  if (sharingStream) {
+    sharingStreamURLRef.current = (sharingStream as any).toURL();
+  } else {
+    sharingStreamURLRef.current = null;
+  }
+  const sharingStreamURL = sharingStreamURLRef.current;
 
   // Camera flip (front ↔ back)
   const [isFrontCamera, setIsFrontCamera] = useState(true);
@@ -374,6 +426,7 @@ export default function ActiveCallScreen({
 
   // ── Add-member picker ────────────────────────────────────────────────────────
   const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
+  const [showShareConfirm, setShowShareConfirm] = useState(false);
 
   // Members available to invite: in the chat but not already in the call
   const alreadyInCall = new Set([currentUserId, ...Array.from(remoteStreams.keys())]);
@@ -395,8 +448,9 @@ export default function ActiveCallScreen({
   const showCenterAvatar = !showGrid;
 
   // PiP only for 1:1 video — group calls (2+ remotes) include local as a grid tile instead
+  // Also hide PiP when screen sharing is active (screen fills the main view)
   const showLocalPip = isVideo && callStatus === "connected" && !!localStream &&
-    participantCount === 1 && !IS_TABLET;
+    participantCount === 1 && !IS_TABLET && !isScreenSharing && !isRemoteScreenSharing;
 
   // ── Remote grid ─────────────────────────────────────────────────────────────
   //
@@ -529,9 +583,13 @@ export default function ActiveCallScreen({
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* ── Full-screen background / remote grid ── */}
-      {showGrid ? (
+      {/* Skip all remote video tiles while sharing locally: two layers of Android
+          SurfaceViews (remote grid zOrder=0 + screen-share zOrder=1) cause Z-fighting
+          that makes the whole page flicker. Audio keeps flowing without the RTCViews. */}
+      {isScreenSharing ? (
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
+      ) : showGrid ? (
         isSwapped && participantCount === 1 && isVideo && !!localStream ? (
-          // Swapped: local camera fills the background
           isVideoEnabled ? (
             <RTCView
               key={`local-fullscreen-${videoRenderKey}`}
@@ -551,8 +609,26 @@ export default function ActiveCallScreen({
         <View style={styles.audioBackground} />
       )}
 
-      {/* Gradient overlay */}
-      <View style={styles.overlay} />
+      {/* ── Screen share full-screen view ── */}
+      {/* Remote screen share still uses zOrder=1; remote grid is hidden above so no conflict */}
+      {(!isScreenSharing && isRemoteScreenSharing && sharingStreamURL) && (
+        <RTCView
+          key={`screen-remote-${sharingStreamURL}`}
+          streamURL={sharingStreamURL}
+          style={StyleSheet.absoluteFillObject}
+          objectFit="contain"
+          zOrder={1}
+        />
+      )}
+      {/* Local screen-share preview intentionally omitted: the user has no need to see
+          their own capture, and rendering it creates a MediaProjection feedback loop
+          (capture sees the RTCView which sees the capture) that causes constant flickering. */}
+
+      {/* Gradient overlay — never intercept touches */}
+      <View
+        style={[styles.overlay, { zIndex: (isScreenSharing || isRemoteScreenSharing) ? 2 : 0 }]}
+        pointerEvents="none"
+      />
 
       <SafeAreaView style={styles.safeArea}>
         {/* ── Top bar ── */}
@@ -589,8 +665,26 @@ export default function ActiveCallScreen({
           </View>
         </View>
 
+        {/* ── Screen sharing banner ── */}
+        {(isScreenSharing || isRemoteScreenSharing) && (
+          <View style={styles.screenShareBanner}>
+            <View style={styles.screenShareBannerLeft}>
+              <Text style={styles.screenShareBannerText}>
+                {isScreenSharing
+                  ? "You are sharing your screen"
+                  : `${getMemberInfo(sharingUserId!).name} is sharing`}
+              </Text>
+            </View>
+            {isScreenSharing && (
+              <TouchableOpacity style={styles.stopShareInlinBtn} onPress={stopScreenShare}>
+                <Text style={styles.stopShareInlinBtnText}>Stop Sharing</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* ── Center avatar — calling state / audio 1:1 ── */}
-        {showCenterAvatar && (
+        {showCenterAvatar && !(isScreenSharing || isRemoteScreenSharing) && (
           <View style={styles.avatarCenterContainer}>
             <View style={styles.avatarInner}>
               {callStatus === "calling" && (
@@ -693,42 +787,50 @@ export default function ActiveCallScreen({
         {/* ── Bottom control pill ── */}
         <View style={styles.bottomPillContainer}>
           <View style={styles.bottomPill}>
-            <TouchableOpacity
-              style={styles.pillIconBtn}
-              onPress={() => console.log("More options")}
-            >
-              <MoreHorizontal size={24} color="#fff" />
-            </TouchableOpacity>
+            {(() => {
+              const canShare = isScreenSharing || (callStatus === "connected" && remoteStreams.size > 0);
+              return (
+                <TouchableOpacity
+                  style={[styles.pillIconBtn, isScreenSharing && styles.pillBtnActive, !canShare && styles.pillIconBtnDisabled]}
+                  onPress={canShare ? (isScreenSharing ? stopScreenShare : () => setShowShareConfirm(true)) : undefined}
+                  activeOpacity={canShare ? 0.7 : 1}
+                >
+                  {isScreenSharing
+                    ? <ScreenShareOff size={30} color="#00a884" />
+                    : <ScreenShare size={30} color="#fff" />}
+                </TouchableOpacity>
+              );
+            })()}
             <TouchableOpacity style={styles.pillIconBtn} onPress={toggleVideo}>
               {isVideoEnabled ? (
-                <Video size={24} color="#fff" />
+                <Video size={32} color="#fff" />
               ) : (
-                <VideoOff size={24} color="#fff" />
+                <VideoOff size={32} color="#fff" />
               )}
             </TouchableOpacity>
             {isVideo && isVideoEnabled && (
               <TouchableOpacity style={styles.pillIconBtn} onPress={switchCamera}>
-                <SwitchCamera size={24} color="#fff" />
+                <SwitchCamera size={32} color="#fff" />
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[styles.pillIconBtn, isSpeaker && styles.pillBtnActive]}
               onPress={toggleSpeaker}
             >
-              <Volume2 size={24} color={isSpeaker ? "#00a884" : "#fff"} />
+              <Volume2 size={32} color={isSpeaker ? "#00a884" : "#fff"} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pillIconBtn, isMuted && styles.pillBtnActive]}
               onPress={toggleMute}
             >
               {isMuted ? (
-                <MicOff size={24} color="#fff" />
+                <MicOff size={32} color="#fff" />
               ) : (
-                <Mic size={24} color="#fff" />
+                <Mic size={32} color="#fff" />
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
-              <PhoneOff size={28} color="#fff" />
+              <PhoneOff size={30} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -781,6 +883,45 @@ export default function ActiveCallScreen({
             />
           )}
         </View>
+      </Modal>
+
+      {/* ── Screen share confirmation modal ── */}
+      <Modal
+        visible={showShareConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowShareConfirm(false)}
+      >
+        <Pressable
+          style={styles.confirmBackdrop}
+          onPress={() => setShowShareConfirm(false)}
+        >
+          <Pressable style={styles.confirmSheet} onPress={() => {}}>
+            <View style={styles.confirmIconCircle}>
+              <ScreenShare size={28} color="#00a884" />
+            </View>
+            <Text style={styles.confirmTitle}>Share your screen?</Text>
+            <Text style={styles.confirmBody}>
+              Everything on your screen — including notifications — will be visible to everyone in this call.
+            </Text>
+            <TouchableOpacity
+              style={styles.confirmShareBtn}
+              onPress={() => {
+                setShowShareConfirm(false);
+                shareStartingRef.current = true;
+                startScreenShare();
+              }}
+            >
+              <Text style={styles.confirmShareBtnText}>Start Sharing</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.confirmCancelBtn}
+              onPress={() => setShowShareConfirm(false)}
+            >
+              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -988,22 +1129,22 @@ const styles = StyleSheet.create({
   },
   // ── Bottom controls ─────────────────────────────────────────────────────────
   bottomPillContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingBottom: 32,
   },
   bottomPill: {
     flexDirection: "row",
     backgroundColor: "#1c2227",
-    borderRadius: 40,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: 46,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     justifyContent: "space-between",
     alignItems: "center",
   },
   pillIconBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -1012,12 +1153,61 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
   },
   endCallBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: "#ff253a",
     alignItems: "center",
     justifyContent: "center",
+  },
+  pillIconBtnDisabled: {
+    opacity: 0.35,
+  },
+  // ── Screen share banner ─────────────────────────────────────────────────────
+  screenShareBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 24,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    gap: 10,
+    marginTop: 8,
+  },
+  screenShareBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  screenShareBannerText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  stopShareInlinBtn: {
+    backgroundColor: "#ea4335",
+    borderRadius: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  stopShareInlinBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  stopShareBtn: {
+    backgroundColor: "#ea4335",
+    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    marginLeft: 4,
+  },
+  stopShareBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   // ── Add-member picker ────────────────────────────────────────────────────────
   pickerBackdrop: {
@@ -1080,5 +1270,64 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: "#e9edef",
+  },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  confirmSheet: {
+    backgroundColor: "#1e2a30",
+    borderRadius: 20,
+    padding: 28,
+    width: "100%",
+    alignItems: "center",
+  },
+  confirmIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(0,168,132,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  confirmTitle: {
+    color: "#e9edef",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  confirmBody: {
+    color: "#8696a0",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  confirmShareBtn: {
+    backgroundColor: "#00a884",
+    borderRadius: 12,
+    paddingVertical: 13,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  confirmShareBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  confirmCancelBtn: {
+    paddingVertical: 12,
+    width: "100%",
+    alignItems: "center",
+  },
+  confirmCancelBtnText: {
+    color: "#8696a0",
+    fontSize: 15,
   },
 });

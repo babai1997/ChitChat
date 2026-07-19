@@ -42,6 +42,14 @@ interface CallContextType {
   isVideoEnabled: boolean;
   /** Ongoing calls in other chats — keyed by chatId. Used to show the "Tap to join" banner. */
   ongoingCallsByChatId: Map<string, OngoingCallInfo>;
+  /** Whether the local user is currently sharing their screen. */
+  isScreenSharing: boolean;
+  /** The local screen capture stream when sharing. */
+  screenStream: MediaStream | null;
+  /** userId of whoever is currently sharing their screen (remote). null if no one is sharing. */
+  sharingUserId: string | null;
+  /** Document Picture-in-Picture window for the share control bar. null if not supported or not open. */
+  pipWindow: Window | null;
   startCall: (chatId: string, type: 'audio' | 'video') => void;
   answerCall: () => void;
   rejectCall: () => void;
@@ -51,6 +59,8 @@ interface CallContextType {
   toggleMinimize: () => void;
   addToCall: (targetUserId: string) => void;
   joinOngoingCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
+  startScreenShare: () => Promise<void>;
+  stopScreenShare: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -72,9 +82,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [remoteVideoStates, setRemoteVideoStates] = useState<Map<string, boolean>>(new Map());
   const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
   const [ongoingCallsByChatId, setOngoingCallsByChatId] = useState<Map<string, OngoingCallInfo>>(new Map());
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [sharingUserId, setSharingUserId] = useState<string | null>(null);
+  const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const pipWindowRef = useRef<Window | null>(null);
 
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, Instance>>(new Map());
   const activeChatIdRef = useRef<string | null>(null);
   /**
@@ -159,10 +175,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStreamRef.current = null;
     }
 
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+    }
+
     setLocalStream(null);
     setRemoteStreams(new Map());
     setRemoteVideoStates(new Map());
     setRemoteMuteStates(new Map());
+    setIsScreenSharing(false);
+    setScreenStream(null);
+    setSharingUserId(null);
+    if (pipWindowRef.current && !pipWindowRef.current.closed) {
+      pipWindowRef.current.close();
+    }
+    pipWindowRef.current = null;
+    setPipWindow(null);
     setIncomingCall(null);
     setCallStatus('idle');
     setIsCallActive(false);
@@ -443,6 +472,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     };
 
+    const handleScreenSharing = (data: unknown) => {
+      const { userId } = data as { userId: string; chatId: string };
+      setSharingUserId(userId);
+    };
+
+    const handleScreenStopped = (data: unknown) => {
+      const { userId } = data as { userId: string; chatId: string };
+      setSharingUserId((prev) => (prev === userId ? null : prev));
+    };
+
     // Register via socketManager — handlers persist in its internal registry
     // and are re-attached automatically after each reconnect.
     socketManager.on(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -458,6 +497,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     /* eslint-disable @typescript-eslint/no-explicit-any */
     socketManager.on(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
     socketManager.on(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
+    socketManager.on(SOCKET_EVENTS.CALL_SCREEN_SHARING, handleScreenSharing);
+    socketManager.on(SOCKET_EVENTS.CALL_SCREEN_STOPPED, handleScreenStopped);
 
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
@@ -471,6 +512,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState);
       socketManager.off(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
       socketManager.off(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
+      socketManager.off(SOCKET_EVENTS.CALL_SCREEN_SHARING, handleScreenSharing);
+      socketManager.off(SOCKET_EVENTS.CALL_SCREEN_STOPPED, handleScreenStopped);
       /* eslint-enable @typescript-eslint/no-explicit-any */
     };
   // Run once on mount — socketManager.on() persists handlers through reconnects
@@ -639,6 +682,86 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const stopScreenShare = useCallback(() => {
+    if (!screenStreamRef.current) return;
+    screenStreamRef.current.getTracks().forEach((t) => t.stop());
+    screenStreamRef.current = null;
+    setIsScreenSharing(false);
+    setScreenStream(null);
+    if (pipWindowRef.current && !pipWindowRef.current.closed) {
+      pipWindowRef.current.close();
+    }
+    pipWindowRef.current = null;
+    setPipWindow(null);
+
+    // Restore camera video track in all peer connections
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    peersRef.current.forEach((peer) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pc = (peer as any)._pc as RTCPeerConnection | undefined;
+      if (!pc) return;
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+      if (sender && cameraTrack) sender.replaceTrack(cameraTrack).catch(console.error);
+    });
+
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_STOP, { chatId: activeChatIdRef.current });
+    }
+  }, []);
+
+  const startScreenShare = useCallback(async () => {
+    if (!activeChatIdRef.current) return;
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) { stream.getTracks().forEach((t) => t.stop()); return; }
+
+      screenStreamRef.current = stream;
+      setScreenStream(stream);
+      setIsScreenSharing(true);
+
+      // Replace video track in all active peer connections
+      peersRef.current.forEach((peer) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pc = (peer as any)._pc as RTCPeerConnection | undefined;
+        if (!pc) return;
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(videoTrack).catch(console.error);
+      });
+
+      socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_START, { chatId: activeChatIdRef.current });
+
+      // Auto-stop when user clicks browser's native "Stop sharing" button
+      videoTrack.addEventListener('ended', () => stopScreenShare());
+
+      // Open Document Picture-in-Picture (Chrome 116+) so the bar floats above all tabs/apps
+      if ('documentPictureInPicture' in window) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const pip = await (window as any).documentPictureInPicture.requestWindow({
+            width: 270,
+            height: 380,
+            disallowReturnToOpener: false,
+          });
+          // Basic reset so our dark UI renders correctly
+          const style = pip.document.createElement('style');
+          style.textContent = '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; } html, body { height:100%; overflow:hidden; background:#111b21; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }';
+          pip.document.head.appendChild(style);
+          pipWindowRef.current = pip;
+          setPipWindow(pip);
+          pip.addEventListener('pagehide', () => {
+            pipWindowRef.current = null;
+            setPipWindow(null);
+          });
+        } catch {
+          // Not supported or user dismissed — fall back to in-page portal bar
+        }
+      }
+    } catch (err) {
+      console.error('[Call] Screen share failed:', err);
+    }
+  }, [stopScreenShare]);
+
   const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
       activeChatIdRef.current = chatId;
@@ -693,6 +816,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isMuted,
         isVideoEnabled,
         ongoingCallsByChatId,
+        isScreenSharing,
+        screenStream,
+        sharingUserId,
+        pipWindow,
         startCall,
         answerCall,
         rejectCall,
@@ -702,6 +829,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleMinimize,
         addToCall,
         joinOngoingCall,
+        startScreenShare,
+        stopScreenShare,
       }}
     >
       {children}

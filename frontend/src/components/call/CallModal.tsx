@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useCall } from '../../contexts/CallContext';
 import { useChatStore } from '../../stores/chatStore';
 import { useAuthStore } from '../../stores/authStore';
 import {
   Phone, Video, Mic, MicOff, VideoOff, PhoneOff,
   Minimize2, Maximize2, GripHorizontal, Volume2, VolumeX, UserPlus, X,
+  ScreenShare, ScreenShareOff,
 } from 'lucide-react';
 
 // ── Speaking detection via Web Audio API ──────────────────────────────────────
@@ -185,6 +187,27 @@ const LocalVideo = ({ stream }: { stream: MediaStream }) => {
   return <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 };
 
+// ── Screen share view ────────────────────────────────────────────────────────
+
+const ScreenView = ({ stream }: { stream: MediaStream }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [stream]);
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#0b141a' }}
+    />
+  );
+};
+
 // ── Local video as an equal grid tile (desktop 1-on-1) ───────────────────────
 
 interface LocalTileProps {
@@ -251,6 +274,30 @@ const LocalTile = ({ stream, isVideoEnabled, localUserName, localUserAvatar }: L
   );
 };
 
+// ── Call duration timer ───────────────────────────────────────────────────────
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function useCallTimer(callStatus: string): number {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (callStatus !== 'connected') return;
+    // Local counter restarts from 0 each time callStatus becomes 'connected'
+    let count = 0;
+    const id = setInterval(() => { count += 1; setElapsed(count); }, 1000);
+    return () => clearInterval(id);
+  }, [callStatus]);
+  // Return 0 when not connected so timer visually resets without a synchronous setState
+  return callStatus === 'connected' ? elapsed : 0;
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export const CallModal = () => {
@@ -274,6 +321,11 @@ export const CallModal = () => {
     isMuted,
     isVideoEnabled,
     isMinimized,
+    isScreenSharing,
+    screenStream,
+    sharingUserId,
+    startScreenShare,
+    stopScreenShare,
   } = useCall();
 
   // Speaker — controls remote audio volume on web
@@ -389,6 +441,8 @@ export const CallModal = () => {
     };
   }, [isLocalDragging, localDragOffset]);
 
+  const elapsed = useCallTimer(callStatus);
+
   // Detect mobile viewport for grid layout decisions
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -399,6 +453,8 @@ export const CallModal = () => {
 
   const isVideo = callType === 'video';
   const remoteEntries = Array.from(remoteStreams.entries());
+  const isRemoteScreenSharing = sharingUserId !== null;
+  const sharingStream = isRemoteScreenSharing ? remoteStreams.get(sharingUserId!) ?? null : null;
 
   // Desktop 1-on-1 video: show local + remote as equal 50/50 tiles (no PiP)
   const showDesktop50x50 = !isMobile && remoteEntries.length === 1 && isVideo && !!localStream && callStatus === 'connected';
@@ -446,8 +502,12 @@ export const CallModal = () => {
     );
   }
 
-  // ── Minimized PiP ──────────────────────────────────────────────────────────
+  // ── Minimized: floating share bar (when sharing) or PiP ──────────────────────
   if (isMinimized) {
+    // When sharing, ScreenShareOverlay (portal) handles the bar — nothing else to render
+    if (isScreenSharing) return null;
+
+    // Regular minimized PiP
     const firstEntry = remoteEntries[0];
     return (
       <div ref={pipRef} style={{
@@ -537,7 +597,104 @@ export const CallModal = () => {
 
       {/* Participant grid */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '10px' }}>
-        {remoteEntries.length > 0 ? (
+
+        {/* ── Screen sharing — Teams-style layout ── */}
+
+        {/* LOCAL sharing: screen on left + participant sidebar on right (Teams-style) */}
+        {isScreenSharing && (
+          <div style={{ display: 'flex', width: '100%', height: '100%', gap: '8px' }}>
+            {/* Main screen — no overlaid banner/button; those live in the draggable bar */}
+            <div style={{ flex: 1, position: 'relative', backgroundColor: '#0b141a', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
+              {screenStream
+                ? <ScreenView stream={screenStream} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>Starting screen share…</div>
+              }
+            </div>
+
+            {/* Right sidebar — participants watching your screen */}
+            {remoteEntries.length > 0 && (
+              <div style={{
+                width: '180px', flexShrink: 0,
+                display: 'flex', flexDirection: 'column', gap: '6px',
+                overflowY: 'auto', overflowX: 'hidden',
+              }}>
+                {remoteEntries.map(([userId, stream]) => {
+                  const { name, avatar } = getMemberInfo(userId);
+                  return (
+                    <div key={userId} style={{ width: '100%', height: '134px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
+                      <ParticipantTile
+                        stream={stream}
+                        isVideo={isVideo && (remoteVideoStates.get(userId) ?? true)}
+                        memberName={name}
+                        memberAvatar={avatar}
+                        isSpeakerOn={isSpeaker}
+                        isRemoteMuted={remoteMuteStates.get(userId) === true}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* REMOTE sharing: screen on left, participant panel on right */}
+        {isRemoteScreenSharing && (
+          <div style={{ display: 'flex', width: '100%', height: '100%', gap: '8px' }}>
+            {/* Main screen — takes all remaining width */}
+            <div style={{ flex: 1, position: 'relative', backgroundColor: '#0b141a', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
+              {sharingStream
+                ? <ScreenView stream={sharingStream} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>Waiting for screen…</div>
+              }
+              <div style={{
+                position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '20px',
+                padding: '4px 14px', color: '#e9edef', fontSize: '13px', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
+              }}>
+                <ScreenShare size={14} />
+                {getMemberInfo(sharingUserId!).name} is sharing their screen
+              </div>
+            </div>
+
+            {/* Right sidebar — fixed 180px, participant tiles stacked vertically */}
+            <div style={{
+              width: '180px', flexShrink: 0,
+              display: 'flex', flexDirection: 'column', gap: '6px',
+              overflowY: 'auto', overflowX: 'hidden',
+            }}>
+              {remoteEntries
+                .map(([userId, stream]) => {
+                  const { name, avatar } = getMemberInfo(userId);
+                  return (
+                    <div key={userId} style={{ width: '100%', height: '134px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
+                      <ParticipantTile
+                        stream={stream}
+                        isVideo={isVideo && (remoteVideoStates.get(userId) ?? true)}
+                        memberName={name}
+                        memberAvatar={avatar}
+                        isSpeakerOn={isSpeaker}
+                        isRemoteMuted={remoteMuteStates.get(userId) === true}
+                      />
+                    </div>
+                  );
+                })}
+              {localStream && (
+                <div style={{ width: '100%', height: '134px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
+                  <LocalTile
+                    stream={localStream}
+                    isVideoEnabled={isVideoEnabled}
+                    localUserName={localUserName}
+                    localUserAvatar={localUserAvatar}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!(isScreenSharing || isRemoteScreenSharing) && (remoteEntries.length > 0 ? (
           showDesktop50x50 ? (
             // Desktop 1-on-1: equal 50/50 side-by-side tiles (no swap needed)
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', height: '100%', gap: '4px' }}>
@@ -633,10 +790,10 @@ export const CallModal = () => {
               </p>
             </div>
           </div>
-        )}
+        ))}
 
-        {/* PiP (draggable, tap to flip) — hidden when showing desktop 50/50 grid */}
-        {localStream && isVideo && !showDesktop50x50 && (
+        {/* PiP (draggable, tap to flip) — hidden when showing desktop 50/50 grid or screen sharing */}
+        {localStream && isVideo && !showDesktop50x50 && !(isScreenSharing || isRemoteScreenSharing) && (
           <div
             ref={localPipRef}
             onMouseDown={handleLocalDragStart}
@@ -746,6 +903,15 @@ export const CallModal = () => {
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         position: 'relative',
       }}>
+        {callStatus === 'connected' && (
+          <div style={{
+            position: 'absolute', left: '20px',
+            color: 'rgba(255,255,255,0.75)', fontSize: '13px',
+            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+          }}>
+            {formatDuration(elapsed)}
+          </div>
+        )}
         <button onClick={toggleMute} style={circleBtn(isMuted ? '#ea4335' : '#374045')}>
           {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
         </button>
@@ -764,6 +930,16 @@ export const CallModal = () => {
           {isSpeaker ? <Volume2 size={22} /> : <VolumeX size={22} />}
         </button>
 
+        {(isScreenSharing || remoteStreams.size > 0) && (
+          <button
+            onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+            title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+            style={circleBtn(isScreenSharing ? '#00a884' : '#374045')}
+          >
+            {isScreenSharing ? <ScreenShareOff size={22} /> : <ScreenShare size={22} />}
+          </button>
+        )}
+
         <button
           onClick={() => setShowAddMemberPicker((p) => !p)}
           title="Add member to call"
@@ -776,6 +952,7 @@ export const CallModal = () => {
           <PhoneOff size={22} />
         </button>
       </div>
+
     </div>
   );
 };
@@ -805,3 +982,256 @@ const iconBtn: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
 };
+
+// ── PiP Video Tile ────────────────────────────────────────────────────────────
+
+function PiPVideoTile({ stream, name, avatarUrl, isSelf, muted }: {
+  stream: MediaStream | null;
+  name: string;
+  avatarUrl?: string | null;
+  isSelf?: boolean;
+  muted?: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.srcObject = stream;
+    if (stream) v.play().catch(() => {});
+    return () => { v.srcObject = null; };
+  }, [stream]);
+
+  const hasVideo = (stream?.getVideoTracks().length ?? 0) > 0 &&
+    (stream?.getVideoTracks()[0]?.enabled ?? false);
+
+  const initial = name.charAt(0).toUpperCase();
+
+  return (
+    <div style={{
+      position: 'relative', borderRadius: '8px', overflow: 'hidden',
+      background: '#1e2a30', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted ?? true}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover',
+          display: hasVideo ? 'block' : 'none',
+          transform: isSelf ? 'scaleX(-1)' : undefined,
+        }}
+      />
+      {!hasVideo && (
+        avatarUrl ? (
+          <img
+            src={avatarUrl}
+            referrerPolicy="no-referrer"
+            alt={name}
+            style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' }}
+          />
+        ) : (
+        <div style={{
+          width: '52px', height: '52px', borderRadius: '50%',
+          background: '#2a3942', color: '#e9edef',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '22px', fontWeight: 700,
+        }}>
+          {initial}
+        </div>
+        )
+      )}
+      <div style={{
+        position: 'absolute', bottom: 5, left: 6,
+        color: '#fff', fontSize: '11px', fontWeight: 500,
+        textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+        background: 'rgba(0,0,0,0.45)', borderRadius: '4px', padding: '2px 6px',
+      }}>
+        {isSelf ? 'You' : name}
+      </div>
+    </div>
+  );
+}
+
+// ── ScreenShareOverlay ────────────────────────────────────────────────────────
+// Renders via Document PiP (Chrome 116+) or falls back to an in-page portal bar.
+
+export function ScreenShareOverlay() {
+  const {
+    isScreenSharing, isMinimized, isMuted, toggleMute, stopScreenShare,
+    toggleMinimize, callStatus, pipWindow, remoteStreams, localStream,
+    activeChatId, endCall,
+  } = useCall();
+  const elapsed = useCallTimer(callStatus);
+
+  const chats = useChatStore((s) => s.chats);
+  const chat = chats.find((c) => c.id === activeChatId);
+  const getName = (userId: string) =>
+    chat?.members?.find((m) => m.userId === userId)?.user?.profile?.displayName ?? 'Participant';
+  const getAvatar = (userId: string) =>
+    chat?.members?.find((m) => m.userId === userId)?.user?.profile?.avatarUrl ?? null;
+  const localAvatar = useAuthStore((s) => s.user?.profile?.avatarUrl ?? null);
+
+  // Drag state — only used for the fallback in-page bar
+  const [shareBarPos, setShareBarPos] = useState(() => ({
+    x: Math.max(0, window.innerWidth / 2 - 230), y: 12,
+  }));
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragOffset({ x: cx - shareBarPos.x, y: cy - shareBarPos.y });
+  }, [shareBarPos]);
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const move = (e: MouseEvent | TouchEvent) => {
+      const cx = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+      const cy = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+      setShareBarPos({
+        x: Math.max(0, Math.min(window.innerWidth - 460, cx - dragOffset.x)),
+        y: Math.max(0, Math.min(window.innerHeight - 56, cy - dragOffset.y)),
+      });
+    };
+    const end = () => setIsDragging(false);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchmove', move);
+    window.addEventListener('touchend', end);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+    };
+  }, [isDragging, dragOffset]);
+
+  if (!isScreenSharing) return null;
+
+  const remoteEntries = Array.from(remoteStreams.entries());
+  const totalTiles = remoteEntries.length + (localStream ? 1 : 0);
+  const cols = totalTiles > 1 ? '1fr 1fr' : '1fr';
+
+  // Google Meet-style PiP: video grid + control row
+  const pipContent = (
+    <div style={{
+      position: 'fixed', inset: 0,
+      display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px',
+      background: '#111b21',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    }}>
+      {/* Participant tiles */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: cols, gap: '4px', minHeight: 0 }}>
+        {remoteEntries.map(([userId, stream]) => (
+          <PiPVideoTile
+            key={userId}
+            stream={stream}
+            name={getName(userId)}
+            avatarUrl={getAvatar(userId)}
+            muted={!isMinimized}
+          />
+        ))}
+        {localStream && (
+          <PiPVideoTile stream={localStream} name="You" avatarUrl={localAvatar} isSelf muted />
+        )}
+      </div>
+
+      {/* Controls */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: '8px', padding: '4px 0 2px', flexShrink: 0,
+      }}>
+        <button
+          onClick={toggleMute}
+          title={isMuted ? 'Unmute' : 'Mute'}
+          style={{
+            background: isMuted ? '#ea4335' : 'rgba(255,255,255,0.15)',
+            border: 'none', borderRadius: '50%',
+            width: '38px', height: '38px',
+            color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+        </button>
+
+        <button
+          onClick={stopScreenShare}
+          title="Stop sharing"
+          style={{
+            background: '#ea4335', border: 'none', borderRadius: '8px',
+            padding: '8px 12px', color: '#fff',
+            fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
+          }}
+        >
+          <ScreenShareOff size={14} /> Stop
+        </button>
+
+
+        <button
+          onClick={endCall}
+          title="End call"
+          style={{
+            background: '#ea4335', border: 'none', borderRadius: '50%',
+            width: '38px', height: '38px', color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <PhoneOff size={16} />
+        </button>
+      </div>
+    </div>
+  );
+
+  // Fallback draggable bar for non-PiP browsers
+  const fallbackBar = (
+    <div style={{
+      position: 'fixed', left: shareBarPos.x, top: shareBarPos.y,
+      backgroundColor: '#1e2a30', borderRadius: '12px',
+      boxShadow: isDragging ? '0 8px 28px rgba(0,0,0,0.75)' : '0 4px 20px rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', gap: '6px',
+      padding: '8px 12px', zIndex: 10001, userSelect: 'none', minWidth: '460px',
+    }}>
+      <div onMouseDown={handleDragStart} onTouchStart={handleDragStart}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#8696a0', display: 'flex', padding: '4px 6px' }}>
+        <GripHorizontal size={16} />
+      </div>
+      <ScreenShare size={15} color="#00a884" />
+      <span style={{ color: '#e9edef', fontSize: '13px', fontWeight: 500, flex: 1, whiteSpace: 'nowrap' }}>
+        You are presenting
+      </span>
+      <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '13px', fontVariantNumeric: 'tabular-nums', marginRight: '4px' }}>
+        {formatDuration(elapsed)}
+      </span>
+      <button onClick={toggleMute} style={{ background: isMuted ? '#ea4335' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isMuted ? <MicOff size={15} /> : <Mic size={15} />}
+      </button>
+      <button onClick={stopScreenShare} style={{ backgroundColor: '#ea4335', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+        <ScreenShareOff size={14} /> Stop sharing
+      </button>
+      {isMinimized ? (
+        <button onClick={toggleMinimize} style={{ backgroundColor: '#00a884', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          Return to call
+        </button>
+      ) : (
+        <button onClick={toggleMinimize} title="Minimize" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '6px 10px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Minimize2 size={15} />
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {/* Floating window: PiP (stays above all tabs/apps) or fallback in-page bar */}
+      {pipWindow
+        ? createPortal(pipContent, pipWindow.document.body)
+        : createPortal(fallbackBar, document.body)
+      }
+    </>
+  );
+}
