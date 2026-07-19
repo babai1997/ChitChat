@@ -57,6 +57,16 @@ export const SOCKET_EVENTS = {
   CALL_REJECTED: 'call:rejected',
   CALL_ENDED: 'call:ended',
   CALL_USER_JOINED: 'call:user-joined',
+
+  // ── Screen Share: Client → Server ──────────────────────────────────────────
+  CALL_SCREEN_SHARE_START: 'call:screen-share-start',
+  CALL_SCREEN_SHARE_STOP: 'call:screen-share-stop',
+
+  // ── Screen Share: Server → Client ──────────────────────────────────────────
+  /** Broadcast to chat room: a participant started sharing their screen. */
+  CALL_SCREEN_SHARING: 'call:screen-sharing',
+  /** Broadcast to chat room: screen sharing has stopped. */
+  CALL_SCREEN_STOPPED: 'call:screen-stopped',
 } as const;
 
 export type SocketEvent = (typeof SOCKET_EVENTS)[keyof typeof SOCKET_EVENTS];

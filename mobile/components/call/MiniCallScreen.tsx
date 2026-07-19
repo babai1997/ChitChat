@@ -11,7 +11,8 @@ try {
 } catch (e) {}
 
 export default function MiniCallScreen() {
-  const { isCallActive, activeChatId, callStatus, callType, remoteStream, isMuted } = useCall();
+  const { isCallActive, activeChatId, callStatus, callType, remoteStreams, isMuted } = useCall();
+  const remoteStream = remoteStreams.size > 0 ? remoteStreams.values().next().value : null;
   const router = useRouter();
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();

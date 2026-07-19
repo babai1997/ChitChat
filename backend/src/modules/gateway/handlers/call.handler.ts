@@ -253,6 +253,30 @@ export class CallHandler {
     });
   }
 
+  handleScreenShareStart(socket: AuthSocket, data: { chatId: string }) {
+    const { chatId } = data;
+    const userId = socket.user.id;
+    this.logger.log(
+      `[Call] User ${userId} started screen share in chat ${chatId}`,
+    );
+    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_SCREEN_SHARING, {
+      userId,
+      chatId,
+    });
+  }
+
+  handleScreenShareStop(socket: AuthSocket, data: { chatId: string }) {
+    const { chatId } = data;
+    const userId = socket.user.id;
+    this.logger.log(
+      `[Call] User ${userId} stopped screen share in chat ${chatId}`,
+    );
+    socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_SCREEN_STOPPED, {
+      userId,
+      chatId,
+    });
+  }
+
   async handleCallEnd(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const senderId = socket.user.id;

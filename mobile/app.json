@@ -34,7 +34,9 @@
         "WRITE_EXTERNAL_STORAGE",
         "MODIFY_AUDIO_SETTINGS",
         "ACCESS_NETWORK_STATE",
-        "INTERNET"
+        "INTERNET",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PROJECTION"
       ]
     },
     "web": {

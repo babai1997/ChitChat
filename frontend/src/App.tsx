@@ -109,7 +109,7 @@ const AppContent = () => {
 };
 
 import { CallProvider } from './contexts/CallContext';
-import { CallModal } from './components/call/CallModal';
+import { CallModal, ScreenShareOverlay } from './components/call/CallModal';
 import { useSocketContext } from './contexts/SocketContextShared';
 
 function ReconnectBanner() {
@@ -136,6 +136,7 @@ function App() {
           <ReconnectBanner />
           <AppContent />
           <CallModal />
+          <ScreenShareOverlay />
           {/* Toast notifications */}
           <Toaster
               position="top-center"

@@ -294,6 +294,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.callHandler.handleCallMissed(socket as any, data);
   }
 
+  @SubscribeMessage(SOCKET_EVENTS.CALL_SCREEN_SHARE_START)
+  handleScreenShareStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string },
+  ) {
+    this.callHandler.handleScreenShareStart(socket as any, data);
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.CALL_SCREEN_SHARE_STOP)
+  handleScreenShareStop(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string },
+  ) {
+    this.callHandler.handleScreenShareStop(socket as any, data);
+  }
+
   @SubscribeMessage(SOCKET_EVENTS.CALL_ADD_MEMBER)
   handleCallAddMember(
     @ConnectedSocket() socket: AuthenticatedSocket,

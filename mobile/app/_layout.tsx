@@ -10,6 +10,7 @@ import { View, Text } from 'react-native';
 import { SocketProvider, useSocketContext } from '../src/contexts/SocketProvider';
 import { CallProvider } from '../src/contexts/CallContext';
 import IncomingCallModal from '../components/call/IncomingCallModal';
+import ScreenShareIndicator from '../components/call/ScreenShareIndicator';
 
 function ReconnectBanner() {
   const { isReconnecting } = useSocketContext();
@@ -90,6 +91,8 @@ export default function RootLayout() {
           </Stack>
           {/* Global incoming call overlay */}
           <IncomingCallModal />
+          {/* Global screen share bar + red border overlay */}
+          <ScreenShareIndicator />
         </CallProvider>
       </SocketProvider>
     </SafeAreaProvider>

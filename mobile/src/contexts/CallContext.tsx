@@ -94,6 +94,9 @@ interface CallContextType {
   activeChatId: string | null;
   /** Ongoing calls in other chats — keyed by chatId. Used to show the "Tap to join" banner. */
   ongoingCallsByChatId: Map<string, OngoingCallInfo>;
+  isScreenSharing: boolean;
+  screenStream: MediaStream | null;
+  sharingUserId: string | null;
   startCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
   answerCall: () => Promise<void>;
   rejectCall: () => void;
@@ -103,6 +106,8 @@ interface CallContextType {
   toggleSpeaker: () => void;
   addToCall: (targetUserId: string) => void;
   joinOngoingCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
+  startScreenShare: () => Promise<void>;
+  stopScreenShare: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -120,6 +125,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
   const [ongoingCallsByChatId, setOngoingCallsByChatId] = useState<Map<string, OngoingCallInfo>>(new Map());
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [sharingUserId, setSharingUserId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -130,6 +138,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Map of userId → RTCPeerConnection (one per remote participant)
   const peerConnectionsRef = useRef<Map<string, any>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const isCallActiveRef = useRef(false);
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
@@ -177,9 +186,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Poll audio stats every 600ms to detect active speakers
+  // Poll audio stats to detect active speakers.
+  // Paused during screen sharing — reduces getStats calls (and their debug spam)
+  // which were causing RTCView re-renders and visible flickering.
   useEffect(() => {
-    if (!isCallActive) return;
+    if (!isCallActive || isScreenSharing) return;
     const interval = setInterval(() => {
       const speaking = new Set<string>();
       const checks: Promise<void>[] = [];
@@ -201,9 +212,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checks.push(p);
       });
       Promise.all(checks).then(() => setActiveSpeakers(new Set(speaking)));
-    }, 600);
+    }, 1500);
     return () => clearInterval(interval);
-  }, [isCallActive]);
+  }, [isCallActive, isScreenSharing]);
 
   // Keep refs in sync
   useEffect(() => { isCallActiveRef.current = isCallActive; }, [isCallActive]);
@@ -296,6 +307,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
     localStreamRef.current = null;
+
+    screenStreamRef.current?.getTracks().forEach((t: any) => t.stop());
+    screenStreamRef.current = null;
+
+    setIsScreenSharing(false);
+    setScreenStream(null);
+    setSharingUserId(null);
 
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
@@ -619,6 +637,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketManager.on(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
     socketManager.on(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
 
+    const handleScreenSharing = (data: { userId: string; chatId: string }) => {
+      setSharingUserId(data.userId);
+    };
+    const handleScreenStopped = (data: { userId: string; chatId: string }) => {
+      setSharingUserId((prev) => (prev === data.userId ? null : prev));
+    };
+    socketManager.on(SOCKET_EVENTS.CALL_SCREEN_SHARING, handleScreenSharing as any);
+    socketManager.on(SOCKET_EVENTS.CALL_SCREEN_STOPPED, handleScreenStopped as any);
+
     return () => {
       socketManager.off(SOCKET_EVENTS.CALL_INCOMING, handleIncoming as any);
       socketManager.off(SOCKET_EVENTS.CALL_RINGING, handleRinging as any);
@@ -631,6 +658,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketManager.off(SOCKET_EVENTS.CALL_AUDIO_STATE, handleAudioState as any);
       socketManager.off(SOCKET_EVENTS.CALL_ONGOING, handleOngoing as any);
       socketManager.off(SOCKET_EVENTS.CALL_FINISHED, handleFinished as any);
+      socketManager.off(SOCKET_EVENTS.CALL_SCREEN_SHARING, handleScreenSharing as any);
+      socketManager.off(SOCKET_EVENTS.CALL_SCREEN_STOPPED, handleScreenStopped as any);
     };
   }, [createPeerConnection, cleanupCall]);
 
@@ -850,6 +879,65 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const stopScreenShare = useCallback(() => {
+    if (!screenStreamRef.current) return;
+    screenStreamRef.current.getTracks().forEach((t: any) => t.stop());
+    screenStreamRef.current = null;
+    setIsScreenSharing(false);
+    setScreenStream(null);
+
+    // Restore camera video track in all peer connections
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    peerConnectionsRef.current.forEach((pc) => {
+      try {
+        const senders = pc.getSenders();
+        const videoSender = senders.find((s: any) => s.track?.kind === 'video');
+        if (videoSender && cameraTrack) {
+          videoSender.replaceTrack(cameraTrack);
+        }
+      } catch (e) {
+        console.warn('[Call] replaceTrack restore failed:', e);
+      }
+    });
+
+    if (activeChatIdRef.current) {
+      socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_STOP, { chatId: activeChatIdRef.current });
+    }
+  }, []);
+
+  const startScreenShare = useCallback(async () => {
+    if (!activeChatIdRef.current || !mediaDevices) return;
+    try {
+      const stream = await mediaDevices.getDisplayMedia({ video: true });
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) { stream.getTracks().forEach((t: any) => t.stop()); return; }
+
+      screenStreamRef.current = stream;
+      setScreenStream(stream);
+      setIsScreenSharing(true);
+
+      // Replace the video track in all active peer connections
+      peerConnectionsRef.current.forEach((pc) => {
+        try {
+          const senders = pc.getSenders();
+          const videoSender = senders.find((s: any) => s.track?.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack);
+          }
+        } catch (e) {
+          console.warn('[Call] replaceTrack screen failed:', e);
+        }
+      });
+
+      socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_START, { chatId: activeChatIdRef.current });
+
+      // Auto-stop when the OS ends the screen capture
+      (videoTrack as any).addEventListener?.('ended', () => stopScreenShare());
+    } catch (err) {
+      console.error('[Call] Screen share failed:', err);
+    }
+  }, [stopScreenShare]);
+
   const addToCall = (targetUserId: string) => {
     if (!activeChatIdRef.current || callStatus !== 'connected') return;
     socketManager.emit(SOCKET_EVENTS.CALL_ADD_MEMBER, {
@@ -927,6 +1015,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSpeaker,
         activeChatId,
         ongoingCallsByChatId,
+        isScreenSharing,
+        screenStream,
+        sharingUserId,
         startCall,
         answerCall,
         rejectCall,
@@ -936,6 +1027,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleSpeaker,
         addToCall,
         joinOngoingCall,
+        startScreenShare,
+        stopScreenShare,
       }}
     >
       {children}
