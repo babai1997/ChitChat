@@ -61,7 +61,8 @@
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
-      "./plugins/withNotifeeAndroidMaven"
+      "./plugins/withNotifeeAndroidMaven",
+      "./plugins/withAbiSplits"
     ]
   }
 }

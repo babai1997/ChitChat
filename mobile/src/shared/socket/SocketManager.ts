@@ -87,6 +87,52 @@ class SocketManager {
     return this.socket?.connected ?? false;
   }
 
+  /**
+   * Resolves once connected, or immediately if already connected. Resolves
+   * `false` on timeout instead of rejecting — callers (e.g. answering a call
+   * right after a cold app start from a notification tap, before `connect()`
+   * has even been called yet) should keep going and let the normal
+   * reconnect/retry paths handle it rather than crash on a timed-out promise.
+   */
+  waitForConnection(timeoutMs = 5000): Promise<boolean> {
+    if (this.socket?.connected) return Promise.resolve(true);
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const onConnect = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.socket?.off('connect', onConnect);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        this.socket?.off('connect', onConnect);
+        resolve(false);
+      }, timeoutMs);
+
+      if (this.socket) {
+        this.socket.on('connect', onConnect);
+      } else {
+        // connect() hasn't even been called yet (e.g. auth store still
+        // hydrating on a cold start) — poll briefly for the socket to exist,
+        // then attach the listener above.
+        const pollStart = Date.now();
+        const poll = setInterval(() => {
+          if (this.socket) {
+            clearInterval(poll);
+            if (this.socket.connected) onConnect();
+            else this.socket.on('connect', onConnect);
+          } else if (Date.now() - pollStart > timeoutMs) {
+            clearInterval(poll);
+          }
+        }, 100);
+      }
+    });
+  }
+
   /** Expose raw socket for libraries (e.g. CallContext) that need direct access */
   get instance(): Socket | null {
     return this.socket;

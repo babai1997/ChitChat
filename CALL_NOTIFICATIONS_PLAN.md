@@ -37,10 +37,14 @@ prebuilt/run on Android** at all yet — `app.json` now points
 you complete the steps below.
 
 **Known scope cuts** (see inline code comments for exact locations):
-- Tapping **Decline** on the notification dismisses it locally only — the caller
-  isn't told immediately; they'll see "no answer" once the ~45s ring timeout elapses.
-  Full parity would need a lightweight HTTP reject endpoint callable from a headless
-  background context.
+- ~~Tapping Decline only dismisses locally~~ — fixed: `POST /calls/reject`
+  (`backend/src/modules/gateway/call-http.controller.ts`) lets the notification's
+  Decline action notify the caller immediately even with no live socket connection,
+  by reading the persisted access token directly from AsyncStorage
+  (`mobile/src/services/incomingCallNotification.ts`'s `rejectCallViaHttp`). Caveat:
+  if the access token has expired by the time Decline is tapped, this silently no-ops
+  (no refresh token is available in a cold headless context — `refreshToken` is
+  deliberately memory-only, see `authStore.ts`) and falls back to the ~45s ring timeout.
 - Android 14+ (API 34) may require an explicit `foregroundServiceType` declaration on
   notifee's service in `AndroidManifest.xml` for the ringing foreground service to be
   allowed to start from the background. This wasn't addressed here (would need a

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatGateway } from './chat.gateway';
+import { CallHttpController } from './call-http.controller';
 import { SocketRegistryService } from './services/socket-registry.service';
 import { MessageHandler } from './handlers/message.handler';
 import { PresenceHandler } from './handlers/presence.handler';
@@ -30,6 +31,7 @@ import { PushModule } from '../push';
     UsersModule,
     PushModule,
   ],
+  controllers: [CallHttpController],
   providers: [
     ChatGateway,
     SocketRegistryService,

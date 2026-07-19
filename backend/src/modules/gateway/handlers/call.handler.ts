@@ -245,6 +245,26 @@ export class CallHandler {
       return;
     }
 
+    await this.rejectCall(
+      chatId,
+      callerId,
+      rejectorId,
+      socket.user.profile?.displayName || 'Unknown',
+    );
+  }
+
+  /**
+   * Reject a call. Shared by the socket-driven path above (the in-app
+   * Decline button) and the HTTP path (CallHttpController — used when
+   * Decline is tapped on the notification, which may run in a headless
+   * background context with no live socket connection at all).
+   */
+  async rejectCall(
+    chatId: string,
+    callerId: string,
+    rejectorId: string,
+    rejectorName: string,
+  ) {
     this.logger.log(
       `[Call] User ${rejectorId} rejected call from ${callerId} in chat ${chatId}`,
     );
@@ -252,7 +272,7 @@ export class CallHandler {
     this.registry.emitToUser(callerId, SOCKET_EVENTS.CALL_REJECTED, {
       chatId,
       rejectorId,
-      rejectorName: socket.user.profile?.displayName || 'Unknown',
+      rejectorName,
     });
 
     // Stop ringing this same user's OTHER devices (multi-device) too.
