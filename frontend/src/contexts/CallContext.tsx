@@ -91,6 +91,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  /** Guards against overlapping upgradeToVideo() calls from repeated button taps. */
+  const upgradingVideoRef = useRef(false);
   const peersRef = useRef<Map<string, Instance>>(new Map());
   const activeChatIdRef = useRef<string | null>(null);
   /**
@@ -461,6 +463,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         next.set(senderId, videoEnabled);
         return next;
       });
+      // A peer turning their camera on mid-call upgrades this from an audio-only
+      // call to a video call for everyone — unlocks the video-call UI (grid,
+      // local PiP, etc.) so their incoming video track has somewhere to render.
+      if (videoEnabled && callTypeRef.current !== 'video') {
+        callTypeRef.current = 'video';
+        setCallType('video');
+      }
     };
 
     const handleAudioState = (data: unknown) => {
@@ -656,8 +665,58 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Turns the camera on for a call that started audio-only (or that this user
+  // joined before it was upgraded) — acquires a camera track, adds it to the
+  // local stream and every peer connection, and renegotiates each connection
+  // that has no existing video sender yet.
+  const upgradeToVideo = async () => {
+    if (upgradingVideoRef.current || !localStreamRef.current || !activeChatIdRef.current) return;
+    upgradingVideoRef.current = true;
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const videoTrack = camStream.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // Mutate the existing local stream in place (same id) rather than
+      // building a new MediaStream — peers already carry this stream's id in
+      // their audio track's msid, and grouping the camera track under it
+      // keeps the two on the same remote MediaStream instead of splitting
+      // into a second, audio-less one on the receiving end.
+      localStreamRef.current.addTrack(videoTrack);
+      callTypeRef.current = 'video';
+      setCallType('video');
+      setIsVideoEnabled(true);
+
+      peersRef.current.forEach((peer) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pc = (peer as any)._pc as RTCPeerConnection | undefined;
+        if (!pc) return;
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(videoTrack).catch(console.error);
+        } else {
+          try { peer.addTrack(videoTrack, localStreamRef.current!); } catch (err) { console.error(err); }
+        }
+      });
+
+      socketManager.emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
+        chatId: activeChatIdRef.current,
+        videoEnabled: true,
+      });
+    } catch (err) {
+      console.error('[Call] Failed to upgrade to video:', err);
+      toast.error(getMediaErrorMessage(err));
+    } finally {
+      upgradingVideoRef.current = false;
+    }
+  };
+
   const toggleVideo = () => {
-    if (callType !== 'video') return;
+    const hasVideoTrack = (localStreamRef.current?.getVideoTracks().length ?? 0) > 0;
+    if (!hasVideoTrack) {
+      void upgradeToVideo();
+      return;
+    }
     const newEnabled = !isVideoEnabled;
     localStreamRef.current?.getVideoTracks().forEach((t) => {
       t.enabled = newEnabled;

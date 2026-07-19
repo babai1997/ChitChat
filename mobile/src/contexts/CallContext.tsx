@@ -139,6 +139,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const peerConnectionsRef = useRef<Map<string, any>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  /** Guards against overlapping upgradeToVideo() calls from repeated button taps. */
+  const upgradingVideoRef = useRef(false);
   const isCallActiveRef = useRef(false);
   const incomingCallRef = useRef<IncomingCallData | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
@@ -605,6 +607,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleVideoState = (data: { senderId: string; videoEnabled: boolean }) => {
       console.log('[Call] Remote video state from', data.senderId, '→', data.videoEnabled);
       setRemoteVideoStates(prev => new Map(prev).set(data.senderId, data.videoEnabled));
+      // A peer turning their camera on mid-call upgrades this from an audio-only
+      // call to a video call for everyone — unlocks the video-call UI (grid,
+      // local PiP, etc.) so their incoming video track has somewhere to render.
+      if (data.videoEnabled && callTypeRef.current !== 'video') {
+        callTypeRef.current = 'video';
+        setCallType('video');
+      }
     };
 
     const handleAudioState = (data: { senderId: string; isMuted: boolean }) => {
@@ -862,8 +871,73 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Turns the camera on for a call that started audio-only (or that this user
+  // joined before it was upgraded) — acquires a camera track, adds it to the
+  // local stream and every peer connection, and manually renegotiates each
+  // connection that has no existing video sender yet (mirrors the same
+  // pattern used for audio-call screen sharing — there's no onnegotiationneeded
+  // handler wired up on these PCs, to avoid racing the initial-offer flow).
+  const upgradeToVideo = useCallback(async () => {
+    if (upgradingVideoRef.current || !localStreamRef.current || !activeChatIdRef.current || !mediaDevices) return;
+    upgradingVideoRef.current = true;
+    try {
+      await requestPermissions();
+      const camStream = await mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      const videoTrack = camStream.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // Mutate the existing local stream in place (same id) rather than
+      // building a new one — peers already carry this stream's id in their
+      // audio track's msid, and grouping the camera track under it keeps the
+      // two on the same remote MediaStream instead of splitting into a
+      // second, audio-less one on the receiving end.
+      localStreamRef.current.addTrack(videoTrack);
+      callTypeRef.current = 'video';
+      setCallType('video');
+      setIsVideoEnabled(true);
+
+      for (const [targetUserId, pc] of peerConnectionsRef.current.entries()) {
+        try {
+          const senders = pc.getSenders();
+          const videoSender = senders.find((s: any) => s.track?.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack);
+          } else {
+            (pc as any).addTrack(videoTrack, localStreamRef.current);
+            const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true } as any);
+            await pc.setLocalDescription(new RTCSessionDescription(offer as any));
+            socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+              targetUserId,
+              type: 'offer',
+              signal: offer,
+              chatId: activeChatIdRef.current,
+            });
+          }
+        } catch (e) {
+          console.warn('[Call] Upgrade-to-video track setup failed for', targetUserId, e);
+        }
+      }
+
+      socketManager.emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
+        chatId: activeChatIdRef.current,
+        videoEnabled: true,
+      });
+    } catch (err) {
+      console.error('[Call] Failed to upgrade to video:', err);
+    } finally {
+      upgradingVideoRef.current = false;
+    }
+  }, []);
+
   const toggleVideo = () => {
-    if (callType !== 'video') return;
+    const hasVideoTrack = (localStreamRef.current?.getVideoTracks().length ?? 0) > 0;
+    if (!hasVideoTrack) {
+      void upgradeToVideo();
+      return;
+    }
     const newEnabled = !isVideoEnabled;
     localStreamRef.current?.getVideoTracks().forEach((t: any) => {
       t.enabled = newEnabled;
@@ -886,18 +960,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsScreenSharing(false);
     setScreenStream(null);
 
-    // Restore camera video track in all peer connections
+    // Restore the camera video track in all peer connections — or, for calls
+    // that never had a camera (audio-only calls), remove the video track we
+    // added for sharing and manually renegotiate back down to audio-only.
+    // There's no onnegotiationneeded handler wired up on these PCs (to avoid
+    // racing the initial offer flow in handleUserJoined), so this mirrors
+    // that same manual createOffer/setLocalDescription/emit sequence.
     const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-    peerConnectionsRef.current.forEach((pc) => {
-      try {
-        const senders = pc.getSenders();
-        const videoSender = senders.find((s: any) => s.track?.kind === 'video');
-        if (videoSender && cameraTrack) {
-          videoSender.replaceTrack(cameraTrack);
+    peerConnectionsRef.current.forEach((pc, targetUserId) => {
+      (async () => {
+        try {
+          const senders = pc.getSenders();
+          const videoSender = senders.find((s: any) => s.track?.kind === 'video');
+          if (!videoSender) return;
+          if (cameraTrack) {
+            videoSender.replaceTrack(cameraTrack);
+            return;
+          }
+          pc.removeTrack(videoSender);
+          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true } as any);
+          await pc.setLocalDescription(new RTCSessionDescription(offer as any));
+          socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+            targetUserId,
+            type: 'offer',
+            signal: offer,
+            chatId: activeChatIdRef.current,
+          });
+        } catch (e) {
+          console.warn('[Call] replaceTrack restore failed:', e);
         }
-      } catch (e) {
-        console.warn('[Call] replaceTrack restore failed:', e);
-      }
+      })();
     });
 
     if (activeChatIdRef.current) {
@@ -916,18 +1008,35 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setScreenStream(stream);
       setIsScreenSharing(true);
 
-      // Replace the video track in all active peer connections
-      peerConnectionsRef.current.forEach((pc) => {
+      // Replace the video track in all active peer connections — or, for
+      // calls that never had a camera (audio-only calls), add a new video
+      // track and manually renegotiate (mirrors the offer/answer flow in
+      // handleUserJoined — there's no onnegotiationneeded handler wired up
+      // on these PCs, to avoid racing that initial-offer flow).
+      for (const [targetUserId, pc] of peerConnectionsRef.current.entries()) {
         try {
           const senders = pc.getSenders();
           const videoSender = senders.find((s: any) => s.track?.kind === 'video');
           if (videoSender) {
             videoSender.replaceTrack(videoTrack);
+          } else if (localStreamRef.current) {
+            // Group under the existing local (audio-only) stream so the
+            // remote side adds this track to its existing MediaStream for
+            // us, instead of treating it as a brand-new (audio-less) one.
+            (pc as any).addTrack(videoTrack, localStreamRef.current);
+            const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true } as any);
+            await pc.setLocalDescription(new RTCSessionDescription(offer as any));
+            socketManager.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+              targetUserId,
+              type: 'offer',
+              signal: offer,
+              chatId: activeChatIdRef.current,
+            });
           }
         } catch (e) {
-          console.warn('[Call] replaceTrack screen failed:', e);
+          console.warn('[Call] Screen share track setup failed for', targetUserId, e);
         }
-      });
+      }
 
       socketManager.emit(SOCKET_EVENTS.CALL_SCREEN_SHARE_START, { chatId: activeChatIdRef.current });
 
