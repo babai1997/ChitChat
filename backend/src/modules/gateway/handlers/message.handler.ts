@@ -67,17 +67,19 @@ export class MessageHandler {
         message: { ...message, status: 'sent' },
       });
 
-      // Broadcast to room (all participants including sender)
-      this.server.to(`chat:${chatId}`).emit(SOCKET_EVENTS.MESSAGE_NEW, {
-        ...message,
-        tempId,
+      // Deliver MESSAGE_NEW directly to each member via the registry instead of
+      // broadcasting to a room. This makes delivery independent of socket room
+      // membership — CHAT_LEAVE / socket.leave() can no longer break it.
+      const allMemberIds = await this.chatsService.getChatMemberIds(chatId);
+      allMemberIds.forEach((memberId) => {
+        this.registry.emitToUser(memberId, SOCKET_EVENTS.MESSAGE_NEW, {
+          ...message,
+          tempId,
+        });
       });
 
-      // Mark as delivered for currently online recipients
-      const recipientIds = await this.chatsService.getChatMemberIds(
-        chatId,
-        senderId,
-      );
+      // Mark as delivered for currently online recipients (excludes sender)
+      const recipientIds = allMemberIds.filter((id) => id !== senderId);
       const onlineRecipients = recipientIds.filter((id) =>
         this.registry.isOnline(id),
       );
