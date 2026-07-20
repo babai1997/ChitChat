@@ -77,6 +77,9 @@ export class MessageHandler {
           tempId,
         });
       });
+      this.logger.log(
+        `[MSG_NEW] msgId=${message.id} members=${allMemberIds.join(',')} online=${allMemberIds.filter(id => this.registry.isOnline(id)).join(',')}`,
+      );
 
       // Mark as delivered for currently online recipients (excludes sender)
       const recipientIds = allMemberIds.filter((id) => id !== senderId);
