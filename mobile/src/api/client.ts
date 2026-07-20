@@ -48,8 +48,13 @@ api.interceptors.response.use(
     const { refreshToken, logout } = useAuthStore.getState();
 
     if (!refreshToken) {
-      logout();
-      router.replace('/(auth)/login');
+      // Guard against re-entrant loops: if the user is already logged out (e.g.
+      // a fire-and-forget call like unregisterCallPushToken fires after logout
+      // clears the token), skip logout + navigation so we don't loop.
+      if (useAuthStore.getState().isAuthenticated) {
+        logout();
+        router.replace('/(auth)/login');
+      }
       return Promise.reject(error);
     }
 
@@ -74,8 +79,10 @@ api.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return api(originalRequest);
     } catch {
-      logout();
-      router.replace('/(auth)/login');
+      if (useAuthStore.getState().isAuthenticated) {
+        logout();
+        router.replace('/(auth)/login');
+      }
       return Promise.reject(error);
     }
   }
