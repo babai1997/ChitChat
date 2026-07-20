@@ -47,8 +47,10 @@ api.interceptors.response.use(
     const { refreshToken, logout } = useAuthStore.getState();
 
     if (!refreshToken) {
-      logout();
-      window.location.href = '/login';
+      if (useAuthStore.getState().isAuthenticated) {
+        logout();
+        window.location.href = '/login';
+      }
       return Promise.reject(error);
     }
 
@@ -74,8 +76,10 @@ api.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return api(originalRequest);
     } catch {
-      logout();
-      window.location.href = '/login';
+      if (useAuthStore.getState().isAuthenticated) {
+        logout();
+        window.location.href = '/login';
+      }
       return Promise.reject(error);
     }
   },

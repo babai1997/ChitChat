@@ -106,7 +106,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const leaveChat = useCallback((chatId: string) => {
-    socketManager.emit(SOCKET_EVENTS.CHAT_LEAVE, { chatId });
+    // Do NOT emit CHAT_LEAVE to the server — it would call socket.leave() and
+    // remove this socket from the room, breaking real-time MESSAGE_NEW delivery
+    // and badge updates for that chat until the next reconnect.
+    // handleConnection on the server already joins all rooms on connect;
+    // rooms are only cleaned up on disconnect (handled by socket.io automatically).
     if (activeChatIdRef.current === chatId) activeChatIdRef.current = null;
   }, []);
 

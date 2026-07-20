@@ -34,8 +34,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // when the user navigates directly to a protected URL.
   if (!hydrated) return null;
 
-  if (!isAuthenticated) {
-    // Preserve the intended URL so we can redirect back after login
+  if (!isAuthenticated || !user) {
+    // Preserve the intended URL so we can redirect back after login.
+    // The `!user` guard handles the brief transition window during logout
+    // where `isAuthenticated` may still be true but `user` is already null —
+    // without it, the profile-completeness check below fires and redirects to
+    // /setup-profile instead of /login.
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
