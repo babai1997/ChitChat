@@ -13,10 +13,11 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Phone, Video, MoreVertical, User } from 'lucide-react-native';
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { useChatStore } from '../../../src/stores/chatStore';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { chatApi } from '../../../src/api';
@@ -88,52 +89,56 @@ export default function ChatRoomScreen() {
     ? chat.members.find((m) => m.userId !== user?.id)
     : null;
 
+  const isFocused = useIsFocused();
+
+  // useFocusEffect so cleanup (setActiveChat null, leaveChat) fires on blur,
+  // not just on unmount — Tabs keeps this screen mounted in the background.
+  useFocusEffect(
+    useCallback(() => {
+      if (!chatId) return;
+
+      joinChat(chatId);
+      if (chat) setActiveChat(chat);
+
+      const loadMessages = async () => {
+        try {
+          const data = await chatApi.getMessages(chatId, undefined, PAGE_SIZE);
+          setMessages(chatId, data.messages);
+          nextCursorRef.current = data.nextCursor;
+          hasMoreRef.current = data.hasMore;
+
+          const unreadIds = data.messages
+            .filter((m) => m.senderId !== user?.id && m.status !== 'read')
+            .map((m) => m.id);
+          markAsRead(chatId, unreadIds);
+        } catch (error) {
+          console.error('Failed to load messages:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadMessages();
+
+      return () => {
+        setActiveChat(null);
+        leaveChat(chatId);
+      };
+    }, [chatId]),
+  );
+
+  // Mark incoming messages as read only while this screen is focused.
+  // Without the isFocused guard the Tabs layout keeps this screen mounted
+  // in the background, so markAsRead fires for messages the user hasn't seen.
   useEffect(() => {
-    if (!chatId) return;
-
-    joinChat(chatId);
-
-    const loadMessages = async () => {
-      try {
-        const data = await chatApi.getMessages(chatId, undefined, PAGE_SIZE);
-        setMessages(chatId, data.messages);
-        nextCursorRef.current = data.nextCursor;
-        hasMoreRef.current = data.hasMore;
-
-        // Mark all as read
-        const unreadIds = data.messages
-          .filter((m) => m.senderId !== user?.id && m.status !== 'read')
-          .map((m) => m.id);
-        markAsRead(chatId, unreadIds);
-      } catch (error) {
-        console.error('Failed to load messages:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadMessages();
-
-    return () => {
-      setActiveChat(null);
-      leaveChat(chatId);
-    };
-  }, [chatId]);
-
-  // Keep activeChat in sync so handleNewMessage can suppress badge while reading
-  useEffect(() => {
-    if (chat) setActiveChat(chat);
-  }, [chat?.id]);
-
-  // Mark incoming messages as read when chat is focused
-  useEffect(() => {
+    if (!isFocused) return;
     const unreadIds = chatMessages
       .filter((m) => m.senderId !== user?.id && m.status !== 'read')
       .map((m) => m.id);
     if (unreadIds.length > 0) {
       markAsRead(chatId, unreadIds);
     }
-  }, [chatMessages.length]);
+  }, [chatMessages.length, isFocused]);
 
   const loadMoreMessages = useCallback(async () => {
     const canLoadMore = hasMoreRef.current || (messageHasMore[chatId] ?? false);

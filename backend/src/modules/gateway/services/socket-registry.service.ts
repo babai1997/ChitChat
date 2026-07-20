@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 
 /**
@@ -10,6 +10,7 @@ import { Server } from 'socket.io';
  */
 @Injectable()
 export class SocketRegistryService {
+  private readonly logger = new Logger(SocketRegistryService.name);
   private server: Server;
 
   /** userId → Set of connected socketIds (supports multi-tab / multi-device) */
@@ -63,9 +64,32 @@ export class SocketRegistryService {
     const socketIds = this.userSockets.get(userId);
     if (!socketIds || !this.server) return;
 
+    // NestJS injects the Namespace (not the global Server) for gateways with a
+    // namespace option. Namespace.sockets is Map<SocketId, Socket> — we look up
+    // the socket directly so we can detect stale IDs (Android can silently drop
+    // connections before the ping-timeout fires). server.to(socketId).emit()
+    // silently no-ops on missing rooms, masking the delivery failure.
+    const nsSocketMap = (
+      this.server as unknown as {
+        sockets: Map<string, { emit: (ev: string, data: unknown) => void }>;
+      }
+    ).sockets;
+    const stale: string[] = [];
+
     socketIds.forEach((socketId) => {
-      this.server.to(socketId).emit(event, data);
+      const socket = nsSocketMap?.get(socketId);
+      if (!socket) {
+        this.logger.warn(
+          `[Registry] stale socket ${socketId} for user ${userId} — cleaning up`,
+        );
+        stale.push(socketId);
+        return;
+      }
+      socket.emit(event, data);
     });
+
+    stale.forEach((id) => socketIds.delete(id));
+    if (socketIds.size === 0) this.userSockets.delete(userId);
   }
 
   /** Emit an event to an entire chat room */
