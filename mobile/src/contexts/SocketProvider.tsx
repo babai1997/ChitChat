@@ -13,6 +13,8 @@ import { getMessaging, onMessage as fcmOnMessage } from '@react-native-firebase/
 import notifee, { EventType } from '@notifee/react-native';
 import {
   displayMessageNotification,
+  clearChatNotifications,
+  sendQuickReply,
   type MessagePushData,
 } from '../services/messagePushNotification';
 
@@ -29,7 +31,15 @@ interface SocketContextType {
   isReconnecting: boolean;
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
-  sendMessage: (chatId: string, content: string, type?: string, replyToId?: string, attachments?: any[], customTempId?: string) => string | null;
+  sendMessage: (
+    chatId: string,
+    content: string,
+    type?: string,
+    replyToId?: string,
+    attachments?: any[],
+    customTempId?: string,
+    replyToPreview?: { id: string; content: string | null; isDeleted: boolean; senderName: string },
+  ) => string | null;
   markAsRead: (chatId: string, messageIds: string[]) => void;
   startTyping: (chatId: string) => void;
   stopTyping: (chatId: string) => void;
@@ -103,6 +113,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const joinChat = useCallback((chatId: string) => {
     socketManager.emit(SOCKET_EVENTS.CHAT_JOIN, { chatId });
     activeChatIdRef.current = chatId;
+    // Opening a chat is the mobile equivalent of "reading" it — clear any
+    // stacked message notifications for it, same as WhatsApp does.
+    void clearChatNotifications(chatId);
   }, []);
 
   const leaveChat = useCallback((chatId: string) => {
@@ -123,6 +136,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const chatId = String(remoteMessage.data?.chatId ?? '');
       if (chatId && activeChatIdRef.current === chatId) return;
       const data: MessagePushData = {
+        messageId: String(remoteMessage.data?.messageId ?? ''),
         chatId,
         chatName: String(remoteMessage.data?.chatName ?? remoteMessage.data?.senderName ?? ''),
         senderId: String(remoteMessage.data?.senderId ?? ''),
@@ -133,12 +147,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await displayMessageNotification(data);
     });
 
-    // Notifee foreground event — navigate when user taps a message notification
-    const unsubNotifee = notifee.onForegroundEvent(({ type, detail }) => {
-      if (type !== EventType.PRESS) return;
+    // Notifee foreground event — navigate on tap, or send a quick reply typed
+    // directly into the notification's Reply action.
+    const unsubNotifee = notifee.onForegroundEvent(async ({ type, detail }) => {
       if (detail.notification?.data?.kind !== 'message') return;
-      const chatId = detail.notification?.data?.chatId;
-      if (chatId) router.push(`/chat/${chatId}`);
+      const chatId = detail.notification?.data?.chatId as string | undefined;
+      if (!chatId) return;
+
+      if (type === EventType.PRESS) {
+        router.push(`/chat/${chatId}`);
+        return;
+      }
+
+      if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'reply') {
+        const text = detail.input;
+        if (text) {
+          // Sent over plain HTTP (same path as the background quick-reply) so
+          // the app doesn't need this chat mounted — the resulting message.created
+          // event still reaches this device's own socket and updates the store
+          // normally, same as any other incoming message.
+          await sendQuickReply(chatId, text);
+        }
+      }
     });
 
     return () => {
@@ -148,7 +178,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const sendMessage = useCallback(
-    (chatId: string, content: string, type = 'text', replyToId?: string, attachments?: any[], customTempId?: string) => {
+    (
+      chatId: string,
+      content: string,
+      type = 'text',
+      replyToId?: string,
+      attachments?: any[],
+      customTempId?: string,
+      replyToPreview?: { id: string; content: string | null; isDeleted: boolean; senderName: string },
+    ) => {
       if (!socketManager.isConnected) {
         console.warn('[Socket] Cannot send — not connected');
         return null;
@@ -179,7 +217,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             avatarUrl: currentUser.profile?.avatarUrl || null,
           },
           attachments: attachments || [],
-          replyTo: null,
+          // Populate the quote from what the caller already has locally —
+          // otherwise it only appears once the real message round-trips back.
+          replyTo: replyToPreview || null,
         });
 
         // 2. Optimistically update the chat list's last message

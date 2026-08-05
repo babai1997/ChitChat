@@ -64,6 +64,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
     content: string;
   } | null>(null);
 
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "video" | "audio" | "file" | null>(null);
   const [previewCaption, setPreviewCaption] = useState("");
@@ -213,6 +215,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
 
   const handleEditMessage = (messageId: string, currentContent: string) => {
     setEditingMessage({ id: messageId, content: currentContent });
+    setReplyingTo(null);
     setMessage(currentContent);
     fileInputRef.current?.focus();
   };
@@ -220,6 +223,16 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
   const handleCancelEdit = () => {
     setEditingMessage(null);
     setMessage("");
+  };
+
+  const handleReplyToMessage = (targetMessage: Message) => {
+    setReplyingTo(targetMessage);
+    // Replying and editing are mutually exclusive — same as the mobile app.
+    setEditingMessage(null);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
   };
 
   const handleDeleteMessage = (
@@ -436,9 +449,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
 
     setMessage("");
     stopTyping(chat.id);
+    const replyTarget = replyingTo;
+    setReplyingTo(null);
 
     // Instant Optimistic UI using WebSockets instead of awaiting HTTP
-    const tempId = sendMessage(chat.id, content, "text");
+    const tempId = sendMessage(chat.id, content, "text", replyTarget?.id);
     if (tempId && currentUserId) {
       addMessage(chat.id, {
         id: tempId,
@@ -449,6 +464,16 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
         createdAt: new Date().toISOString(),
         status: "sending",
         tempId,
+        // Populate the quote immediately from what we already have locally —
+        // otherwise it only appears once MESSAGE_SENT round-trips back.
+        replyTo: replyTarget
+          ? {
+              id: replyTarget.id,
+              content: replyTarget.content,
+              isDeleted: replyTarget.isDeleted ?? false,
+              senderName: replyTarget.sender?.displayName || "Unknown",
+            }
+          : null,
       } as any);
     }
   };
@@ -852,6 +877,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                       showSender={showSender}
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
+                      onReply={handleReplyToMessage}
                     />
                   );
                 })}
@@ -917,6 +943,62 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             </div>
             <button
               onClick={handleCancelEdit}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#8696a0",
+                cursor: "pointer",
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {replyingTo && !editingMessage && (
+          <div
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              backgroundColor: "#1f2c34",
+              borderLeft: "4px solid #06cf9c",
+              borderRadius: "4px",
+              marginBottom: "4px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  color: "#06cf9c",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  margin: 0,
+                }}
+              >
+                Replying to {replyingTo.senderId === currentUserId ? "yourself" : replyingTo.sender?.displayName || "Unknown"}
+              </p>
+              <p
+                style={{
+                  color: "#8696a0",
+                  fontSize: "12px",
+                  margin: 0,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "300px",
+                  fontStyle: replyingTo.isDeleted ? "italic" : "normal",
+                }}
+              >
+                {replyingTo.isDeleted
+                  ? "This message was deleted"
+                  : replyingTo.content || "Media"}
+              </p>
+            </div>
+            <button
+              onClick={handleCancelReply}
               style={{
                 background: "none",
                 border: "none",

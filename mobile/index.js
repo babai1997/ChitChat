@@ -11,8 +11,16 @@ import {
   handleCallPushMessage,
   handleNotifeeCallEvent,
 } from './src/services/incomingCallNotification';
-import { handleMessagePushMessage } from './src/services/messagePushNotification';
+import {
+  handleMessagePushMessage,
+  registerMessageNotificationCategories,
+  sendQuickReply,
+} from './src/services/messagePushNotification';
 import 'expo-router/entry';
+
+// iOS-only; no-op on Android. Must run before any message notification is
+// displayed so the Reply action's category is already registered.
+void registerMessageNotificationCategories();
 
 // Route background FCM data messages by kind
 setBackgroundMessageHandler(getMessaging(), async (remoteMessage) => {
@@ -30,11 +38,20 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   const kind = detail.notification?.data?.kind;
 
   if (kind === 'message') {
+    const rawChatId = detail.notification?.data?.chatId;
+    if (!rawChatId) return;
+    const chatId = String(rawChatId);
+
     // User tapped a chat message notification while app was backgrounded/killed
     if (type === EventType.PRESS) {
-      const chatId = detail.notification?.data?.chatId;
-      if (chatId) {
-        router.push(`/chat/${chatId}`);
+      router.push(`/chat/${chatId}`);
+      return;
+    }
+
+    // User typed a reply directly into the notification's Reply action
+    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'reply') {
+      if (detail.input) {
+        await sendQuickReply(chatId, detail.input);
       }
     }
     return;

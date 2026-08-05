@@ -53,6 +53,7 @@ export default function ChatRoomScreen() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const [editText, setEditText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -175,7 +176,15 @@ export default function ChatRoomScreen() {
   const handleEdit = (messageId: string, currentContent: string) => {
     setEditingMessage({ id: messageId, content: currentContent });
     setEditText(currentContent);
+    setReplyingTo(null);
   };
+
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
+    setEditingMessage(null);
+  };
+
+  const handleCancelReply = () => setReplyingTo(null);
 
   const handleEditSubmit = () => {
     if (!editingMessage || !editText.trim()) return;
@@ -244,6 +253,7 @@ export default function ChatRoomScreen() {
         showSender={!isMine && chat?.type === 'group'}
         onEdit={isMine ? handleEdit : undefined}
         onDelete={handleDelete}
+        onReply={handleReply}
       />
     );
   };
@@ -399,7 +409,11 @@ export default function ChatRoomScreen() {
         )}
 
         {/* Input Area */}
-        <ChatInput chatId={chatId} />
+        <ChatInput
+          chatId={chatId}
+          replyingTo={replyingTo}
+          onCancelReply={handleCancelReply}
+        />
       </KeyboardAvoidingView>
 
       {/* Action Sheet */}

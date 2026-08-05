@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Check,
   CheckCheck,
@@ -14,6 +14,9 @@ import {
   X,
   Forward,
   Download,
+  ZoomIn,
+  ZoomOut,
+  Reply,
 } from "lucide-react";
 import type { Message } from "../../types";
 import { chatApi } from "../../api";
@@ -25,6 +28,7 @@ interface MessageBubbleProps {
   showSender?: boolean;
   onEdit?: (messageId: string, currentContent: string) => void;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
+  onReply?: (message: Message) => void;
 }
 
 export const MessageBubble = ({
@@ -33,16 +37,51 @@ export const MessageBubble = ({
   showSender,
   onEdit,
   onDelete,
+  onReply,
 }: MessageBubbleProps) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageZoom, setImageZoom] = useState(1);
   const [showForward, setShowForward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
 
   const { chats } = useChatStore();
   const { user } = useAuthStore();
+
+  // Reset zoom every time a different image is opened (or the viewer closes).
+  useEffect(() => {
+    setImageZoom(1);
+  }, [selectedImage]);
+
+  const IMAGE_ZOOM_MIN = 0.5;
+  const IMAGE_ZOOM_MAX = 4;
+  const zoomImageIn = useCallback(
+    () => setImageZoom((z) => Math.min(IMAGE_ZOOM_MAX, Math.round((z + 0.5) * 100) / 100)),
+    []
+  );
+  const zoomImageOut = useCallback(
+    () => setImageZoom((z) => Math.max(IMAGE_ZOOM_MIN, Math.round((z - 0.5) * 100) / 100)),
+    []
+  );
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // React's onWheel prop is attached as a passive listener, so e.preventDefault()
+  // inside it silently fails — the browser's native ctrl+wheel zoom would still
+  // fire alongside ours. A native, non-passive listener is the only reliable fix.
+  useEffect(() => {
+    const el = imageContainerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (e.deltaY < 0) zoomImageIn();
+      else zoomImageOut();
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, [selectedImage, zoomImageIn, zoomImageOut]);
 
   const handleDownload = async () => {
     if (!selectedImage) return;
@@ -196,6 +235,13 @@ export const MessageBubble = ({
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showContextMenu]);
+
+  const handleReply = () => {
+    if (onReply) {
+      onReply(message);
+    }
+    setShowContextMenu(false);
+  };
 
   const handleEdit = () => {
     if (onEdit && message.type === "text") {
@@ -381,6 +427,41 @@ export const MessageBubble = ({
           </p>
         )}
 
+        {/* Quoted preview of the message being replied to */}
+        {message.replyTo && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              padding: "6px 8px",
+              marginBottom: "4px",
+              borderLeft: "3px solid #06cf9c",
+              backgroundColor: "rgba(255,255,255,0.06)",
+              borderRadius: "4px",
+              cursor: "default",
+            }}
+          >
+            <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#06cf9c" }}>
+              {message.replyTo.senderName}
+            </span>
+            <span
+              style={{
+                fontSize: "12.5px",
+                color: message.replyTo.isDeleted ? "#8696a0" : "rgba(233,237,239,0.75)",
+                fontStyle: message.replyTo.isDeleted ? "italic" : "normal",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "260px",
+              }}
+            >
+              {message.replyTo.isDeleted
+                ? "This message was deleted"
+                : message.replyTo.content || "Media"}
+            </span>
+          </div>
+        )}
+
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div
@@ -525,6 +606,33 @@ export const MessageBubble = ({
               overflow: "hidden",
             }}
           >
+            {/* Reply - available on any message */}
+            <button
+              onClick={handleReply}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                width: "100%",
+                padding: "12px 16px",
+                border: "none",
+                background: "none",
+                color: "#e9edef",
+                fontSize: "14px",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.backgroundColor = "#2a3942")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
+            >
+              <Reply size={18} color="#8696a0" />
+              Reply
+            </button>
+
             {/* Edit - only for own text messages */}
             {isOwn && message.type === "text" && (
               <button
@@ -644,7 +752,36 @@ export const MessageBubble = ({
             >
               <X size={28} />
             </button>
-            <div style={{ display: "flex", gap: "24px" }}>
+            <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+              <button
+                onClick={zoomImageOut}
+                disabled={imageZoom <= IMAGE_ZOOM_MIN}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: imageZoom <= IMAGE_ZOOM_MIN ? "default" : "pointer",
+                  color: "#fff",
+                  opacity: imageZoom <= IMAGE_ZOOM_MIN ? 0.4 : 1,
+                }}
+              >
+                <ZoomOut size={22} />
+              </button>
+              <span style={{ color: "#fff", fontSize: 13, minWidth: 40, textAlign: "center" }}>
+                {Math.round(imageZoom * 100)}%
+              </span>
+              <button
+                onClick={zoomImageIn}
+                disabled={imageZoom >= IMAGE_ZOOM_MAX}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: imageZoom >= IMAGE_ZOOM_MAX ? "default" : "pointer",
+                  color: "#fff",
+                  opacity: imageZoom >= IMAGE_ZOOM_MAX ? 0.4 : 1,
+                }}
+              >
+                <ZoomIn size={22} />
+              </button>
               <button
                 onClick={handleDownload}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
@@ -659,13 +796,33 @@ export const MessageBubble = ({
               </button>
             </div>
           </div>
-          
+
           {/* Image container */}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "20px" }}>
+          <div
+            ref={imageContainerRef}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: imageZoom <= 1 ? "center" : "flex-start",
+              justifyContent: imageZoom <= 1 ? "center" : "flex-start",
+              overflow: "auto",
+              padding: "20px",
+            }}
+          >
             <img
               src={selectedImage}
               alt="Full screen"
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+              onDoubleClick={() => setImageZoom((z) => (z > 1 ? 1 : 2))}
+              style={{
+                maxWidth: imageZoom <= 1 ? "100%" : "none",
+                maxHeight: imageZoom <= 1 ? "100%" : "none",
+                width: imageZoom > 1 ? `${imageZoom * 100}%` : undefined,
+                objectFit: "contain",
+                margin: imageZoom <= 1 ? "auto" : undefined,
+                cursor: imageZoom > 1 ? "zoom-out" : "zoom-in",
+                transition: "width 0.15s ease",
+                flexShrink: 0,
+              }}
             />
           </div>
         </div>

@@ -38,14 +38,17 @@ import { chatApi } from "../../src/api";
 import { useSocketContext } from "../../src/contexts/SocketProvider";
 import * as Crypto from 'expo-crypto';
 import { useAuthStore, useChatStore } from '../../src/stores';
+import type { Message } from "../../src/types";
 
 const { height } = Dimensions.get("window");
 
 interface ChatInputProps {
   chatId: string;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
-export default function ChatInput({ chatId }: ChatInputProps) {
+export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInputProps) {
   const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -118,9 +121,25 @@ export default function ChatInput({ chatId }: ChatInputProps) {
 
   const handleSendText = () => {
     if (!inputText.trim() || !chatId) return;
-    sendMessage(chatId, inputText.trim(), "text");
+    sendMessage(
+      chatId,
+      inputText.trim(),
+      "text",
+      replyingTo?.id,
+      undefined,
+      undefined,
+      replyingTo
+        ? {
+            id: replyingTo.id,
+            content: replyingTo.content,
+            isDeleted: replyingTo.isDeleted ?? false,
+            senderName: replyingTo.sender?.displayName || "Unknown",
+          }
+        : undefined,
+    );
     setInputText("");
     handleStopTyping();
+    onCancelReply?.();
   };
 
   const handleStartTyping = () => {
@@ -380,6 +399,30 @@ export default function ChatInput({ chatId }: ChatInputProps) {
     <View
       style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
     >
+      {replyingTo && (
+        <View style={styles.replyBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.replyBannerLabel}>
+              Replying to {replyingTo.sender?.displayName || "Unknown"}
+            </Text>
+            <Text
+              style={[
+                styles.replyBannerText,
+                replyingTo.isDeleted && styles.replyBannerDeleted,
+              ]}
+              numberOfLines={1}
+            >
+              {replyingTo.isDeleted
+                ? "This message was deleted"
+                : replyingTo.content || "Media"}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onCancelReply} style={{ padding: 4 }}>
+            <X size={18} color="#8696a0" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.inputRow}>
         <View style={styles.pillContainer}>
           {!isRecording ? (
@@ -616,6 +659,31 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4, // Adds a little extra space at the bottom to push it up
     gap: 8,
+  },
+  replyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1f2c34",
+    borderLeftWidth: 4,
+    borderLeftColor: "#06cf9c",
+    borderRadius: 4,
+    marginHorizontal: 8,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  replyBannerLabel: {
+    color: "#06cf9c",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  replyBannerText: {
+    color: "#8696a0",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  replyBannerDeleted: {
+    fontStyle: "italic",
   },
   pillContainer: {
     flex: 1,

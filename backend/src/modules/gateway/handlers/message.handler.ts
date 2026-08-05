@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { MessagesService } from '../../messages/messages.service';
@@ -108,6 +108,7 @@ export class MessageHandler {
         await Promise.allSettled(
           offlineRecipients.map((id) =>
             this.pushService.sendMessagePush(id, {
+              messageId: message.id,
               chatId,
               chatName: senderName,
               senderId,
@@ -122,7 +123,14 @@ export class MessageHandler {
       return { success: true, messageId: message.id };
     } catch (error) {
       this.logger.error('Error sending message:', error);
-      throw new WsException('Failed to send message');
+      // Preserve specific, client-facing validation messages (e.g. "not a
+      // member", "cannot reply to a message outside this chat") instead of
+      // flattening every failure into the same generic string.
+      const errorMessage =
+        error instanceof HttpException
+          ? error.message
+          : 'Failed to send message';
+      throw new WsException(errorMessage);
     }
   }
 

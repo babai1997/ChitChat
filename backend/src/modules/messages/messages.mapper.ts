@@ -20,6 +20,7 @@ type RawMessage = {
   replyTo?: {
     id: string;
     content: string | null;
+    isDeleted?: boolean;
     sender: { id: string; profile: { displayName: string | null } | null };
   } | null;
   attachments: Array<{
@@ -57,6 +58,7 @@ export class MessagesMapper {
         ? {
             id: message.replyTo.id,
             content: message.replyTo.content,
+            isDeleted: message.replyTo.isDeleted ?? false,
             senderName:
               message.replyTo.sender.profile?.displayName || 'Unknown',
           }
