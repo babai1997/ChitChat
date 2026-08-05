@@ -119,16 +119,16 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
-        // Note: refreshToken is intentionally NOT persisted in storage.
-        // It is only kept in memory for the lifetime of the tab session.
+        refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-      // AsyncStorage hydration is async so useAuthStore is always assigned by
-      // the time this callback fires — no microtask deferral needed.
+      // If the access token is expired on load, clear it so the next API call
+      // gets a 401 and the interceptor uses the persisted refreshToken to get
+      // a new pair — rather than logging the user out immediately.
       onRehydrateStorage: () => (state) => {
         if (state?.accessToken && isJwtExpired(state.accessToken)) {
-          useAuthStore.setState({ accessToken: null, isAuthenticated: false, user: null });
+          useAuthStore.setState({ accessToken: null });
         }
       },
     }
