@@ -24,11 +24,13 @@ model User {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  authProviders AuthProvider[]
-  profile       Profile?
-  chatMembers   ChatMember[]
-  messages      Message[]
-  createdChats  Chat[]         @relation("ChatCreator")
+  authProviders  AuthProvider[]
+  profile        Profile?
+  chatMembers    ChatMember[]
+  messages       Message[]
+  createdChats   Chat[]          @relation("ChatCreator")
+  refreshTokens  RefreshToken[]
+  pushTokens     PushToken[]
 
   @@index([phone])
   @@index([email])
@@ -211,6 +213,8 @@ model RefreshToken {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([token])
   @@map("refresh_tokens")
@@ -239,6 +243,8 @@ model PushToken {
   token     String
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, deviceId, tokenType])
   @@index([userId])

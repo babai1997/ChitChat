@@ -14,6 +14,7 @@ export interface CallPushPayload {
 }
 
 export interface MessagePushPayload {
+  messageId: string;
   chatId: string;
   chatName: string;
   senderId: string;
@@ -98,6 +99,7 @@ export class PushService implements OnModuleInit {
   async sendMessagePush(recipientId: string, payload: MessagePushPayload) {
     await this.sendDataMessage(recipientId, {
       kind: 'message',
+      messageId: payload.messageId,
       chatId: payload.chatId,
       chatName: payload.chatName,
       senderId: payload.senderId,

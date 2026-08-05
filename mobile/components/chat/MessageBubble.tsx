@@ -30,6 +30,7 @@ import {
   X,
   Forward,
   Download,
+  Reply,
 } from "lucide-react-native";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -42,6 +43,7 @@ interface MessageBubbleProps {
   showSender?: boolean;
   onEdit?: (messageId: string, currentContent: string) => void;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
+  onReply?: (message: Message) => void;
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -58,6 +60,7 @@ export default function MessageBubble({
   showSender,
   onEdit,
   onDelete,
+  onReply,
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -287,6 +290,26 @@ export default function MessageBubble({
           </Text>
         )}
 
+        {/* Quoted preview of the message being replied to */}
+        {message.replyTo && (
+          <View style={styles.replyQuote}>
+            <Text style={styles.replyQuoteSender}>
+              {message.replyTo.senderName}
+            </Text>
+            <Text
+              style={[
+                styles.replyQuoteText,
+                message.replyTo.isDeleted && styles.replyQuoteDeleted,
+              ]}
+              numberOfLines={1}
+            >
+              {message.replyTo.isDeleted
+                ? "This message was deleted"
+                : message.replyTo.content || "Media"}
+            </Text>
+          </View>
+        )}
+
         {/* Attachments */}
         {hasAttachments && (
           <View style={{ marginBottom: hasText ? 4 : 0 }}>
@@ -339,6 +362,16 @@ export default function MessageBubble({
       >
         <Pressable style={styles.overlay} onPress={() => setShowMenu(false)}>
           <View style={styles.menu}>
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                setShowMenu(false);
+                onReply?.(message);
+              }}
+            >
+              <Reply size={18} color="#e9edef" />
+              <Text style={styles.menuTxt}>Reply</Text>
+            </TouchableOpacity>
             {isOwn && message.type === "text" && (
               <TouchableOpacity
                 style={styles.menuRow}
@@ -601,6 +634,31 @@ const styles = StyleSheet.create({
     color: "#7edcf5",
     marginBottom: 4,
     letterSpacing: 0.1,
+  },
+
+  // ── Quoted reply preview
+  replyQuote: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#06cf9c",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  replyQuoteSender: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: "#06cf9c",
+  },
+  replyQuoteText: {
+    fontSize: 12.5,
+    color: "rgba(233,237,239,0.75)",
+    marginTop: 1,
+  },
+  replyQuoteDeleted: {
+    color: "#8696a0",
+    fontStyle: "italic",
   },
 
   // ── Attachments

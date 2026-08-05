@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType, MessageStatus, Prisma } from '@prisma/client';
@@ -130,6 +134,21 @@ export class MessagesService {
 
     if (!membership) {
       throw new ForbiddenException('You are not a member of this chat');
+    }
+
+    // A reply must point at a message that actually exists in this same chat —
+    // otherwise a stale/foreign replyToId would either silently fail the FK
+    // constraint or, worse, quote a message from a chat the sender isn't in.
+    if (data.replyToId) {
+      const replyTarget = await this.prisma.message.findUnique({
+        where: { id: data.replyToId },
+        select: { chatId: true },
+      });
+      if (!replyTarget || replyTarget.chatId !== data.chatId) {
+        throw new BadRequestException(
+          'Cannot reply to a message outside this chat',
+        );
+      }
     }
 
     // Create message with attachments

@@ -126,6 +126,15 @@ export interface MessageSender {
   avatarUrl: string | null;
 }
 
+// The API never nests a full Message under replyTo — it's flattened to just
+// enough to render a quoted preview (see backend messages.mapper.ts).
+export interface MessageReplyPreview {
+  id: string;
+  content: string | null;
+  isDeleted: boolean;
+  senderName: string;
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -136,7 +145,7 @@ export interface Message {
   createdAt: string;
   updatedAt: string;
   sender: MessageSender;
-  replyTo: Message | null;
+  replyTo: MessageReplyPreview | null;
   attachments: MessageAttachment[];
   isDeleted?: boolean;
   isEdited?: boolean;

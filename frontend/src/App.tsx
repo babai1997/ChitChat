@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
-import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage } from './pages';
+import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage, DocsPage } from './pages';
 import { ProtectedRoute } from './components/common';
 import { useAuthStore } from './stores';
 import { SocketProvider } from './contexts/SocketContext';
@@ -66,15 +66,16 @@ const AppContent = () => {
               </AuthGuard>
             } 
           />
-          <Route 
-            path="/verify-otp" 
+          <Route
+            path="/verify-otp"
             element={
               <AuthGuard>
                 <VerifyOtpPage />
               </AuthGuard>
-            } 
+            }
           />
-          
+          <Route path="/docs" element={<DocsPage />} />
+
           {/* Protected routes */}
           <Route 
             path="/setup-profile" 

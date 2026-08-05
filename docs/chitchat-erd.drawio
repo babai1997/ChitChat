@@ -1,0 +1,112 @@
+<mxfile host="65bd71144e">
+    <diagram name="ChitChat ERD" id="chitchat-erd">
+        <mxGraphModel dx="1001" dy="1711" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="hdr2" value="User&lt;br&gt;(users)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="40" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body3" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;phone : String? [UQ]&lt;br/&gt;email : String? [UQ]&lt;br/&gt;isVerified : Boolean&lt;br/&gt;lastSeen : DateTime?&lt;br/&gt;createdAt : DateTime&lt;br/&gt;updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="82" width="260" height="192" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr4" value="Profile&lt;br&gt;(profiles)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="40" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body5" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;userId&lt;/i&gt; : String [FK,UQ]&lt;br/&gt;displayName : String?&lt;br/&gt;avatarUrl : String?&lt;br/&gt;about : String&lt;br/&gt;isOnline : Boolean&lt;br/&gt;createdAt : DateTime&lt;br/&gt;updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="82" width="260" height="218" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr6" value="AuthProvider&lt;br&gt;(auth_providers)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="300" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body7" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;userId&lt;/i&gt; : String [FK]&lt;br/&gt;provider : AuthProviderType&lt;br/&gt;providerId : String?&lt;br/&gt;metadata : Json&lt;br/&gt;createdAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="342" width="260" height="166" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr8" value="OtpCode&lt;br&gt;(otp_codes)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#A85A2A;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="560" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body9" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;phone : String&lt;br/&gt;code : String&lt;br/&gt;expiresAt : DateTime&lt;br/&gt;attempts : Int&lt;br/&gt;verified : Boolean&lt;br/&gt;createdAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="602" width="260" height="192" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr10" value="RefreshToken&lt;br&gt;(refresh_tokens)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="40" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body11" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;userId&lt;/i&gt; : String [FK]&lt;br/&gt;token : String [UQ]&lt;br/&gt;expiresAt : DateTime&lt;br/&gt;createdAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="82" width="260" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr12" value="PushToken&lt;br&gt;(push_tokens)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="300" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body13" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;userId&lt;/i&gt; : String [FK]&lt;br/&gt;deviceId : String&lt;br/&gt;platform : PushPlatform&lt;br/&gt;tokenType : PushTokenType&lt;br/&gt;token : String&lt;br/&gt;createdAt : DateTime&lt;br/&gt;updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="342" width="260" height="218" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr14" value="Chat&lt;br&gt;(chats)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="300" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body15" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;type : ChatType&lt;br/&gt;name : String?&lt;br/&gt;avatarUrl : String?&lt;br/&gt;&lt;i&gt;createdBy&lt;/i&gt; : String? [FK]&lt;br/&gt;createdAt : DateTime&lt;br/&gt;updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="342" width="260" height="192" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr16" value="ChatMember&lt;br&gt;(chat_members)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="600" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body17" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;chatId&lt;/i&gt; : String [FK]&lt;br/&gt;&lt;i&gt;userId&lt;/i&gt; : String [FK]&lt;br/&gt;role : ChatMemberRole&lt;br/&gt;joinedAt : DateTime&lt;br/&gt;lastReadAt : DateTime?" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="642" width="260" height="166" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr18" value="Message&lt;br&gt;(messages)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="850" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body19" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;chatId&lt;/i&gt; : String [FK]&lt;br/&gt;&lt;i&gt;senderId&lt;/i&gt; : String [FK]&lt;br/&gt;content : String?&lt;br/&gt;type : MessageType&lt;br/&gt;status : MessageStatus&lt;br/&gt;&lt;i&gt;replyToId&lt;/i&gt; : String? [FK]&lt;br/&gt;isDeleted : Boolean&lt;br/&gt;isEdited : Boolean&lt;br/&gt;createdAt : DateTime&lt;br/&gt;updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="892" width="260" height="296" as="geometry"/>
+                </mxCell>
+                <mxCell id="hdr20" value="Attachment&lt;br&gt;(attachments)" style="rounded=0;whiteSpace=nowrap;html=1;fillColor=#2F5DA8;strokeColor=none;fontColor=#FFFFFF;fontStyle=1;fontSize=13;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="850" width="260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="body21" value="&lt;b&gt;&lt;u&gt;id&lt;/u&gt;&lt;/b&gt; : String [PK]&lt;br/&gt;&lt;i&gt;messageId&lt;/i&gt; : String [FK]&lt;br/&gt;fileName : String&lt;br/&gt;fileType : String&lt;br/&gt;fileSize : BigInt&lt;br/&gt;url : String&lt;br/&gt;metadata : Json&lt;br/&gt;createdAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fontSize=12;fontFamily=Courier New;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="892" width="260" height="218" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge22" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;endArrow=ERmany;" parent="1" source="hdr2" target="hdr4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge23" value="signs in via" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge24" value="belongs to" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr16" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge25" value="sends" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr18" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge26" value="creates" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr14" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge27" value="holds" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr10" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge28" value="registers" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr2" target="hdr12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge29" value="has members" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr14" target="hdr16" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge30" value="contains" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr14" target="hdr18" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge31" value="carries" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=ERone;startFill=0;endFill=0;fontSize=10;labelBackgroundColor=#F7F7F4;strokeColor=#8B8F99;endArrow=ERmany;" parent="1" source="hdr18" target="hdr20" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge32" value="replies to" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;endArrow=ERzeroToOne;startArrow=ERmany;startFill=0;endFill=0;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;fontSize=10;strokeColor=#8B8F99;labelBackgroundColor=#F7F7F4;" parent="1" source="hdr18" target="hdr18" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="note33" value="No FK to User — OTPs are verified before a user record necessarily exists (first-time signup)." style="text;html=1;align=left;verticalAlign=top;fontSize=11;fontStyle=2;fontColor=#A85A2A;whiteSpace=wrap;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="570" width="220" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="title34" value="ChitChat — Database ER Diagram (backend/prisma/schema.prisma)" style="text;html=1;fontSize=20;fontStyle=1;fontColor=#1B1E24;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="-40" width="700" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend35" value="&lt;u&gt;&lt;b&gt;underline&lt;/b&gt;&lt;/u&gt; = primary key &amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;i&gt;italic&lt;/i&gt; = foreign key &amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;UQ&gt; = unique constraint" style="text;html=1;fontSize=11;fontColor=#5D6270;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="620" width="500" height="24" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
