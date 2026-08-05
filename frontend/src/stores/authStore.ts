@@ -108,24 +108,20 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'chitchat-auth',
-      // Use sessionStorage instead of localStorage — tokens are cleared when
-      // the tab/browser closes, reducing the window for XSS token theft.
-      // localStorage tokens persist indefinitely and are readable by any JS on the page.
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
-        // Note: refreshToken is intentionally NOT persisted in storage.
-        // It is only kept in memory for the lifetime of the tab session.
+        refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-      // Clear expired tokens before any component renders.
-      // sessionStorage hydration is synchronous so we defer via microtask to
-      // ensure `useAuthStore` is assigned before calling setState.
+      // If the access token is expired on load, clear it so the next API call
+      // gets a 401 and the interceptor uses the persisted refreshToken to get
+      // a new pair — rather than logging the user out immediately.
       onRehydrateStorage: () => (state) => {
         if (state?.accessToken && isJwtExpired(state.accessToken)) {
           Promise.resolve().then(() => {
-            useAuthStore.setState({ accessToken: null, isAuthenticated: false, user: null });
+            useAuthStore.setState({ accessToken: null });
           });
         }
       },
