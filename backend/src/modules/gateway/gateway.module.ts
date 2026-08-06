@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ChatGateway } from './chat.gateway';
 import { CallHttpController } from './call-http.controller';
 import { SocketRegistryService } from './services/socket-registry.service';
+import { TurnCredentialsService } from './services/turn-credentials.service';
 import { MessageHandler } from './handlers/message.handler';
 import { PresenceHandler } from './handlers/presence.handler';
 import { CallHandler } from './handlers/call.handler';
@@ -35,6 +36,7 @@ import { PushModule } from '../push';
   providers: [
     ChatGateway,
     SocketRegistryService,
+    TurnCredentialsService,
     MessageHandler,
     PresenceHandler,
     CallHandler,

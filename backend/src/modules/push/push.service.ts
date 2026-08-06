@@ -25,7 +25,7 @@ export interface MessagePushPayload {
 
 /**
  * Sends wake-up push notifications so incoming calls ring even when the
- * recipient's app is backgrounded or fully killed (see CALL_NOTIFICATIONS_PLAN.md).
+ * recipient's app is backgrounded or fully killed (see docs/CALL_NOTIFICATIONS_PLAN.md).
  *
  * Android only for now (FCM data messages). iOS needs a direct APNs VoIP push
  * (PushKit), which is a separate, later phase — `apns_voip` tokens are stored

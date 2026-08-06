@@ -34,6 +34,14 @@ export class UsersService {
   }
 
   async searchUsers(query: string, currentUserId: string, limit = 20) {
+    // A short query (e.g. a single digit/letter) turns this into an open
+    // directory scan — anyone can harvest phone numbers/names for the whole
+    // user base a few characters at a time. Require enough of a match that
+    // "search" means "find the specific person I'm looking for", not "browse".
+    if (query.trim().length < 3) {
+      return [];
+    }
+
     return this.prisma.user.findMany({
       where: {
         AND: [
@@ -42,7 +50,6 @@ export class UsersService {
           {
             OR: [
               { phone: { contains: query } },
-              { email: { contains: query, mode: 'insensitive' } },
               {
                 profile: {
                   displayName: { contains: query, mode: 'insensitive' },
@@ -53,8 +60,23 @@ export class UsersService {
         ],
       },
       include: { profile: true },
-      take: limit,
+      take: Math.min(limit, 50),
     });
+  }
+
+  /** Whether two users share at least one chat together (or are the same user). */
+  async shareAnyChat(userId: string, otherUserId: string): Promise<boolean> {
+    if (userId === otherUserId) return true;
+
+    const sharedChat = await this.prisma.chatMember.findFirst({
+      where: {
+        userId,
+        chat: { members: { some: { userId: otherUserId } } },
+      },
+      select: { id: true },
+    });
+
+    return sharedChat !== null;
   }
 
   async updateLastSeen(userId: string) {

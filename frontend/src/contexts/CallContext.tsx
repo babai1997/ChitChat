@@ -6,6 +6,45 @@ import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { ringtoneManager } from '../utils/ringtone';
 import toast from 'react-hot-toast';
 import { useChatStore } from '../stores/chatStore';
+import { getIceServers, type IceServer } from '../api/turn';
+
+// Public-STUN-only fallback used if the backend turn-credentials fetch fails —
+// calls still work between two NAT-friendly peers, just without a TURN relay
+// fallback for symmetric-NAT peers.
+const FALLBACK_ICE_SERVERS: IceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+
+// Logs which ICE candidate type actually carried the call — 'host' (same
+// network), 'srflx' (STUN — direct over the internet), or 'relay' (TURN —
+// routed through the relay server). Lets us see from console logs alone
+// whether a given call needed the TURN fallback or connected directly.
+async function logSelectedCandidateType(pc: RTCPeerConnection | undefined, targetUserId: string) {
+  if (!pc) return;
+  try {
+    const stats = await pc.getStats();
+    let pairStats: { localCandidateId?: string } | undefined;
+    stats.forEach((report) => {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+        pairStats = report;
+      }
+    });
+    if (!pairStats?.localCandidateId) return;
+
+    let candidateType: string | undefined;
+    stats.forEach((report) => {
+      if (report.id === pairStats!.localCandidateId) {
+        candidateType = report.candidateType;
+      }
+    });
+
+    const via = candidateType === 'relay' ? 'TURN relay' : candidateType === 'srflx' ? 'STUN direct' : candidateType === 'host' ? 'direct (same network)' : candidateType ?? 'unknown';
+    console.log(`[Call] ${targetUserId} connected via ${via} (candidateType: ${candidateType})`);
+  } catch (err) {
+    console.warn('[Call] Failed to read ICE candidate stats:', err);
+  }
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -90,6 +129,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
+  const iceServersRef = useRef<IceServer[]>(FALLBACK_ICE_SERVERS);
   const screenStreamRef = useRef<MediaStream | null>(null);
   /** Guards against overlapping upgradeToVideo() calls from repeated button taps. */
   const upgradingVideoRef = useRef(false);
@@ -219,37 +259,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trickle: true,
         stream,
         config: {
-          iceServers: [
-            {
-              urls: "stun:stun.l.google.com:19302",
-            },
-            {
-              urls: "stun:stun1.l.google.com:19302",
-            },
-            {
-              urls: "stun:stun.relay.metered.ca:80",
-            },
-            {
-              urls: "turn:global.relay.metered.ca:80",
-              username: "bfd9bc0f231dcb23a8625d17",
-              credential: "g65qhBaLA/r80etz",
-            },
-            {
-              urls: "turn:global.relay.metered.ca:80?transport=tcp",
-              username: "bfd9bc0f231dcb23a8625d17",
-              credential: "g65qhBaLA/r80etz",
-            },
-            {
-              urls: "turn:global.relay.metered.ca:443",
-              username: "bfd9bc0f231dcb23a8625d17",
-              credential: "g65qhBaLA/r80etz",
-            },
-            {
-              urls: "turns:global.relay.metered.ca:443?transport=tcp",
-              username: "bfd9bc0f231dcb23a8625d17",
-              credential: "g65qhBaLA/r80etz",
-            },
-          ],
+          iceServers: iceServersRef.current,
         },
       });
 
@@ -279,6 +289,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       peer.on('connect', () => {
         console.log(`[Call] Data channel connected to ${targetUserId}`);
+        logSelectedCandidateType((peer as unknown as { _pc?: RTCPeerConnection })._pc, targetUserId);
       });
 
       peer.on('close', () => {
@@ -531,8 +542,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Call actions ───────────────────────────────────────────────────────────
 
+  // Fired at the start of every call-entry path, in parallel with getUserMedia
+  // — by the time signaling produces the first createPeer() call, this has
+  // almost always already resolved. Falls back to STUN-only on failure.
+  const refreshIceServers = () => {
+    getIceServers()
+      .then((iceServers) => {
+        iceServersRef.current = iceServers;
+      })
+      .catch((err) => {
+        console.error('[Call] Failed to fetch TURN credentials, using STUN-only fallback:', err);
+      });
+  };
+
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
+      refreshIceServers();
       activeChatIdRef.current = chatId;
       setActiveChatId(chatId);
       setCallType(type);
@@ -592,6 +617,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      refreshIceServers();
       // Set active BEFORE getting media so the signal handler sees it immediately
       // Status is 'calling' (not 'connected') — actual connection established when stream arrives
       setCallStatus('calling');
@@ -845,6 +871,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
+      refreshIceServers();
       activeChatIdRef.current = chatId;
       setActiveChatId(chatId);
       setCallType(type);

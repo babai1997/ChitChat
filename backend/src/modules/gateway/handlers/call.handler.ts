@@ -94,7 +94,7 @@ export class CallHandler {
       });
 
       // Wake up the recipient's device even if their socket is disconnected
-      // (backgrounded/killed app) — see CALL_NOTIFICATIONS_PLAN.md.
+      // (backgrounded/killed app) — see docs/CALL_NOTIFICATIONS_PLAN.md.
       void this.pushService.sendCallPush(recipientId, {
         callId,
         chatId,
@@ -206,7 +206,7 @@ export class CallHandler {
    * Routes WebRTC signals (offer / answer / ICE candidates) between peers.
    * Uses targetUserId for direct routing — avoids broadcasting to unintended recipients.
    */
-  handleCallSignal(
+  async handleCallSignal(
     socket: AuthSocket,
     data: {
       targetUserId: string;
@@ -217,6 +217,15 @@ export class CallHandler {
   ) {
     const { targetUserId, type, signal, chatId } = data;
     const senderId = socket.user.id;
+
+    const memberIds = await this.chatsService.getChatMemberIds(chatId);
+    if (!memberIds.includes(senderId) || !memberIds.includes(targetUserId)) {
+      this.logger.warn(
+        `[Call] Unauthorized signal attempt by ${senderId} → ${targetUserId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
 
     this.logger.log(
       `[Call] Signal ${type} from ${senderId} → ${targetUserId} (chat ${chatId})`,
@@ -338,31 +347,60 @@ export class CallHandler {
     });
   }
 
-  handleCallVideoState(
+  async handleCallVideoState(
     socket: AuthSocket,
     data: { chatId: string; videoEnabled: boolean },
   ) {
     const { chatId, videoEnabled } = data;
+    const userId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, userId))) {
+      this.logger.warn(
+        `[Call] Unauthorized video-state broadcast by ${userId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_VIDEO_STATE, {
-      senderId: socket.user.id,
+      senderId: userId,
       videoEnabled,
     });
   }
 
-  handleCallAudioState(
+  async handleCallAudioState(
     socket: AuthSocket,
     data: { chatId: string; isMuted: boolean },
   ) {
     const { chatId, isMuted } = data;
+    const userId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, userId))) {
+      this.logger.warn(
+        `[Call] Unauthorized audio-state broadcast by ${userId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     socket.to(`chat:${chatId}`).emit(SOCKET_EVENTS.CALL_AUDIO_STATE, {
-      senderId: socket.user.id,
+      senderId: userId,
       isMuted,
     });
   }
 
-  handleScreenShareStart(socket: AuthSocket, data: { chatId: string }) {
+  async handleScreenShareStart(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const userId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, userId))) {
+      this.logger.warn(
+        `[Call] Unauthorized screen-share-start by ${userId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     this.logger.log(
       `[Call] User ${userId} started screen share in chat ${chatId}`,
     );
@@ -372,9 +410,18 @@ export class CallHandler {
     });
   }
 
-  handleScreenShareStop(socket: AuthSocket, data: { chatId: string }) {
+  async handleScreenShareStop(socket: AuthSocket, data: { chatId: string }) {
     const { chatId } = data;
     const userId = socket.user.id;
+
+    if (!(await this.chatsService.isChatMember(chatId, userId))) {
+      this.logger.warn(
+        `[Call] Unauthorized screen-share-stop by ${userId} in chat ${chatId}`,
+      );
+      socket.emit('error', { message: 'You are not a member of this chat' });
+      return;
+    }
+
     this.logger.log(
       `[Call] User ${userId} stopped screen share in chat ${chatId}`,
     );
