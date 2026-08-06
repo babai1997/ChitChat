@@ -42,10 +42,12 @@ export class UsersController {
       limit ? parseInt(limit, 10) : 20,
     );
 
+    // Phone is shown because "find someone by their phone number" is the
+    // actual search feature — but email isn't needed for that and isn't
+    // rendered anywhere on the client, so it's dropped from the response.
     return users.map((u) => ({
       id: u.id,
       phone: u.phone,
-      email: u.email,
       profile: u.profile
         ? {
             displayName: u.profile.displayName,
@@ -62,14 +64,21 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User with profile' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async getUser(@Param('id') id: string) {
+  async getUser(@Param('id') id: string, @CurrentUser() currentUser: User) {
     const user = await this.usersService.findById(id);
+
+    // Phone/lastSeen are only meaningful to someone who already knows this
+    // person — restrict them to the caller themselves or someone who shares
+    // a chat with the target, rather than any authenticated stranger.
+    const isRelated = await this.usersService.shareAnyChat(
+      currentUser.id,
+      user.id,
+    );
 
     return {
       id: user.id,
-      phone: user.phone,
-      email: user.email,
-      lastSeen: user.lastSeen,
+      phone: isRelated ? user.phone : null,
+      lastSeen: isRelated ? user.lastSeen : null,
       profile: user.profile
         ? {
             displayName: user.profile.displayName,

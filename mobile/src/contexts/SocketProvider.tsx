@@ -71,7 +71,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketManager.connect(API_URL, accessToken);
 
     // Register this device for call wake-up push notifications (Android FCM
-    // for now — see CALL_NOTIFICATIONS_PLAN.md). Idempotent upsert, safe to
+    // for now — see docs/CALL_NOTIFICATIONS_PLAN.md). Idempotent upsert, safe to
     // call on every reconnect/token-refresh.
     void registerCallPushToken();
     const unsubscribeTokenRefresh = subscribeToCallPushTokenRefresh();

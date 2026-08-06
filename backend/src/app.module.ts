@@ -6,7 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 // Config
-import { appConfig, jwtConfig, otpConfig } from './config';
+import { appConfig, jwtConfig, otpConfig, turnConfig } from './config';
 
 // Database
 import { PrismaModule } from './prisma';
@@ -29,7 +29,7 @@ import { PushModule } from './modules/push';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, jwtConfig, otpConfig],
+      load: [appConfig, jwtConfig, otpConfig, turnConfig],
       envFilePath: ['.env.local', '.env'],
     }),
     EventEmitterModule.forRoot({ global: true }),

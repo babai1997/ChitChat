@@ -13,6 +13,7 @@ import {
   cancelIncomingCallNotification,
   handleNotifeeCallEvent,
 } from '../services/incomingCallNotification';
+import { getIceServers, type IceServer } from '../api/turn';
 
 // Lazy-load WebRTC to prevent crash on startup if hardware not available
 let RTCPeerConnection: any;
@@ -41,33 +42,43 @@ try {
 
 // ── ICE Config ────────────────────────────────────────────────────────────────
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    {
-      urls: 'turn:global.relay.metered.ca:80',
-      username: 'bfd9bc0f231dcb23a8625d17',
-      credential: 'g65qhBaLA/r80etz',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: 'bfd9bc0f231dcb23a8625d17',
-      credential: 'g65qhBaLA/r80etz',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:443',
-      username: 'bfd9bc0f231dcb23a8625d17',
-      credential: 'g65qhBaLA/r80etz',
-    },
-    {
-      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: 'bfd9bc0f231dcb23a8625d17',
-      credential: 'g65qhBaLA/r80etz',
-    },
-  ],
-};
+// Public-STUN-only fallback used if the backend turn-credentials fetch fails —
+// calls still work between two NAT-friendly peers, just without a TURN relay
+// fallback for symmetric-NAT peers.
+const FALLBACK_ICE_SERVERS: IceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+
+// Logs which ICE candidate type actually carried the call — 'host' (same
+// network), 'srflx' (STUN — direct over the internet), or 'relay' (TURN —
+// routed through the relay server). Lets us see from Metro/device logs alone
+// whether a given call needed the TURN fallback or connected directly.
+// react-native-webrtc's RTCStatsReport is Map-like (has forEach) on modern
+// versions — guard defensively in case a platform returns a plain array instead.
+async function logSelectedCandidateType(pc: any, targetUserId: string) {
+  if (!pc) return;
+  try {
+    const stats = await pc.getStats();
+    const reports: any[] = [];
+    if (typeof stats?.forEach === 'function') {
+      stats.forEach((report: any) => reports.push(report));
+    } else if (Array.isArray(stats)) {
+      reports.push(...stats);
+    }
+
+    const pairStats = reports.find((r) => r.type === 'candidate-pair' && r.state === 'succeeded');
+    if (!pairStats?.localCandidateId) return;
+
+    const localCandidate = reports.find((r) => r.id === pairStats.localCandidateId);
+    const candidateType = localCandidate?.candidateType;
+
+    const via = candidateType === 'relay' ? 'TURN relay' : candidateType === 'srflx' ? 'STUN direct' : candidateType === 'host' ? 'direct (same network)' : candidateType ?? 'unknown';
+    console.log(`[Call] ${targetUserId} connected via ${via} (candidateType: ${candidateType})`);
+  } catch (err) {
+    console.warn('[Call] Failed to read ICE candidate stats:', err);
+  }
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -147,6 +158,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Map of userId → RTCPeerConnection (one per remote participant)
   const peerConnectionsRef = useRef<Map<string, any>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const iceServersRef = useRef<IceServer[]>(FALLBACK_ICE_SERVERS);
   const screenStreamRef = useRef<MediaStream | null>(null);
   /** Guards against overlapping upgradeToVideo() calls from repeated button taps. */
   const upgradingVideoRef = useRef(false);
@@ -359,7 +371,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (targetUserId: string, isInitiator: boolean, stream: MediaStream) => {
       console.log(`[Call] Creating PC for ${targetUserId} (initiator: ${isInitiator})`);
 
-      const pc = new RTCPeerConnection(ICE_SERVERS as any);
+      const pc = new RTCPeerConnection({ iceServers: iceServersRef.current } as any);
       peerConnectionsRef.current.set(targetUserId, pc);
 
       // Add all local tracks to this peer connection
@@ -413,6 +425,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (pc as any).onconnectionstatechange = () => {
         const state = (pc as any).connectionState;
         console.log(`[Call] PC state for ${targetUserId}:`, state);
+        if (state === 'connected') {
+          logSelectedCandidateType(pc, targetUserId);
+        }
         if (state === 'failed' || state === 'disconnected') {
           removePeer();
         }
@@ -760,8 +775,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Fired at the start of every call-entry path, in parallel with getUserMedia
+  // — by the time signaling produces the first createPeerConnection() call,
+  // this has almost always already resolved. Falls back to STUN-only on failure.
+  const refreshIceServers = () => {
+    getIceServers()
+      .then((iceServers) => {
+        iceServersRef.current = iceServers;
+      })
+      .catch((err) => {
+        console.error('[Call] Failed to fetch TURN credentials, using STUN-only fallback:', err);
+      });
+  };
+
   const startCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
+      refreshIceServers();
       await requestPermissions();
 
       setCallType(type);
@@ -839,6 +868,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      refreshIceServers();
       await requestPermissions();
 
       setCallStatus('calling');
@@ -1138,6 +1168,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
     try {
+      refreshIceServers();
       await requestPermissions();
 
       setCallType(type);

@@ -140,11 +140,21 @@ export class AuthService {
 
     const googleUser = await this.verifyGoogleToken(dto.idToken);
 
+    // Only trust the email claim for account linkage if Google itself has
+    // verified that email — otherwise an attacker could claim an arbitrary
+    // unverified email (e.g. via an unverified Workspace domain) and get
+    // linked to an existing account that owns that address. An unverified
+    // email can still identify a *new* signup, it just can't be used to
+    // attach to someone else's existing account.
+    const canLinkByEmail = Boolean(
+      googleUser.email && googleUser.emailVerified,
+    );
+
     // Find or create user
     let user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { email: googleUser.email },
+          ...(canLinkByEmail ? [{ email: googleUser.email }] : []),
           {
             authProviders: {
               some: {
@@ -164,7 +174,10 @@ export class AuthService {
       isNewUser = true;
       user = await this.prisma.user.create({
         data: {
-          email: googleUser.email,
+          // Same reasoning as above — don't persist an unverified email as
+          // this account's address, since that could squat on someone else's
+          // real address and block their own future signup/linking.
+          email: googleUser.emailVerified ? googleUser.email : null,
           isVerified: true,
           authProviders: {
             create: {
@@ -221,6 +234,7 @@ export class AuthService {
   private async verifyGoogleToken(idToken: string): Promise<{
     sub: string;
     email?: string;
+    emailVerified: boolean;
     name?: string;
     picture?: string;
   }> {
@@ -230,15 +244,25 @@ export class AuthService {
       if (this.googleAndroidClientId)
         audiences.push(this.googleAndroidClientId);
 
+      // Fail closed: without a configured client ID, google-auth-library skips
+      // the `aud` check entirely, meaning a validly-signed ID token from ANY
+      // Google OAuth client — not just this app's — would be accepted.
+      if (audiences.length === 0) {
+        throw new BadRequestException(
+          'Google sign-in is not configured (missing GOOGLE_CLIENT_ID/GOOGLE_ANDROID_CLIENT_ID)',
+        );
+      }
+
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
-        audience: audiences.length > 0 ? audiences : undefined,
+        audience: audiences,
       });
 
       const payload = ticket.getPayload() as
         | {
             sub: string;
             email?: string;
+            email_verified?: boolean;
             name?: string;
             picture?: string;
           }
@@ -251,6 +275,7 @@ export class AuthService {
       return {
         sub: payload.sub,
         email: payload.email,
+        emailVerified: payload.email_verified === true,
         name: payload.name,
         picture: payload.picture,
       };
