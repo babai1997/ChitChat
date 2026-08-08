@@ -57,7 +57,13 @@ async function resolveFetchedMessages(chatId: string, fetched: Message[]): Promi
     const prev = existingById.get(m.id);
     if (prev && prev.content !== null) {
       m.content = prev.content;
-    } else if (m.cipher) {
+    } else {
+      // Don't gate on `m.cipher` here — a device never gets a cipher for its
+      // own sent messages (see resolveSessionsForMembers), so own messages
+      // always have cipher: null. decryptMessagesInPlace already checks the
+      // plaintext cache first (seeded at send time) and falls back to the
+      // right placeholder when a cipher is genuinely missing/undecryptable —
+      // skipping this push for cipher-less messages just left them blank.
       toDecrypt.push(m);
     }
   });

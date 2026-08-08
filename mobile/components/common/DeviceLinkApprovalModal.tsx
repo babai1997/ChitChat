@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Laptop, Smartphone } from 'lucide-react-native';
+import { Laptop, Smartphone, X } from 'lucide-react-native';
 import { useDeviceLinkStore } from '../../src/stores/useDeviceLinkStore';
 import { approveDeviceLink, declineDeviceLink } from '../../src/services/deviceLinkSync';
 import { COLORS } from '../../src/theme/colors';
@@ -59,6 +59,16 @@ export default function DeviceLinkApprovalModal() {
     <Modal visible transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.card}>
+          {/* Escape hatch if approve/decline keeps failing (e.g. no network) —
+              this only clears local UI state; the request itself is untouched
+              and can still be handled later from Settings > Linked Devices. */}
+          <TouchableOpacity
+            onPress={clearPendingLinkRequest}
+            disabled={isBusy}
+            style={[styles.closeBtn, isBusy && { opacity: 0.4 }]}
+          >
+            <X size={18} color={COLORS.textSecondary} />
+          </TouchableOpacity>
           <Icon size={40} color={COLORS.accent} />
           <Text style={styles.title}>New device wants to link</Text>
           <Text style={styles.body}>
@@ -95,6 +105,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
+    position: 'relative',
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 24,
@@ -103,6 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  closeBtn: { position: 'absolute', top: 10, right: 10, padding: 4, zIndex: 1 },
   title: { fontSize: 18, fontWeight: '500', color: COLORS.textPrimary, textAlign: 'center' },
   body: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 12, marginTop: 8, width: '100%' },
