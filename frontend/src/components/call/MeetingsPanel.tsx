@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Copy, Loader2, Trash2, Users, Video } from 'lucide-react';
+import { Check, Copy, Loader2, Pencil, Trash2, Users, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { meetingsApi, type MyMeeting } from '../../api';
 
@@ -72,15 +72,32 @@ export const MeetingsPanel = () => {
   }, []);
 
   const handleCreateMeeting = async () => {
+    const name = window.prompt('Meeting name (optional):');
+    if (name === null) return; // cancelled
     setIsCreating(true);
     try {
-      const { slug } = await meetingsApi.create();
+      const { slug } = await meetingsApi.create(name.trim() || undefined);
       navigate(`/meet/${slug}`);
     } catch (err) {
       console.error('Failed to create meeting:', err);
       toast.error('Failed to create meeting');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRename = async (slug: string, currentName: string | null) => {
+    const name = window.prompt('Rename meeting:', currentName ?? '');
+    if (name === null || !name.trim() || name.trim() === currentName) return;
+    setActioningSlug(slug);
+    try {
+      await meetingsApi.rename(slug, name.trim());
+      await loadMine();
+    } catch (err) {
+      console.error('Failed to rename meeting:', err);
+      toast.error('Failed to rename meeting');
+    } finally {
+      setActioningSlug(null);
     }
   };
 
@@ -199,6 +216,14 @@ export const MeetingsPanel = () => {
                 </div>
               </div>
               <CopyButton slug={m.slug} />
+              <button
+                onClick={() => handleRename(m.slug, m.name)}
+                disabled={actioningSlug === m.slug}
+                title="Rename"
+                style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '6px' }}
+              >
+                <Pencil size={16} />
+              </button>
               <button
                 onClick={() => navigate(`/meet/${m.slug}`)}
                 title="Join"

@@ -18,6 +18,7 @@ import { usersApi, chatApi } from '../src/api';
 import type { Profile, UserWithProfile } from '../src/types';
 import { useChatStore } from '../src/stores/chatStore';
 import { useRouter } from 'expo-router';
+import { COLORS } from '../src/theme/colors';
 
 type ScreenView = 'list' | 'group-details';
 
@@ -251,7 +252,7 @@ export default function NewChatScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <ArrowLeft size={24} color="#e9edef" />
+            <ArrowLeft size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>New Group</Text>
         </View>
@@ -264,7 +265,7 @@ export default function NewChatScreen() {
           <TextInput
             style={styles.groupNameInput}
             placeholder="Group name"
-            placeholderTextColor="#8696a0"
+            placeholderTextColor={COLORS.textSecondary}
             value={groupName}
             onChangeText={setGroupName}
             autoFocus
@@ -301,7 +302,7 @@ export default function NewChatScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <X size={24} color="#e9edef" />
+            <X size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>New Chat</Text>
@@ -313,21 +314,21 @@ export default function NewChatScreen() {
 
         {/* Search bar */}
         <View style={styles.searchContainer}>
-          <Search size={18} color="#8696a0" style={styles.searchIcon} />
+          <Search size={18} color={COLORS.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search name or phone number"
-            placeholderTextColor="#8696a0"
+            placeholderTextColor={COLORS.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
           />
           {isSearching ? (
-            <ActivityIndicator size="small" color="#8696a0" />
+            <ActivityIndicator size="small" color={COLORS.textSecondary} />
           ) : searchQuery.length > 0 ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={16} color="#8696a0" />
+              <X size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -349,12 +350,12 @@ export default function NewChatScreen() {
         {/* Hint banner */}
         {showGroupHint && selectedUsers.length < 2 && (
           <View style={styles.groupHintBanner}>
-            <Users size={15} color="#00a884" />
+            <Users size={15} color={COLORS.accent} />
             <Text style={styles.groupHintText}>
               Select 2 or more contacts to create a group
             </Text>
             <TouchableOpacity onPress={() => setShowGroupHint(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X size={14} color="#8696a0" />
+              <X size={14} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
@@ -368,7 +369,7 @@ export default function NewChatScreen() {
           ListEmptyComponent={
             contacts.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Users size={48} color="#2a3942" />
+                <Users size={48} color={COLORS.border} />
                 <Text style={styles.emptyText}>No contacts yet</Text>
                 <Text style={styles.emptySubtext}>Search to start a new chat</Text>
               </View>
@@ -415,14 +416,14 @@ export default function NewChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
   },
   backBtn: {
     marginRight: 16,
@@ -430,17 +431,17 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     margin: 12,
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -451,16 +452,16 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: 10,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 15,
   },
   sectionHeader: {
-    backgroundColor: '#1f2c34',
+    backgroundColor: COLORS.surfaceElevated,
     paddingHorizontal: 16,
     paddingVertical: 5,
   },
   sectionHeaderText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   userItemSelected: {
-    backgroundColor: '#182229',
+    backgroundColor: COLORS.bgDeepest,
   },
   avatarContainer: {
     marginRight: 14,
@@ -490,7 +491,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#6a7f8a',
+    backgroundColor: COLORS.textTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -505,19 +506,19 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 15,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 2,
   },
   userAbout: {
     fontSize: 13,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#3b4a54',
+    borderColor: COLORS.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -525,7 +526,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -535,13 +536,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   newGroupIconCircle: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -549,7 +550,7 @@ const styles = StyleSheet.create({
   newGroupRowText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
   },
   groupHintBanner: {
     flexDirection: 'row',
@@ -557,14 +558,14 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#182229',
+    backgroundColor: COLORS.bgDeepest,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   groupHintText: {
     flex: 1,
     fontSize: 13,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -572,24 +573,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 16,
     marginTop: 16,
   },
   emptySubtext: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 13,
     marginTop: 4,
   },
   actionBar: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
-    borderTopColor: '#2a3942',
+    borderTopColor: COLORS.border,
   },
   actionBtn: {
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 24,
     paddingVertical: 13,
     paddingHorizontal: 24,
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtnDisabled: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
   },
   actionBtnText: {
     color: 'white',
@@ -612,21 +613,21 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   groupMembersPreview: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 13,
     marginBottom: 24,
     lineHeight: 18,
   },
   groupNameInput: {
     borderBottomWidth: 2,
-    borderBottomColor: '#00a884',
+    borderBottomColor: COLORS.accent,
     paddingVertical: 8,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 18,
     marginBottom: 32,
   },
   createGroupBtn: {
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 24,
     paddingVertical: 13,
     flexDirection: 'row',
@@ -635,7 +636,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   createGroupBtnDisabled: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
   },
   createGroupBtnText: {
     color: 'white',

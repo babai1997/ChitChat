@@ -3,6 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Ale
 import { Laptop, Smartphone } from 'lucide-react-native';
 import { useDeviceLinkStore } from '../../src/stores/useDeviceLinkStore';
 import { approveDeviceLink, declineDeviceLink } from '../../src/services/deviceLinkSync';
+import { COLORS } from '../../src/theme/colors';
 
 function platformLabel(platform?: string) {
   if (platform === 'ios') return 'an iPhone';
@@ -58,7 +59,7 @@ export default function DeviceLinkApprovalModal() {
     <Modal visible transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Icon size={40} color="#00a884" />
+          <Icon size={40} color={COLORS.accent} />
           <Text style={styles.title}>New device wants to link</Text>
           <Text style={styles.body}>
             {platformLabel(pendingLinkRequest.platform)} is asking to link to your account. Approving
@@ -67,13 +68,13 @@ export default function DeviceLinkApprovalModal() {
           <View style={styles.actions}>
             <TouchableOpacity disabled={isBusy} onPress={handleDecline} style={[styles.declineBtn, isApproving && { opacity: 0.5 }]}>
               {isBusy && !isApproving ? (
-                <ActivityIndicator size="small" color="#e9edef" />
+                <ActivityIndicator size="small" color={COLORS.textPrimary} />
               ) : (
                 <Text style={styles.declineBtnText}>Decline</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity disabled={isBusy} onPress={handleApprove} style={[styles.approveBtn, isBusy && !isApproving && { opacity: 0.5 }]}>
-              {isApproving ? <ActivityIndicator size="small" color="#0b141a" /> : <Text style={styles.approveBtnText}>Approve</Text>}
+              {isApproving ? <ActivityIndicator size="small" color={COLORS.bgDeepest} /> : <Text style={styles.approveBtnText}>Approve</Text>}
             </TouchableOpacity>
           </View>
           {isApproving && (
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 24,
     width: '100%',
@@ -102,25 +103,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  title: { fontSize: 18, fontWeight: '500', color: '#e9edef', textAlign: 'center' },
-  body: { fontSize: 14, color: '#8696a0', textAlign: 'center' },
+  title: { fontSize: 18, fontWeight: '500', color: COLORS.textPrimary, textAlign: 'center' },
+  body: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 12, marginTop: 8, width: '100%' },
   declineBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#8696a0',
+    borderColor: COLORS.textSecondary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  declineBtnText: { color: '#e9edef', fontSize: 15 },
+  declineBtnText: { color: COLORS.textPrimary, fontSize: 15 },
   approveBtn: {
     flex: 1,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  approveBtnText: { color: '#0b141a', fontSize: 15, fontWeight: '600' },
-  note: { fontSize: 12.5, color: '#8696a0', textAlign: 'center' },
+  approveBtnText: { color: COLORS.bgDeepest, fontSize: 15, fontWeight: '600' },
+  note: { fontSize: 12.5, color: COLORS.textSecondary, textAlign: 'center' },
 });

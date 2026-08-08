@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   X,
   User,
@@ -44,6 +45,7 @@ export const GroupInfoModal = ({
   onAddMember,
   onOpenGallery,
 }: GroupInfoModalProps) => {
+  const navigate = useNavigate();
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
@@ -412,6 +414,13 @@ export const GroupInfoModal = ({
                       {linkCopied ? <Check size={18} /> : <Copy size={18} />}
                     </button>
                   </div>
+                  <button
+                    onClick={() => { onClose(); navigate(`/meet/${meetingLink.slug}`); }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", background: "var(--color-accent)", border: "none", borderRadius: "8px", color: "var(--color-white)", cursor: "pointer", padding: "10px 0", marginTop: "10px", fontSize: "14px", fontWeight: 500 }}
+                  >
+                    <Video size={16} />
+                    Join meeting
+                  </button>
                   {meetingLink.isHost && (
                     <button
                       onClick={handleRevokeMeetingLink}

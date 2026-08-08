@@ -2,6 +2,7 @@ import { View, Text, Image, StyleSheet } from "react-native";
 import { FileText, Image as ImageIcon, Mic, Video as VideoIcon } from "lucide-react-native";
 import { useReplyPreviewSource } from "../../src/hooks/useReplyPreviewSource";
 import type { MessageReplyPreview } from "../../src/types";
+import { COLORS } from '../../src/theme/colors';
 
 /**
  * The content row of a reply quote — icon/thumbnail + label — shared by
@@ -30,16 +31,16 @@ export function ReplyPreviewLine({
         {source.thumbnailUri ? (
           <Image source={{ uri: source.thumbnailUri }} style={styles.thumbImage} resizeMode="cover" />
         ) : source.kind === "image" ? (
-          <ImageIcon size={iconSize} color="#8696a0" />
+          <ImageIcon size={iconSize} color={COLORS.textSecondary} />
         ) : (
-          <VideoIcon size={iconSize} color="#8696a0" />
+          <VideoIcon size={iconSize} color={COLORS.textSecondary} />
         )}
       </View>
     );
   } else if (source.kind === "audio") {
-    media = <Mic size={iconSize} color="#8696a0" />;
+    media = <Mic size={iconSize} color={COLORS.textSecondary} />;
   } else if (source.kind === "file") {
-    media = <FileText size={iconSize} color="#8696a0" />;
+    media = <FileText size={iconSize} color={COLORS.textSecondary} />;
   }
 
   return (
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   thumbImage: { width: "100%", height: "100%" },
-  text: { fontSize: 12.5, color: "rgba(233,237,239,0.75)", flexShrink: 1 },
-  textDeleted: { color: "#8696a0", fontStyle: "italic" },
+  text: { fontSize: 12.5, color: "rgba(240, 238, 247,0.75)", flexShrink: 1 },
+  textDeleted: { color: COLORS.textSecondary, fontStyle: "italic" },
 });

@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
-import { MessageCircle, Phone, Settings } from 'lucide-react-native';
+import { MessageCircle, Phone, Settings, CircleDashed } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, View } from 'react-native';
 import MiniCallScreen from '../../components/call/MiniCallScreen';
+import { COLORS } from '../../src/theme/colors';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
@@ -13,14 +14,14 @@ export default function MainLayout() {
         screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#202c33',
-          borderTopColor: '#2a3942',
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border,
           height: Platform.OS === 'ios' ? 88 : 60 + insets.bottom,
           paddingBottom: Platform.OS === 'ios' ? 28 : insets.bottom + 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#00a884',
-        tabBarInactiveTintColor: '#8696a0',
+        tabBarActiveTintColor: COLORS.accent,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '500',
@@ -42,6 +43,13 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
+        name="status"
+        options={{
+          title: 'Status',
+          tabBarIcon: ({ color, size }) => <CircleDashed size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
@@ -59,6 +67,22 @@ export default function MainLayout() {
       {/* Hide the call-info/[id] dynamic route from the tab bar */}
       <Tabs.Screen
         name="call-info/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      {/* Hide the linked-devices route from the tab bar — pushed from Settings, not a top-level tab */}
+      <Tabs.Screen
+        name="linked-devices"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      {/* Hide the meet/[slug] dynamic route from the tab bar */}
+      <Tabs.Screen
+        name="meet/[slug]"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },

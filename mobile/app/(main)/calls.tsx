@@ -24,6 +24,7 @@ import { useCall } from '../../src/contexts/CallContext';
 import { chatApi } from '../../src/api';
 import { useRouter, useFocusEffect } from 'expo-router';
 import MeetingsPanel from '../../components/call/MeetingsPanel';
+import { COLORS } from '../../src/theme/colors';
 
 interface CallRecord {
   id: string;
@@ -164,12 +165,12 @@ export default function CallsScreen() {
 
   const getCallIcon = (record: CallRecord) => {
     if (record.direction === 'missed') {
-      return <PhoneMissed size={16} color="#ef4444" />;
+      return <PhoneMissed size={16} color={COLORS.danger} />;
     }
     if (record.direction === 'outgoing') {
-      return <PhoneOutgoing size={16} color="#00a884" />;
+      return <PhoneOutgoing size={16} color={COLORS.accent} />;
     }
-    return <PhoneIncoming size={16} color="#53bdeb" />;
+    return <PhoneIncoming size={16} color={COLORS.info} />;
   };
 
   const renderItem = ({ item }: { item: CallRecord }) => (
@@ -188,7 +189,7 @@ export default function CallsScreen() {
           <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder}>
-            <User size={22} color="#8696a0" />
+            <User size={22} color={COLORS.textSecondary} />
           </View>
         )}
       </View>
@@ -202,7 +203,7 @@ export default function CallsScreen() {
             {item.direction === 'missed' ? 'Missed' :
              item.direction === 'outgoing' ? 'Outgoing' : 'Incoming'}
           </Text>
-          {item.type === 'video' && <Video size={12} color="#8696a0" style={{ marginLeft: 4 }} />}
+          {item.type === 'video' && <Video size={12} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />}
           <Text style={styles.callTime}> · {formatTime(item.time)}</Text>
         </View>
       </View>
@@ -215,9 +216,9 @@ export default function CallsScreen() {
         activeOpacity={0.7}
       >
         {item.type === 'video' ? (
-          <Video size={22} color="#00a884" />
+          <Video size={22} color={COLORS.accent} />
         ) : (
-          <Phone size={22} color="#00a884" />
+          <Phone size={22} color={COLORS.accent} />
         )}
       </TouchableOpacity>
     </View>
@@ -232,7 +233,7 @@ export default function CallsScreen() {
 
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#00a884" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
         </View>
       ) : callRecords.length > 0 ? (
         <FlatList
@@ -245,8 +246,8 @@ export default function CallsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#00a884"
-              colors={['#00a884']}
+              tintColor={COLORS.accent}
+              colors={[COLORS.accent]}
             />
           }
         />
@@ -255,7 +256,7 @@ export default function CallsScreen() {
           <MeetingsPanel />
           <View style={styles.centerContainer}>
             <View style={styles.emptyIconWrapper}>
-              <Phone size={48} color="#8696a0" />
+              <Phone size={48} color={COLORS.textSecondary} />
             </View>
             <Text style={styles.emptyTitle}>No recent calls</Text>
             <Text style={styles.emptySubtext}>
@@ -271,7 +272,7 @@ export default function CallsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
   },
   centerContainer: {
     flex: 1,
@@ -285,14 +286,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
   },
   emptyScroll: {
     flex: 1,
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   avatarContainer: {
     marginRight: 14,
@@ -317,7 +318,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
   callerName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   callMeta: {
@@ -337,15 +338,15 @@ const styles = StyleSheet.create({
   },
   callDirection: {
     fontSize: 13,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     marginLeft: 4,
   },
   missedText: {
-    color: '#ef4444',
+    color: COLORS.danger,
   },
   callTime: {
     fontSize: 13,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
   },
   callbackBtn: {
     padding: 10,
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -362,12 +363,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },

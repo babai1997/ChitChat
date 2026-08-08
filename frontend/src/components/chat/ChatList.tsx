@@ -1,4 +1,5 @@
-import { User, Check, CheckCheck, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { User, Check, CheckCheck, Clock, MoreVertical, Trash2 } from 'lucide-react';
 import type { Chat } from '../../types';
 import { isE2eePlaceholder } from '../../services/e2eeSessions';
 
@@ -6,13 +7,16 @@ interface ChatListProps {
   chats: Chat[];
   activeChat: Chat | null;
   onChatSelect: (chat: Chat) => void;
+  onDeleteChat?: (chat: Chat) => void;
   currentUserId: string;
 }
 
 import { useChatStore } from '../../stores/chatStore';
 
-export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: ChatListProps) => {
+export const ChatList = ({ chats, activeChat, onChatSelect, onDeleteChat, currentUserId }: ChatListProps) => {
   const { onlineUsers } = useChatStore();
+  const [menuOpenChatId, setMenuOpenChatId] = useState<string | null>(null);
+  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
 
   const getChatName = (chat: Chat) => {
     if (chat.type === 'direct') {
@@ -101,12 +105,23 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
   };
 
 
+  const handleDeleteClick = (e: React.MouseEvent, chat: Chat) => {
+    e.stopPropagation();
+    setMenuOpenChatId(null);
+    const who = chat.type === 'direct' ? 'the other person' : 'other participants';
+    if (!window.confirm(`Delete this chat? It will be removed from your chat list, but not for ${who}.`)) return;
+    onDeleteChat?.(chat);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {chats.map((chat) => (
-        <button
+        <div
           key={chat.id}
+          role="button"
+          tabIndex={0}
           onClick={() => onChatSelect(chat)}
+          onKeyDown={(e) => { if (e.key === 'Enter') onChatSelect(chat); }}
           style={{
             width: '100%',
             padding: '14px 16px',
@@ -118,12 +133,15 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
             borderBottom: '1px solid var(--color-surface)',
             cursor: 'pointer',
             textAlign: 'left',
-            transition: 'background-color 0.2s ease'
+            transition: 'background-color 0.2s ease',
+            position: 'relative',
           }}
-          onMouseOver={(e) => {
+          onMouseEnter={(e) => {
+            setHoveredChatId(chat.id);
             if (activeChat?.id !== chat.id) e.currentTarget.style.backgroundColor = 'var(--color-surface)';
           }}
-          onMouseOut={(e) => {
+          onMouseLeave={(e) => {
+            setHoveredChatId((id) => (id === chat.id ? null : id));
             if (activeChat?.id !== chat.id) e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
@@ -184,7 +202,51 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
               )}
             </div>
           </div>
-        </button>
+
+          {onDeleteChat && (
+            <div
+              style={{
+                position: 'relative',
+                flexShrink: 0,
+                visibility: hoveredChatId === chat.id || menuOpenChatId === chat.id ? 'visible' : 'hidden',
+              }}
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpenChatId(menuOpenChatId === chat.id ? null : chat.id); }}
+                title="Chat options"
+                style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '4px' }}
+              >
+                <MoreVertical size={18} />
+              </button>
+              {menuOpenChatId === chat.id && (
+                <>
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpenChatId(null); }}
+                  />
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute', top: '32px', right: 0, zIndex: 99,
+                      backgroundColor: 'var(--color-surface-hover)', borderRadius: '8px',
+                      boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                      minWidth: '160px', overflow: 'hidden',
+                    }}
+                  >
+                    {/* More per-chat actions (pin, archive) will join this menu later. */}
+                    <button
+                      onClick={(e) => handleDeleteClick(e, chat)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', backgroundColor: 'transparent', border: 'none', color: 'var(--color-danger)', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={15} />
+                      Delete chat
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );

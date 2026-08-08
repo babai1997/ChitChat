@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { useChatStore } from '../../src/stores/chatStore';
+import { COLORS } from '../../src/theme/colors';
 
 interface OnlineStatusProps {
   userId: string;
@@ -41,11 +42,11 @@ export default function OnlineStatus({ userId }: OnlineStatusProps) {
 
 const styles = StyleSheet.create({
   online: {
-    color: '#00a884',
+    color: COLORS.accent,
     fontSize: 12,
   },
   offline: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 12,
   },
 });

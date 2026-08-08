@@ -4,6 +4,7 @@ import { FileText } from "lucide-react-native";
 import { parseAttachmentDescriptor, decryptAttachmentToLocalUri } from "../../src/services/e2eeAttachments";
 import AudioPlayer from "./AudioPlayer";
 import type { Message } from "../../src/types";
+import { COLORS } from '../../src/theme/colors';
 
 /**
  * Renders an encrypted image/audio/video/file message — the counterpart to
@@ -60,7 +61,7 @@ export function EncryptedAttachment({
   if (!localUri) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator size="small" color="#8696a0" />
+        <ActivityIndicator size="small" color={COLORS.textSecondary} />
         <Text style={styles.loadingText}>Decrypting…</Text>
       </View>
     );
@@ -82,7 +83,7 @@ export function EncryptedAttachment({
   // component exists yet on mobile, matching the pre-Phase-3 plaintext path).
   return (
     <View style={styles.fileAttach}>
-      <FileText size={24} color={isOwn ? "#e9edef" : "#8696a0"} />
+      <FileText size={24} color={isOwn ? COLORS.textPrimary : COLORS.textSecondary} />
       <Text style={styles.fileName} numberOfLines={1}>
         {descriptor.fileName}
       </Text>
@@ -100,9 +101,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: 210,
   },
-  fileName: { color: "#e9edef", marginLeft: 8, fontSize: 14, flex: 1 },
+  fileName: { color: COLORS.textPrimary, marginLeft: 8, fontSize: 14, flex: 1 },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 8 },
-  loadingText: { color: "#8696a0", fontSize: 13 },
-  placeholder: { color: "#8696a0", fontSize: 13, fontStyle: "italic" },
-  error: { color: "#ef4444", fontSize: 13 },
+  loadingText: { color: COLORS.textSecondary, fontSize: 13 },
+  placeholder: { color: COLORS.textSecondary, fontSize: 13, fontStyle: "italic" },
+  error: { color: COLORS.danger, fontSize: 13 },
 });

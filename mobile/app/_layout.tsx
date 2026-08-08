@@ -1,3 +1,4 @@
+import { COLORS } from '../src/theme/colors';
 // Suppress react-native-webrtc internal debug logs (rn-webrtc:pc:DEBUG getStats spam)
 try { require('debug').disable(); } catch {}
 
@@ -17,8 +18,8 @@ function ReconnectBanner() {
   const { isReconnecting } = useSocketContext();
   if (!isReconnecting) return null;
   return (
-    <View style={{ backgroundColor: '#2a3942', paddingVertical: 5, alignItems: 'center' }}>
-      <Text style={{ color: '#e9edef', fontSize: 12 }}>⟳ Reconnecting…</Text>
+    <View style={{ backgroundColor: COLORS.border, paddingVertical: 5, alignItems: 'center' }}>
+      <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>⟳ Reconnecting…</Text>
     </View>
   );
 }
@@ -74,8 +75,8 @@ export default function RootLayout() {
 
   if (!hydrated) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#111b21', justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#00a884', fontSize: 18 }}>Loading...</Text>
+      <View style={{ flex: 1, backgroundColor: COLORS.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: COLORS.accent, fontSize: 18 }}>Loading...</Text>
       </View>
     );
   }
@@ -86,7 +87,7 @@ export default function RootLayout() {
       <SocketProvider>
         <CallProvider>
           <ReconnectBanner />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#111b21' }, animation: 'slide_from_right' }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg }, animation: 'slide_from_right' }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(main)" options={{ headerShown: false }} />
           </Stack>

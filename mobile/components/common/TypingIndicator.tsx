@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { COLORS } from '../../src/theme/colors';
 
 interface TypingIndicatorProps {
   names: string[];
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bubble: {
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     borderTopLeftRadius: 4,
     paddingHorizontal: 12,
@@ -89,10 +90,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#8696a0',
+    backgroundColor: COLORS.textSecondary,
   },
   label: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontStyle: 'italic',
   },

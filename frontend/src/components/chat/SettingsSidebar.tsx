@@ -62,15 +62,17 @@ export const SettingsSidebar = ({ onBack }: SettingsSidebarProps) => {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Profile Card */}
-        <div 
+        <div
           onClick={() => navigate('/setup-profile')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            padding: '28px 16px', 
-            cursor: 'pointer'
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '28px 16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.15s ease',
           }}
-          className="hover:bg-[var(--color-surface)] transition-colors"
+          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-surface)'}
+          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           <div style={{ width: '82px', height: '82px', borderRadius: '50%', overflow: 'hidden', marginRight: '16px', flexShrink: 0 }}>
              <img 
@@ -102,21 +104,23 @@ export const SettingsSidebar = ({ onBack }: SettingsSidebarProps) => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '18px 24px',
+                padding: '0 24px',
                 background: 'none',
                 border: 'none',
                 width: '100%',
                 textAlign: 'left',
                 cursor: 'pointer',
-                color: 'var(--color-text-primary)'
+                color: 'var(--color-text-primary)',
+                transition: 'background-color 0.15s ease',
               }}
-              className="hover:bg-[var(--color-surface)] transition-colors"
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-surface)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              <div style={{ color: 'var(--color-text-secondary)', marginRight: '24px' }}>
-                <item.icon size={24} />
+              <div style={{ width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', marginRight: '24px', flexShrink: 0 }}>
+                <item.icon size={22} />
               </div>
-              <div style={{ flex: 1, borderBottom: '1px solid var(--color-surface)', paddingBottom: '18px', paddingTop: '4px' }}>
-                <div style={{ fontSize: '17px', marginBottom: '4px', color: 'var(--color-text-primary)' }}>{item.label}</div>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', minHeight: '24px', borderBottom: '1px solid var(--color-surface)', padding: '18px 0' }}>
+                <div style={{ fontSize: '17px', color: 'var(--color-text-primary)' }}>{item.label}</div>
               </div>
             </button>
           ))}

@@ -35,6 +35,7 @@ import TypingIndicator from '../../../components/common/TypingIndicator';
 import OnlineStatus from '../../../components/common/OnlineStatus';
 import ActiveCallScreen from '../../../components/call/ActiveCallScreen';
 import { MessageListSkeleton } from '../../../components/common/SkeletonLoader';
+import { COLORS } from '../../../src/theme/colors';
 
 const PAGE_SIZE = 50;
 
@@ -339,7 +340,7 @@ export default function ChatRoomScreen() {
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={24} color="#e9edef" />
+            <ArrowLeft size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={styles.centerContainer}>
@@ -362,7 +363,7 @@ export default function ChatRoomScreen() {
         {/* Header — inside KAV so it stays pinned at top when keyboard opens */}
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={24} color="#e9edef" />
+            <ArrowLeft size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -374,7 +375,7 @@ export default function ChatRoomScreen() {
               <Image source={{ uri: avatar }} style={styles.headerAvatar} />
             ) : (
               <View style={styles.headerAvatarPlaceholder}>
-                <User size={20} color="#8696a0" />
+                <User size={20} color={COLORS.textSecondary} />
               </View>
             )}
             <View style={styles.headerTextContainer}>
@@ -391,29 +392,34 @@ export default function ChatRoomScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerActionBtn}
-              onPress={() => handleStartCall('video')}
-            >
-              <Video size={22} color="#aebac1" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerActionBtn}
-              onPress={() => handleStartCall('audio')}
-            >
-              <Phone size={20} color="#aebac1" />
-            </TouchableOpacity>
+            {chat.type !== 'meeting' && (
+              <>
+                <TouchableOpacity
+                  style={styles.headerActionBtn}
+                  onPress={() => handleStartCall('video')}
+                >
+                  <Video size={22} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.headerActionBtn}
+                  onPress={() => handleStartCall('audio')}
+                >
+                  <Phone size={20} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity
               style={styles.headerActionBtn}
               onPress={() => setShowActionSheet(true)}
             >
-              <MoreVertical size={22} color="#aebac1" />
+              <MoreVertical size={22} color={COLORS.textTertiary} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Ongoing call banner */}
         {(() => {
+          if (chat.type === 'meeting') return null;
           const ongoing = ongoingCallsByChatId.get(chatId);
           if (!ongoing || callStatus !== 'idle') return null;
           return (
@@ -424,8 +430,8 @@ export default function ChatRoomScreen() {
             >
               <View style={styles.ongoingBannerIcon}>
                 {ongoing.type === 'video'
-                  ? <Video size={16} color="#fff" />
-                  : <Phone size={16} color="#fff" />}
+                  ? <Video size={16} color={COLORS.white} />
+                  : <Phone size={16} color={COLORS.white} />}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ongoingBannerTitle}>
@@ -457,7 +463,7 @@ export default function ChatRoomScreen() {
               onScrollToIndexFailed={handleScrollToIndexFailed}
               ListFooterComponent={
                 isLoadingMore ? (
-                  <ActivityIndicator size="small" color="#8696a0" style={{ padding: 16 }} />
+                  <ActivityIndicator size="small" color={COLORS.textSecondary} style={{ padding: 16 }} />
                 ) : !hasMoreRef.current && chat?.type === 'group' ? (
                   <GroupCreatedCard
                     chat={chat}
@@ -512,7 +518,7 @@ export default function ChatRoomScreen() {
               style={[styles.actionSheetItem, styles.actionSheetCancel]}
               onPress={() => setShowActionSheet(false)}
             >
-              <Text style={[styles.actionSheetItemText, { color: '#8696a0' }]}>Cancel</Text>
+              <Text style={[styles.actionSheetItemText, { color: COLORS.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -566,8 +572,8 @@ export default function ChatRoomScreen() {
               onChangeText={setEditText}
               multiline
               autoFocus
-              placeholderTextColor="#8696a0"
-              selectionColor="#00a884"
+              placeholderTextColor={COLORS.textSecondary}
+              selectionColor={COLORS.accent}
             />
             <View style={styles.editActions}>
               <TouchableOpacity
@@ -594,11 +600,11 @@ export default function ChatRoomScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
   },
   innerContainer: {
     flex: 1,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
   },
   centerContainer: {
     flex: 1,
@@ -613,9 +619,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     paddingVertical: 8,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   backButton: {
     padding: 10,
@@ -636,7 +642,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -647,11 +653,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     marginTop: 1,
   },
   headerActions: {
@@ -663,7 +669,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: '#0b141a',
+    backgroundColor: COLORS.bgDeepest,
   },
   messagesList: {
     paddingHorizontal: 16,
@@ -676,7 +682,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   dateSeparator: {
-    backgroundColor: '#182229',
+    backgroundColor: COLORS.bgDeepest,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -687,12 +693,12 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
   },
   dateSeparatorText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '500',
   },
   emptyText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 16,
   },
   // Edit modal
@@ -705,21 +711,21 @@ const styles = StyleSheet.create({
   },
   editCard: {
     width: '100%',
-    backgroundColor: '#233138',
+    backgroundColor: COLORS.surfaceHover,
     borderRadius: 16,
     padding: 20,
   },
   editTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 16,
   },
   editInput: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     borderRadius: 10,
     padding: 12,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 15,
     minHeight: 80,
     textAlignVertical: 'top',
@@ -736,7 +742,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   editCancelText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 15,
     fontWeight: '500',
   },
@@ -744,7 +750,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
   },
   editSaveText: {
     color: 'white',
@@ -757,7 +763,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionSheetContainer: {
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingBottom: 24,
@@ -767,7 +773,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   actionSheetCancel: {
     borderBottomWidth: 0,
@@ -775,13 +781,13 @@ const styles = StyleSheet.create({
   },
   actionSheetItemText: {
     fontSize: 16,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
   },
   ongoingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -794,7 +800,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ongoingBannerTitle: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '600',
     fontSize: 13,
   },

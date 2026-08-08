@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
+import { COLORS } from '../../src/theme/colors';
 
 // ── Single shimmer pulse ─────────────────────────────────────────────────────
 function Shimmer({ style }: { style?: ViewStyle }) {
@@ -89,7 +90,7 @@ export function MessageListSkeleton() {
 // ── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   shimmer: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     borderRadius: 6,
   },
 
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1e2c35',
+    borderBottomColor: COLORS.surface,
   },
   avatar: {
     width: 52,

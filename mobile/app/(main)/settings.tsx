@@ -1,3 +1,4 @@
+import { COLORS } from '../../src/theme/colors';
 
 import React, { useState } from 'react';
 import {
@@ -174,7 +175,7 @@ export default function SettingsScreen() {
               setIsEditModalOpen(true);
             }}
           >
-            <Edit3 size={20} color="#00a884" />
+            <Edit3 size={20} color={COLORS.accent} />
           </TouchableOpacity>
         </View>
 
@@ -183,7 +184,7 @@ export default function SettingsScreen() {
           {settingsItems.map((item, index) => (
             <TouchableOpacity key={index} style={styles.settingsItem} activeOpacity={0.7} onPress={item.onPress}>
               <View style={styles.iconContainer}>
-                <item.icon size={22} color="#8696a0" />
+                <item.icon size={22} color={COLORS.textSecondary} />
               </View>
               <View style={styles.itemContent}>
                 <Text style={styles.itemLabel}>{item.label}</Text>
@@ -197,10 +198,10 @@ export default function SettingsScreen() {
           {/* Logout */}
           <TouchableOpacity style={styles.settingsItem} onPress={handleLogout} activeOpacity={0.7}>
             <View style={styles.iconContainer}>
-              <LogOut size={22} color="#ef4444" />
+              <LogOut size={22} color={COLORS.danger} />
             </View>
             <View style={[styles.itemContent, { borderBottomWidth: 0 }]}>
-              <Text style={[styles.itemLabel, { color: '#ef4444' }]}>Log out</Text>
+              <Text style={[styles.itemLabel, { color: COLORS.danger }]}>Log out</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -224,7 +225,7 @@ export default function SettingsScreen() {
                 value={editName}
                 onChangeText={setEditName}
                 placeholder="Your name"
-                placeholderTextColor="#8696a0"
+                placeholderTextColor={COLORS.textSecondary}
                 maxLength={25}
                 autoFocus
               />
@@ -238,7 +239,7 @@ export default function SettingsScreen() {
                 value={editAbout}
                 onChangeText={setEditAbout}
                 placeholder="About"
-                placeholderTextColor="#8696a0"
+                placeholderTextColor={COLORS.textSecondary}
                 maxLength={139}
               />
             </View>
@@ -270,22 +271,22 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111b21' },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#e9edef' },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.textPrimary },
   scrollView: { flex: 1 },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 8,
-    borderBottomColor: '#0b141a',
+    borderBottomColor: COLORS.bgDeepest,
   },
   avatarWrapper: { position: 'relative', marginRight: 16 },
   avatar: { width: 68, height: 68, borderRadius: 34 },
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -305,22 +306,22 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#111b21',
+    borderColor: COLORS.bg,
   },
   profileInfo: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: '500', color: '#e9edef', marginBottom: 4 },
-  profileAbout: { fontSize: 14, color: '#8696a0', lineHeight: 18 },
+  profileName: { fontSize: 18, fontWeight: '500', color: COLORS.textPrimary, marginBottom: 4 },
+  profileAbout: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 18 },
   editBtn: { padding: 8 },
   settingsList: { marginTop: 0 },
   settingsItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 20,
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
   },
   iconContainer: { width: 28, marginRight: 20, alignItems: 'center' },
   itemContent: {
@@ -328,12 +329,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingRight: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
-  itemLabel: { fontSize: 16, color: '#e9edef', marginBottom: 2 },
-  itemSubLabel: { fontSize: 13, color: '#8696a0' },
+  itemLabel: { fontSize: 16, color: COLORS.textPrimary, marginBottom: 2 },
+  itemSubLabel: { fontSize: 13, color: COLORS.textSecondary },
   footer: { padding: 32, alignItems: 'center' },
-  footerText: { color: '#4f6672', fontSize: 13 },
+  footerText: { color: COLORS.textTertiary, fontSize: 13 },
   // Modal
   modalOverlay: {
     flex: 1,
@@ -341,32 +342,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#1f2c33',
+    backgroundColor: COLORS.surfaceElevated,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 40,
   },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#e9edef', marginBottom: 24 },
-  fieldLabel: { color: '#00a884', fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 24 },
+  fieldLabel: { color: COLORS.accent, fontSize: 13, fontWeight: '600', marginBottom: 6 },
   fieldContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1.5,
-    borderBottomColor: '#00a884',
+    borderBottomColor: COLORS.accent,
     paddingBottom: 8,
     marginBottom: 24,
   },
-  fieldInput: { flex: 1, color: '#e9edef', fontSize: 16 },
-  charCount: { color: '#8696a0', fontSize: 12, marginLeft: 8 },
+  fieldInput: { flex: 1, color: COLORS.textPrimary, fontSize: 16 },
+  charCount: { color: COLORS.textSecondary, fontSize: 12, marginLeft: 8 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
   cancelBtn: { paddingHorizontal: 20, paddingVertical: 12 },
-  cancelBtnText: { color: '#8696a0', fontSize: 15, fontWeight: '500' },
+  cancelBtnText: { color: COLORS.textSecondary, fontSize: 15, fontWeight: '500' },
   saveBtn: {
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     minWidth: 80,
     alignItems: 'center',
   },

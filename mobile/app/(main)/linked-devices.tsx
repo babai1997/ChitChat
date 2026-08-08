@@ -16,6 +16,7 @@ import { approveDeviceLink, declineDeviceLink } from '../../src/services/deviceL
 import { createOrUpdateBackup, deleteBackup, hasBackup, restoreBackup } from '../../src/services/backupSync';
 import { getOrCreateDeviceId } from '../../src/services/deviceId';
 import BackupPassphraseModal from '../../components/common/BackupPassphraseModal';
+import { COLORS } from '../../src/theme/colors';
 
 function platformIcon(platform: string | null) {
   return platform === 'ios' || platform === 'android' ? Smartphone : Laptop;
@@ -154,14 +155,14 @@ export default function LinkedDevicesScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#e9edef" />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Linked Devices</Text>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color="#00a884" />
+          <ActivityIndicator style={{ marginTop: 32 }} color={COLORS.accent} />
         ) : (
           <>
             {pending.length > 0 && (
@@ -172,7 +173,7 @@ export default function LinkedDevicesScreen() {
                   const isSelf = device.deviceId === myDeviceId;
                   return (
                     <View key={device.deviceId} style={styles.pendingCard}>
-                      <Icon size={22} color="#8696a0" />
+                      <Icon size={22} color={COLORS.textSecondary} />
                       <View style={styles.itemContent}>
                         <Text style={styles.itemLabel}>
                           {isSelf ? 'This device' : platformLabel(device.platform)}
@@ -193,7 +194,7 @@ export default function LinkedDevicesScreen() {
                           ]}
                         >
                           {actioningDeviceId === device.deviceId && actioningType === 'decline' ? (
-                            <ActivityIndicator size="small" color="#e9edef" />
+                            <ActivityIndicator size="small" color={COLORS.textPrimary} />
                           ) : (
                             <Text style={styles.declineBtnText}>Decline</Text>
                           )}
@@ -209,7 +210,7 @@ export default function LinkedDevicesScreen() {
                           ]}
                         >
                           {actioningDeviceId === device.deviceId && actioningType === 'approve' ? (
-                            <ActivityIndicator size="small" color="#0b141a" />
+                            <ActivityIndicator size="small" color={COLORS.bgDeepest} />
                           ) : (
                             <Text style={styles.approveBtnText}>Approve</Text>
                           )}
@@ -230,7 +231,7 @@ export default function LinkedDevicesScreen() {
                   const Icon = platformIcon(device.platform);
                   return (
                     <View key={device.deviceId} style={styles.activeRow}>
-                      <Icon size={22} color="#00a884" />
+                      <Icon size={22} color={COLORS.accent} />
                       <View style={styles.itemContent}>
                         <Text style={styles.itemLabel}>{platformLabel(device.platform)}</Text>
                         <Text style={styles.itemSubLabel}>
@@ -242,7 +243,7 @@ export default function LinkedDevicesScreen() {
                         onPress={() => handleRevoke(device.deviceId)}
                         style={styles.revokeBtn}
                       >
-                        <Trash2 size={20} color="#ef4444" />
+                        <Trash2 size={20} color={COLORS.danger} />
                       </TouchableOpacity>
                     </View>
                   );
@@ -250,10 +251,10 @@ export default function LinkedDevicesScreen() {
               )}
             </View>
 
-            <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#202c33' }]}>
+            <View style={[styles.section, { borderTopWidth: 1, borderTopColor: COLORS.surface }]}>
               <Text style={styles.sectionTitle}>Chat Backup</Text>
               <View style={styles.pendingCard}>
-                <Lock size={22} color={backupInfo?.exists ? '#00a884' : '#8696a0'} />
+                <Lock size={22} color={backupInfo?.exists ? COLORS.accent : COLORS.textSecondary} />
                 <View style={styles.itemContent}>
                   <Text style={styles.itemLabel}>{backupInfo?.exists ? 'Backup created' : 'No backup yet'}</Text>
                   <Text style={styles.itemSubLabel}>
@@ -266,7 +267,7 @@ export default function LinkedDevicesScreen() {
               <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                 {backupInfo?.exists && (
                   <TouchableOpacity disabled={isBackupActionBusy} onPress={handleDeleteBackup} style={styles.revokeBtn}>
-                    <Trash2 size={20} color="#ef4444" />
+                    <Trash2 size={20} color={COLORS.danger} />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -310,28 +311,28 @@ export default function LinkedDevicesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111b21' },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 20,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 0 },
-  headerTitle: { fontSize: 20, fontWeight: '500', color: '#e9edef' },
+  headerTitle: { fontSize: 20, fontWeight: '500', color: COLORS.textPrimary },
   scrollView: { flex: 1 },
   section: { padding: 16 },
-  sectionTitle: { color: '#8696a0', fontSize: 14, fontWeight: '500', marginBottom: 8 },
+  sectionTitle: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '500', marginBottom: 8 },
   pendingCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 12,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderRadius: 8,
     marginBottom: 8,
   },
@@ -341,25 +342,25 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2a3942',
+    borderBottomColor: COLORS.border,
   },
   itemContent: { flex: 1 },
-  itemLabel: { fontSize: 15, color: '#e9edef' },
-  itemSubLabel: { fontSize: 13, color: '#8696a0', marginTop: 2 },
+  itemLabel: { fontSize: 15, color: COLORS.textPrimary },
+  itemSubLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   declineBtn: {
     borderWidth: 1,
-    borderColor: '#8696a0',
+    borderColor: COLORS.textSecondary,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  declineBtnText: { color: '#e9edef', fontSize: 13 },
+  declineBtnText: { color: COLORS.textPrimary, fontSize: 13 },
   approveBtn: {
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  approveBtnText: { color: '#0b141a', fontSize: 13, fontWeight: '600' },
+  approveBtnText: { color: COLORS.bgDeepest, fontSize: 13, fontWeight: '600' },
   revokeBtn: { padding: 6 },
 });

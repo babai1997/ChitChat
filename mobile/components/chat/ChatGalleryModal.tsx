@@ -16,6 +16,7 @@ import { useChatStore } from "../../src/stores/chatStore";
 import { decryptMessagesInPlace } from "../../src/services/e2eeSessions";
 import { parseAttachmentDescriptor, decryptAttachmentToLocalUri } from "../../src/services/e2eeAttachments";
 import type { Chat, Message } from "../../src/types";
+import { COLORS } from '../../src/theme/colors';
 
 type GalleryTab = "media" | "docs" | "links";
 
@@ -79,11 +80,11 @@ function MediaThumb({ message, onPress }: { message: Message; onPress: () => voi
       ) : message.type === "video" ? (
         // No video-frame decoding on mobile yet (matches EncryptedAttachment.tsx) — icon placeholder.
         <View style={styles.thumbPlaceholder}>
-          <ImageIcon size={20} color="#8696a0" />
+          <ImageIcon size={20} color={COLORS.textSecondary} />
         </View>
       ) : (
         <View style={styles.thumbPlaceholder}>
-          <ActivityIndicator size="small" color="#8696a0" />
+          <ActivityIndicator size="small" color={COLORS.textSecondary} />
         </View>
       )}
     </TouchableOpacity>
@@ -95,7 +96,7 @@ function DocRow({ message, onPress }: { message: Message; onPress: () => void })
   return (
     <TouchableOpacity onPress={onPress} style={styles.docRow}>
       <View style={styles.docIcon}>
-        <FileText size={20} color="#8696a0" />
+        <FileText size={20} color={COLORS.textSecondary} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.docName} numberOfLines={1}>
@@ -221,7 +222,7 @@ export default function ChatGalleryModal({ chat, visible, onClose, onJumpToMessa
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-            <X size={22} color="#e9edef" />
+            <X size={22} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Media, links and docs</Text>
         </View>
@@ -239,7 +240,7 @@ export default function ChatGalleryModal({ chat, visible, onClose, onJumpToMessa
           {tab === "media" && (
             <>
               {mediaMessages.length === 0 && !isLoadingMedia && (
-                <EmptyState icon={<ImageIcon size={32} color="#8696a0" />} text="No media in this chat yet" />
+                <EmptyState icon={<ImageIcon size={32} color={COLORS.textSecondary} />} text="No media in this chat yet" />
               )}
               <View style={styles.mediaGrid}>
                 {mediaMessages.map((m) => (
@@ -253,7 +254,7 @@ export default function ChatGalleryModal({ chat, visible, onClose, onJumpToMessa
           {tab === "docs" && (
             <>
               {docMessages.length === 0 && !isLoadingDocs && (
-                <EmptyState icon={<FileText size={32} color="#8696a0" />} text="No documents in this chat yet" />
+                <EmptyState icon={<FileText size={32} color={COLORS.textSecondary} />} text="No documents in this chat yet" />
               )}
               {docMessages.map((m) => (
                 <DocRow key={m.id} message={m} onPress={() => onJumpToMessage(m.id)} />
@@ -265,11 +266,11 @@ export default function ChatGalleryModal({ chat, visible, onClose, onJumpToMessa
           {tab === "links" && (
             <>
               {links.length === 0 && (
-                <EmptyState icon={<Link2 size={32} color="#8696a0" />} text="No links found in loaded messages" />
+                <EmptyState icon={<Link2 size={32} color={COLORS.textSecondary} />} text="No links found in loaded messages" />
               )}
               {links.map((link, i) => (
                 <View key={`${link.messageId}-${i}`} style={styles.linkRow}>
-                  <Link2 size={18} color="#8696a0" />
+                  <Link2 size={18} color={COLORS.textSecondary} />
                   <TouchableOpacity style={{ flex: 1, minWidth: 0 }} onPress={() => Linking.openURL(link.url)}>
                     <Text style={styles.linkUrl} numberOfLines={1}>
                       {link.url}
@@ -279,7 +280,7 @@ export default function ChatGalleryModal({ chat, visible, onClose, onJumpToMessa
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => onJumpToMessage(link.messageId)} style={{ padding: 4 }}>
-                    <ExternalLink size={16} color="#8696a0" />
+                    <ExternalLink size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -303,54 +304,54 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
 function LoadMoreButton({ isLoading, onPress }: { isLoading: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} disabled={isLoading} style={styles.loadMoreBtn}>
-      {isLoading ? <ActivityIndicator size="small" color="#00a884" /> : <Text style={styles.loadMoreText}>Load more</Text>}
+      {isLoading ? <ActivityIndicator size="small" color={COLORS.accent} /> : <Text style={styles.loadMoreText}>Load more</Text>}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0b141a" },
+  container: { flex: 1, backgroundColor: COLORS.bgDeepest },
   header: {
     flexDirection: "row", alignItems: "center", gap: 16,
-    padding: 16, backgroundColor: "#202c33",
-    borderBottomWidth: 1, borderBottomColor: "#2a3942",
+    padding: 16, backgroundColor: COLORS.surface,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   backBtn: {},
-  headerTitle: { fontSize: 17, fontWeight: "600", color: "#e9edef" },
-  tabBar: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#2a3942" },
+  headerTitle: { fontSize: 17, fontWeight: "600", color: COLORS.textPrimary },
+  tabBar: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: COLORS.border },
   tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12 },
-  tabLabel: { fontSize: 14, fontWeight: "500", color: "#8696a0" },
-  tabLabelActive: { color: "#00a884" },
-  tabUnderline: { marginTop: 6, height: 2, width: 32, backgroundColor: "#00a884", borderRadius: 1 },
+  tabLabel: { fontSize: 14, fontWeight: "500", color: COLORS.textSecondary },
+  tabLabelActive: { color: COLORS.accent },
+  tabUnderline: { marginTop: 6, height: 2, width: 32, backgroundColor: COLORS.accent, borderRadius: 1 },
   content: { flex: 1 },
   mediaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   thumb: {
     width: "31.5%", aspectRatio: 1, borderRadius: 6, overflow: "hidden",
-    backgroundColor: "#202c33", alignItems: "center", justifyContent: "center",
+    backgroundColor: COLORS.surface, alignItems: "center", justifyContent: "center",
   },
   thumbImage: { width: "100%", height: "100%" },
   thumbPlaceholder: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
   docRow: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#202c33",
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.surface,
   },
   docIcon: {
-    width: 40, height: 40, borderRadius: 8, backgroundColor: "#202c33",
+    width: 40, height: 40, borderRadius: 8, backgroundColor: COLORS.surface,
     alignItems: "center", justifyContent: "center",
   },
-  docName: { fontSize: 14, color: "#e9edef" },
-  docMeta: { fontSize: 12, color: "#8696a0", marginTop: 2 },
+  docName: { fontSize: 14, color: COLORS.textPrimary },
+  docMeta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   linkRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#202c33",
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.surface,
   },
-  linkUrl: { fontSize: 13.5, color: "#53bdeb" },
-  linkMeta: { fontSize: 12, color: "#8696a0", marginTop: 2 },
+  linkUrl: { fontSize: 13.5, color: COLORS.info },
+  linkMeta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   emptyState: { alignItems: "center", gap: 10, paddingVertical: 48 },
-  emptyText: { fontSize: 14, color: "#8696a0" },
+  emptyText: { fontSize: 14, color: COLORS.textSecondary },
   loadMoreBtn: {
     marginTop: 12, paddingVertical: 10, borderRadius: 8,
-    borderWidth: 1, borderColor: "#2a3942", alignItems: "center",
+    borderWidth: 1, borderColor: COLORS.border, alignItems: "center",
   },
-  loadMoreText: { color: "#00a884", fontSize: 13 },
+  loadMoreText: { color: COLORS.accent, fontSize: 13 },
 });

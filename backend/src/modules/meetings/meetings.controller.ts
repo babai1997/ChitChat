@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { MeetingsService } from './meetings.service';
-import { CreateMeetingDto } from './dto';
+import { CreateMeetingDto, RenameMeetingDto } from './dto';
 import { CurrentUser } from '../../common/decorators';
 import type { Profile, User } from '@prisma/client';
 
@@ -59,6 +59,17 @@ export class MeetingsController {
   @ApiOperation({ summary: 'Join a meeting via its slug — grants ChatMember membership, idempotent' })
   async join(@CurrentUser() user: User, @Param('slug') slug: string) {
     return this.meetingsService.join(slug, user.id);
+  }
+
+  @Patch(':slug')
+  @ApiParam({ name: 'slug' })
+  @ApiOperation({ summary: "Rename a meeting's room — host-only" })
+  async rename(
+    @CurrentUser() user: User,
+    @Param('slug') slug: string,
+    @Body() dto: RenameMeetingDto,
+  ) {
+    return this.meetingsService.rename(slug, user.id, dto);
   }
 
   @Delete(':slug')
