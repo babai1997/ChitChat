@@ -4,6 +4,11 @@
 // entry point, not inside a React component — Android relaunches the JS engine
 // headlessly to invoke them when the app is backgrounded or fully killed, so a
 // handler registered inside a component's useEffect would never run in that case.
+//
+// react-native-get-random-values must load before ANYTHING that touches
+// @chitchat/e2ee (built on @noble/curves et al, which require a real
+// crypto.getRandomValues — Hermes doesn't provide one natively).
+import 'react-native-get-random-values';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
 import { router } from 'expo-router';

@@ -8,10 +8,12 @@ import { TurnCredentialsService } from './services/turn-credentials.service';
 import { MessageHandler } from './handlers/message.handler';
 import { PresenceHandler } from './handlers/presence.handler';
 import { CallHandler } from './handlers/call.handler';
+import { SenderKeyHandler } from './handlers/sender-key.handler';
 import { MessagesModule } from '../messages/messages.module';
 import { ChatsModule } from '../chats/chats.module';
 import { UsersModule } from '../users/users.module';
 import { PushModule } from '../push';
+import { SenderKeysModule } from '../sender-keys';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { PushModule } from '../push';
     ChatsModule,
     UsersModule,
     PushModule,
+    SenderKeysModule,
   ],
   controllers: [CallHttpController],
   providers: [
@@ -40,6 +43,7 @@ import { PushModule } from '../push';
     MessageHandler,
     PresenceHandler,
     CallHandler,
+    SenderKeyHandler,
   ],
   exports: [ChatGateway, SocketRegistryService],
 })

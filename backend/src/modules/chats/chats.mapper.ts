@@ -1,4 +1,4 @@
-import { ChatType, ChatMemberRole } from '@prisma/client';
+import { ChatType, ChatMemberRole, MessageStatus } from '@prisma/client';
 
 type RawChatMember = {
   id: string;
@@ -31,18 +31,49 @@ type RawChat = {
     id: string;
     content: string | null;
     type: string;
+    status: MessageStatus;
     createdAt: Date;
     senderId: string;
+    isEncrypted?: boolean;
+    senderDeviceId?: string | null;
     sender?: {
       id: string;
       profile: { displayName: string | null } | null;
     } | null;
+    ciphers?: Array<{
+      ciphertext: string;
+      device: { deviceId: string };
+    }>;
   }>;
 };
 
 export class ChatsMapper {
-  static toDto(chat: RawChat, currentUserId: string, unreadCount: number) {
+  /**
+   * @param requesterDeviceId Which of the caller's devices is asking —
+   * required to resolve the right MessageCipher row when the chat's last
+   * message is encrypted (see messages.mapper.ts's toDto, which this
+   * mirrors — this preview is a separate query/DTO and was previously never
+   * made encryption-aware at all, always exposing the raw null content
+   * column regardless of who was asking).
+   */
+  static toDto(
+    chat: RawChat,
+    currentUserId: string,
+    unreadCount: number,
+    requesterDeviceId?: string,
+  ) {
     const lastMessage = chat.messages?.[0];
+    const isGroupChat = chat.type === ChatType.group || chat.type === ChatType.meeting;
+    // Group Sender Key ciphertext is identical for every recipient and
+    // lives directly on `content` (see messages.mapper.ts's toDto, which
+    // this mirrors) — only DIRECT chats need to resolve a per-device
+    // MessageCipher row by requesterDeviceId.
+    const cipherForRequester =
+      lastMessage && requesterDeviceId && !isGroupChat
+        ? lastMessage.ciphers?.find(
+            (c) => c.device.deviceId === requesterDeviceId,
+          )
+        : undefined;
     const otherMembers = chat.members.filter((m) => m.userId !== currentUserId);
 
     let displayName = chat.name;
@@ -69,8 +100,18 @@ export class ChatsMapper {
       lastMessage: lastMessage
         ? {
             id: lastMessage.id,
-            content: lastMessage.content,
+            content: lastMessage.isEncrypted ? null : lastMessage.content,
+            isEncrypted: lastMessage.isEncrypted ?? false,
+            cipher: lastMessage.isEncrypted
+              ? isGroupChat
+                ? (lastMessage.content ?? null)
+                : (cipherForRequester?.ciphertext ?? null)
+              : undefined,
+            senderDeviceId: lastMessage.isEncrypted
+              ? (lastMessage.senderDeviceId ?? undefined)
+              : undefined,
             type: lastMessage.type,
+            status: lastMessage.status,
             createdAt: lastMessage.createdAt,
             senderId: lastMessage.senderId,
             senderName: lastMessage.sender?.profile?.displayName || 'Unknown',

@@ -13,6 +13,8 @@ import { chatApi } from "../../api";
 import { useChatStore } from "../../stores/chatStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useCall } from "../../contexts/CallContext";
+import { useHasCamera } from "../../hooks";
+import { Tooltip } from "../common/Tooltip";
 import type { Message } from "../../types";
 
 interface CallInfoViewProps {
@@ -29,6 +31,7 @@ export const CallInfoView = ({
   const { user } = useAuthStore();
   const { chats } = useChatStore();
   const { startCall } = useCall();
+  const hasCamera = useHasCamera();
   const [callRecords, setCallRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -299,26 +302,30 @@ export const CallInfoView = ({
               <span style={{ fontSize: "14px", fontWeight: 500 }}>Audio</span>
             </button>
 
-            <button
-              onClick={() => startCall(chatId, "video")}
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "16px",
-                border: "1px solid #202c33",
-                backgroundColor: "#111b21",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                cursor: "pointer",
-                color: "#e9edef",
-              }}
-            >
-              <Video size={24} color="#00a884" />
-              <span style={{ fontSize: "14px", fontWeight: 500 }}>Video</span>
-            </button>
+            <Tooltip text="No camera detected" disabled={hasCamera}>
+              <button
+                onClick={() => hasCamera && startCall(chatId, "video")}
+                aria-disabled={!hasCamera}
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  borderRadius: "16px",
+                  border: "1px solid #202c33",
+                  backgroundColor: "#111b21",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  cursor: hasCamera ? "pointer" : "not-allowed",
+                  opacity: hasCamera ? 1 : 0.4,
+                  color: "#e9edef",
+                }}
+              >
+                <Video size={24} color="#00a884" />
+                <span style={{ fontSize: "14px", fontWeight: 500 }}>Video</span>
+              </button>
+            </Tooltip>
           </div>
         </div>
 

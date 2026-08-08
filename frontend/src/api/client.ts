@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../stores/authStore';
+import { getOrCreateDeviceId } from '../services/deviceId';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -19,6 +20,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Needed so the server knows which of this account's devices is asking —
+    // e.g. to resolve the right MessageCipher row for an encrypted message
+    // (see messages.controller.ts's getMessages).
+    config.headers['x-device-id'] = getOrCreateDeviceId();
     return config;
   },
   (error) => Promise.reject(error),

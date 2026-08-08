@@ -20,6 +20,22 @@ interface ChatState {
   /** Inserts new chat or merges updates if it already exists */
   upsertChat: (chat: Chat) => void;
   updateChat: (chatId: string, updates: Partial<Chat>) => void;
+  /**
+   * Patches a user's displayName/avatarUrl/about wherever it's embedded as
+   * a snapshot inside `chats[].members[]` — used when a contact's profile
+   * changes elsewhere (see PROFILE_UPDATED in chat.handlers.ts), since chat
+   * member data is otherwise a point-in-time copy with no other update path.
+   */
+  updateMemberProfile: (
+    userId: string,
+    updates: { displayName?: string | null; avatarUrl?: string | null; about?: string | null },
+  ) => void;
+  /**
+   * Patches a member's role within ONE specific chat — unlike
+   * updateMemberProfile, role is chat-scoped, not global, so this only
+   * ever touches that one chat's members array.
+   */
+  updateMemberRole: (chatId: string, userId: string, role: 'admin' | 'member') => void;
   removeChat: (chatId: string) => void;
   setActiveChat: (chat: Chat | null) => void;
 
@@ -32,6 +48,13 @@ interface ChatState {
    */
   addMessage: (chatId: string, message: Message & { tempId?: string }) => void;
   prependMessages: (chatId: string, messages: Message[]) => void;
+  /**
+   * Merges a device-linking history-sync batch (see deviceLinkSync.ts) into
+   * a chat's message list. Unlike prependMessages, sync messages can't be
+   * assumed to be strictly older than what's already loaded, so this
+   * dedupes by id AND re-sorts by createdAt rather than blindly prepending.
+   */
+  mergeHistoryMessages: (chatId: string, messages: Message[]) => void;
   /**
    * Atomically replaces the optimistic temp message with the confirmed real one.
    * Fixes the duplicate message bug — use this in the message:sent handler.
@@ -103,6 +126,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
+  updateMemberProfile: (userId, updates) => {
+    const patchMembers = (chat: Chat): Chat => ({
+      ...chat,
+      members: chat.members.map((m) =>
+        m.userId === userId && m.user.profile
+          ? { ...m, user: { ...m.user, profile: { ...m.user.profile, ...updates } } }
+          : m,
+      ),
+    });
+    set((state) => ({
+      chats: state.chats.map(patchMembers),
+      activeChat: state.activeChat ? patchMembers(state.activeChat) : state.activeChat,
+    }));
+  },
+
+  updateMemberRole: (chatId, userId, role) => {
+    const patchRole = (chat: Chat): Chat =>
+      chat.id === chatId
+        ? { ...chat, members: chat.members.map((m) => (m.userId === userId ? { ...m, role } : m)) }
+        : chat;
+    set((state) => ({
+      chats: state.chats.map(patchRole),
+      activeChat: state.activeChat ? patchRole(state.activeChat) : state.activeChat,
+    }));
+  },
+
   removeChat: (chatId) => {
     set((state) => ({
       chats: state.chats.filter((c) => c.id !== chatId),
@@ -157,6 +206,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         messages: { ...state.messages, [chatId]: [...newOnes, ...existing] },
       };
+    });
+  },
+
+  mergeHistoryMessages: (chatId, messages) => {
+    set((state) => {
+      const existing = state.messages[chatId] || [];
+      const incomingById = new Map(messages.map((m) => [m.id, m]));
+
+      // A message already in the store may have been loaded BEFORE this
+      // device was approved — rendered as "🔒 Message not available" or
+      // "⚠️ Unable to decrypt" — so an id match isn't a true duplicate to
+      // discard, it's the same message with a now-available plaintext.
+      // Patch only `content` (now correctly decrypted via the sync
+      // payload's own plaintext-cache write) — never the whole object,
+      // which would blow away already-loaded attachments/sender/status.
+      const patched = existing.map((m) => {
+        const incoming = incomingById.get(m.id);
+        return incoming ? { ...m, content: incoming.content } : m;
+      });
+
+      const existingIds = new Set(existing.map((m) => m.id));
+      const newOnes = messages.filter((m) => !existingIds.has(m.id));
+
+      const changed = newOnes.length > 0 || patched.some((m, i) => m !== existing[i]);
+      if (!changed) return state;
+
+      const merged = [...patched, ...newOnes].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+      return { messages: { ...state.messages, [chatId]: merged } };
     });
   },
 

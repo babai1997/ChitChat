@@ -1,20 +1,59 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Check, ArrowLeft, User, Edit2, Phone, Info } from 'lucide-react';
+import { Loader2, Check, ArrowLeft, Camera, User, Edit2, Phone, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { profileApi } from '../api';
 import { useAuthStore } from '../stores';
-import { AvatarUpload } from '../features/profile/components/AvatarUpload';
+import { ImageCropModal } from '../components/common/ImageCropModal';
+import { resolvePostLoginRedirect } from '../utils/postLoginRedirect';
 
 export const SetupProfilePage = () => {
   const navigate = useNavigate();
   const { updateProfile, user } = useAuthStore();
-  
+
   const [displayName, setDisplayName] = useState(user?.profile?.displayName || '');
   const [about, setAbout] = useState(user?.profile?.about || 'Hey there! I am using ChitChat');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   // Default to editing if no display name (new user), otherwise view mode
   const [isEditing, setIsEditing] = useState(!user?.profile?.displayName);
+
+  // File picked from the OS file dialog — open the crop step rather than
+  // uploading it as-is (mobile already gets this via expo-image-picker's
+  // native `allowsEditing` crop screen; web never had an equivalent step).
+  const handleAvatarFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  // Same "dedicated camera button" pattern as GroupInfoModal's group-photo
+  // change, for a consistent feel across the app rather than a hover-only
+  // overlay that gives no visible affordance until you happen to hover.
+  const handleCroppedAvatarUpload = async (file: File) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    setIsUploadingAvatar(true);
+    try {
+      const updatedProfile = await profileApi.uploadAvatar(file);
+      updateProfile({ avatarUrl: updatedProfile.avatarUrl });
+      toast.success('Avatar updated!');
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      toast.error('Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
 
   const handleBack = () => {
     if (isEditing && user?.profile?.displayName) {
@@ -48,7 +87,10 @@ export const SetupProfilePage = () => {
       toast.success('Profile updated!');
       setIsEditing(false); // Go to view mode
       if (!user?.profile?.displayName) {
-          navigate('/'); // If it was initial setup
+          // Initial setup completing — honor whatever ProtectedRoute originally
+          // bounced from (e.g. a shared meeting link), stashed in sessionStorage
+          // by ProtectedRoute since this page never receives location.state.
+          navigate(resolvePostLoginRedirect(undefined), { replace: true });
       }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -74,23 +116,57 @@ export const SetupProfilePage = () => {
     <div style={{ padding: '0 24px', width: '100%', maxWidth: '600px' }}>
       <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0' }}>
         <div style={{ position: 'relative', width: '200px', height: '200px' }}>
-             {/* We can re-use AvatarUpload in read-only mode if it supports it, or just show image */}
-             <div style={{ 
-                width: '100%', 
-                height: '100%', 
-                borderRadius: '50%', 
-                backgroundColor: '#202c33', 
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-             }}>
-                {user?.profile?.avatarUrl ? (
-                    <img src={user.profile.avatarUrl} alt="Profile" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                    <User size={80} color="#6a7f8a" />
-                )}
-             </div>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              backgroundColor: '#202c33',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {user?.profile?.avatarUrl ? (
+              <img
+                src={user.profile.avatarUrl}
+                alt="Profile"
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <User size={80} color="#6a7f8a" />
+            )}
+          </div>
+          <button
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={isUploadingAvatar}
+            title="Change profile photo"
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              backgroundColor: '#00a884',
+              border: '2px solid #111b21',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#017a62')}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#00a884')}
+          >
+            {isUploadingAvatar ? (
+              <Loader2 size={20} color="white" className="animate-spin" />
+            ) : (
+              <Camera size={20} color="white" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -192,29 +268,73 @@ export const SetupProfilePage = () => {
           boxShadow: isEditing ? '0 4px 24px rgba(0, 0, 0, 0.4)' : 'none'
         }}
       >
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleAvatarFileSelected}
+        />
         {!isEditing ? (
             <ProfileView />
         ) : (
             <form onSubmit={handleSubmit}>
             {/* Avatar */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-                <AvatarUpload
-                    currentAvatarUrl={user?.profile?.avatarUrl || null}
-                    onUpload={async (file) => {
-                    setIsLoading(true);
-                    try {
-                        const updatedProfile = await profileApi.uploadAvatar(file);
-                        updateProfile({ avatarUrl: updatedProfile.avatarUrl });
-                        toast.success('Avatar updated!');
-                    } catch (error) {
-                        console.error('Avatar upload failed:', error);
-                        toast.error('Failed to upload avatar');
-                    } finally {
-                        setIsLoading(false);
-                    }
+                <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '50%',
+                      backgroundColor: '#2a3942',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
-                    isUploading={isLoading}
-                />
+                  >
+                    {user?.profile?.avatarUrl ? (
+                      <img
+                        src={user.profile.avatarUrl}
+                        alt="Profile"
+                        referrerPolicy="no-referrer"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <User size={50} color="#6a7f8a" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    title="Change profile photo"
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '4px',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      backgroundColor: '#00a884',
+                      border: '2px solid #1f2c34',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#017a62')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#00a884')}
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 size={16} color="white" className="animate-spin" />
+                    ) : (
+                      <Camera size={16} color="white" />
+                    )}
+                  </button>
+                </div>
             </div>
 
             {/* Display Name */}
@@ -292,6 +412,16 @@ export const SetupProfilePage = () => {
             </form>
         )}
       </div>
+
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          cropShape="round"
+          fileName="avatar.jpg"
+          onCropped={handleCroppedAvatarUpload}
+          onClose={handleCropCancel}
+        />
+      )}
     </div>
   );
 };

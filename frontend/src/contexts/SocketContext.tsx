@@ -6,7 +6,12 @@ import { socketManager } from '../shared/socket/SocketManager';
 import { registerMessageHandlers } from '../shared/socket/handlers/message.handlers';
 import { registerPresenceHandlers } from '../shared/socket/handlers/presence.handlers';
 import { registerChatHandlers } from '../shared/socket/handlers/chat.handlers';
+import { registerDeviceLinkHandlers } from '../shared/socket/handlers/deviceLink.handlers';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
+import { registerE2eeDevice } from '../services/e2ee';
+import { encryptForMembers } from '../services/e2eeSessions';
+import { encryptGroupMessage, fetchAndApplyPendingDistributions } from '../services/e2eeGroupSessions';
+import { getOrCreateDeviceId } from '../services/deviceId';
 
 /**
  * SocketProvider — thin React wrapper around the SocketManager singleton.
@@ -32,7 +37,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Connect with JWT in handshake auth
-    socketManager.connect(SOCKET_URL, accessToken);
+    socketManager.connect(SOCKET_URL, accessToken, getOrCreateDeviceId());
+    void registerE2eeDevice();
+    // Catches up on any Sender Key distribution this device missed while
+    // offline (or never got a real-time SENDER_KEY_NEW push for) — see
+    // e2eeGroupSessions.ts. Safe to call on every (re)connect: reapplying an
+    // already-known chain is a no-op.
+    void fetchAndApplyPendingDistributions();
 
     // Track connection state
     const onConnect = () => { setIsConnected(true); setIsReconnecting(false); };
@@ -56,12 +67,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanupMessages = registerMessageHandlers();
     const cleanupPresence = registerPresenceHandlers();
     const cleanupChats = registerChatHandlers();
+    const cleanupDeviceLink = registerDeviceLinkHandlers();
 
     return () => {
       socketManager.off('connect', onConnect);
       socketManager.off('disconnect', onDisconnect);
       socketManager.off('connect_error', onConnectError as any);
       cleanupMessages();
+      cleanupDeviceLink();
       cleanupPresence();
       cleanupChats();
     };
@@ -85,7 +98,53 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, { chatId, content, type, replyToId, tempId });
+      const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
+
+      // Both direct (Phase 1, per-device Double Ratchet) and group (Phase 2,
+      // Sender Keys) chats are E2EE. Encryption needs an async key-bundle
+      // fetch either way, but the caller needs tempId synchronously for the
+      // optimistic UI — so we return it right away and emit once encryption
+      // finishes, same as any other fire-and-forget send.
+      if (chat?.type === 'direct') {
+        const memberUserIds = chat.members.map((m) => m.userId);
+        void encryptForMembers(memberUserIds, content)
+          .then((ciphers) => {
+            socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+              chatId,
+              type,
+              replyToId,
+              tempId,
+              isEncrypted: true,
+              ciphers,
+            });
+          })
+          .catch((err) => {
+            console.error('[E2EE] Failed to encrypt message:', err);
+          });
+      } else if (chat?.type === 'group' || chat?.type === 'meeting') {
+        // 'meeting' chats use the exact same Sender-Key group E2EE as
+        // 'group' — without this branch, a meeting chat fell through to
+        // the plaintext else-case below (this WAS a real bug: E2EE
+        // silently didn't apply to any in-meeting text chat at all).
+        const memberUserIds = chat.members.map((m) => m.userId);
+        void encryptGroupMessage(chatId, memberUserIds, content)
+          .then((groupCiphertext) => {
+            socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+              chatId,
+              type,
+              replyToId,
+              tempId,
+              isEncrypted: true,
+              groupCiphertext,
+            });
+          })
+          .catch((err) => {
+            console.error('[E2EE] Failed to encrypt group message:', err);
+          });
+      } else {
+        socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, { chatId, content, type, replyToId, tempId });
+      }
+
       return tempId;
     },
     [],
@@ -120,7 +179,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             lastMessage: prev
               ? {
                   id: prev.id,
-                  content: prev.content,
+                  content: prev.content ?? '',
                   type: prev.type,
                   createdAt: prev.createdAt,
                   senderId: prev.senderId,

@@ -30,6 +30,36 @@ export const SOCKET_EVENTS = {
   CHAT_JOIN: 'chat:join',
   CHAT_LEAVE: 'chat:leave',
   CHAT_NEW: 'chat:new',
+  /** A group member joined — sender-key owners should distribute their CURRENT chain to them. */
+  CHAT_MEMBER_ADDED: 'chat:member-added',
+  /** A group member left/was removed — sender-key owners must rekey and redistribute to the new member set. */
+  CHAT_MEMBER_REMOVED: 'chat:member-removed',
+  /** The group's name/avatar changed. */
+  CHAT_UPDATED: 'chat:updated',
+  /** Someone was promoted to admin or demoted back to member. */
+  CHAT_MEMBER_ROLE_UPDATED: 'chat:member-role-updated',
+
+  // ── Profile: Server → Client ────────────────────────────────────────────────
+  /** A contact you share a chat with changed their displayName/avatarUrl. */
+  PROFILE_UPDATED: 'profile:updated',
+
+  // ── Sender Keys (Phase 2 group E2EE): Client → Server ───────────────────────
+  /** Distribute (or redistribute, on rekey) this device's group chain key to other members' devices. */
+  SENDER_KEY_DISTRIBUTE: 'sender-key:distribute',
+
+  // ── Sender Keys: Server → Client ────────────────────────────────────────────
+  /** Real-time push of a distribution to an online target device. */
+  SENDER_KEY_NEW: 'sender-key:new',
+
+  // ── Device Link (Phase 4a history sync): Server → Client ───────────────────
+  /** A new device just registered and is pending approval — ignore if it's about your own deviceId. */
+  DEVICE_LINK_REQUEST: 'device:link-request',
+  /** A pending device was approved. */
+  DEVICE_LINK_APPROVED: 'device:link-approved',
+  /** A pending device was declined and deleted. */
+  DEVICE_LINK_DECLINED: 'device:link-declined',
+  /** Real-time push of one chat's re-encrypted history batch to a newly-approved device. */
+  DEVICE_HISTORY_CHUNK: 'device:history-chunk',
 
   // ── Calls: Client → Server ─────────────────────────────────────────────────
   CALL_START: 'call:start',

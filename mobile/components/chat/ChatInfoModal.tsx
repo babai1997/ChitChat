@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, User, Users, Phone, Video, ArrowLeft, Trash2, UserPlus, Camera } from 'lucide-react-native';
+import { X, User, Users, Phone, Video, ArrowLeft, Trash2, UserPlus, Camera, ShieldCheck, ShieldOff, Check, Copy, Image as ImageIcon, ChevronRight } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { chatApi } from '../../src/api';
+import { chatApi, meetingsApi, type ChatMeetingLink } from '../../src/api';
 import { useChatStore } from '../../src/stores/chatStore';
 import type { Chat, ChatMember } from '../../src/types';
+
+const WEB_APP_URL =
+  process.env.EXPO_PUBLIC_WEB_URL ?? (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/api\/?$/, '');
 
 interface ChatInfoModalProps {
   visible: boolean;
@@ -13,12 +16,30 @@ interface ChatInfoModalProps {
   chat: Chat | null;
   currentUserId?: string;
   onAddMember?: () => void;
+  onOpenGallery?: () => void;
 }
 
-export default function ChatInfoModal({ visible, onClose, chat, currentUserId, onAddMember }: ChatInfoModalProps) {
+export default function ChatInfoModal({ visible, onClose, chat, currentUserId, onAddMember, onOpenGallery }: ChatInfoModalProps) {
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isChangingRole, setIsChangingRole] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [meetingLink, setMeetingLink] = useState<ChatMeetingLink | null>(null);
+  const [isLoadingMeetingLink, setIsLoadingMeetingLink] = useState(false);
+  const [linkShared, setLinkShared] = useState(false);
+  const [isRevokingLink, setIsRevokingLink] = useState(false);
+
+  const isMeeting = chat?.type === 'meeting';
+
+  useEffect(() => {
+    if (!visible || !isMeeting || !chat) return;
+    setIsLoadingMeetingLink(true);
+    meetingsApi
+      .getByChatId(chat.id)
+      .then(setMeetingLink)
+      .catch((err) => console.error('Failed to load meeting link:', err))
+      .finally(() => setIsLoadingMeetingLink(false));
+  }, [visible, isMeeting, chat?.id]);
 
   const handleAvatarUpload = async () => {
     if (!chat || isUploading) return;
@@ -52,7 +73,8 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
       if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
     } catch (err) {
       console.error('Failed to upload group avatar:', err);
-      Alert.alert('Upload Failed', 'Could not update the group photo. Please try again.');
+      const serverMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      Alert.alert('Upload Failed', serverMessage || 'Could not update the group photo. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -60,7 +82,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
 
   if (!chat || !visible) return null;
 
-  const isGroup = chat.type === 'group';
+  const isGroup = chat.type === 'group' || isMeeting;
   const isCurrentUserAdmin = chat.members.find(m => m.userId === currentUserId)?.role === 'admin';
 
   const sortedMembers = isGroup ? [...chat.members].sort((a, b) => {
@@ -91,9 +113,64 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
       setSelectedMember(null);
     } catch (err) {
       console.error('Failed to remove member:', err);
+      const serverMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      Alert.alert('Failed', serverMessage || 'Could not remove this member. Please try again.');
     } finally {
       setIsRemoving(false);
     }
+  };
+
+  const handleRoleChange = async (newRole: 'admin' | 'member') => {
+    if (!selectedMember || isChangingRole || !chat) return;
+    setIsChangingRole(true);
+    try {
+      await chatApi.updateMemberRole(chat.id, selectedMember.userId, newRole);
+      const updatedChat = await chatApi.getChat(chat.id);
+      const { chats, setChats, activeChat, setActiveChat } = useChatStore.getState();
+      setChats(chats.map(c => c.id === updatedChat.id ? updatedChat : c));
+      if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
+      // Keep the currently-open member detail view in sync too — it's a
+      // local snapshot, not derived from the store.
+      setSelectedMember((prev) => (prev ? { ...prev, role: newRole } : prev));
+    } catch (err) {
+      console.error('Failed to update member role:', err);
+      const serverMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      Alert.alert('Failed', serverMessage || 'Could not update this member\'s role. Please try again.');
+    } finally {
+      setIsChangingRole(false);
+    }
+  };
+
+  const handleShareMeetingLink = () => {
+    if (!meetingLink) return;
+    const link = `${WEB_APP_URL}/meet/${meetingLink.slug}`;
+    void Share.share({ message: `Join my ChitChat meeting: ${link}` }).then(() => {
+      setLinkShared(true);
+      setTimeout(() => setLinkShared(false), 2000);
+    });
+  };
+
+  const handleRevokeMeetingLink = () => {
+    if (!meetingLink) return;
+    Alert.alert('Revoke meeting link', 'It will stop working immediately.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Revoke',
+        style: 'destructive',
+        onPress: async () => {
+          setIsRevokingLink(true);
+          try {
+            await meetingsApi.revoke(meetingLink.slug);
+            setMeetingLink({ ...meetingLink, revoked: true });
+          } catch (err) {
+            console.error('Failed to revoke meeting link:', err);
+            Alert.alert('Error', 'Could not revoke the meeting link. Please try again.');
+          } finally {
+            setIsRevokingLink(false);
+          }
+        },
+      },
+    ]);
   };
 
   // ── Member profile view ────────────────────────────────────────────────────
@@ -142,6 +219,27 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             </View>
 
             {isCurrentUserAdmin && selectedMember.userId !== currentUserId && (
+              <View style={styles.roleActionSection}>
+                <TouchableOpacity
+                  style={styles.roleActionButton}
+                  onPress={() => void handleRoleChange(selectedMember.role === 'admin' ? 'member' : 'admin')}
+                  disabled={isChangingRole}
+                  activeOpacity={0.7}
+                >
+                  {isChangingRole
+                    ? <ActivityIndicator size="small" color="#e9edef" />
+                    : selectedMember.role === 'admin'
+                      ? <ShieldOff size={20} color="#e9edef" />
+                      : <ShieldCheck size={20} color="#e9edef" />
+                  }
+                  <Text style={styles.roleActionButtonText}>
+                    {selectedMember.role === 'admin' ? 'Dismiss as admin' : 'Make group admin'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isCurrentUserAdmin && selectedMember.userId !== currentUserId && (
               <View style={styles.dangerSection}>
                 <TouchableOpacity
                   style={styles.dangerButton}
@@ -171,14 +269,19 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
           <TouchableOpacity onPress={onClose} style={styles.backBtn}>
             <X size={24} color="#e9edef" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isGroup ? 'Group Info' : 'Contact Info'}</Text>
+          <Text style={styles.headerTitle}>{isMeeting ? 'Meeting Info' : isGroup ? 'Group Info' : 'Contact Info'}</Text>
         </View>
 
         <ScrollView style={styles.scrollView}>
           {/* Main Info Card */}
           <View style={styles.mainInfoCard}>
-            {/* Avatar — tappable for groups to change photo */}
-            {isGroup ? (
+            {/* Avatar — tappable to change photo, but only for group ADMINS
+                (matches the "Add Member"/remove-member gating below — this
+                used to be tappable for any group member, who'd get a
+                confusing generic failure since the backend rejects the
+                update with 403 for non-admins). A meeting room's identity is
+                its link, not a photo, so it never gets this control. */}
+            {isGroup && !isMeeting && isCurrentUserAdmin ? (
               <TouchableOpacity
                 style={styles.avatarWrap}
                 onPress={() => void handleAvatarUpload()}
@@ -205,7 +308,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   <Image source={{ uri: avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <User size={60} color="#8696a0" />
+                    {isMeeting ? <Video size={60} color="#8696a0" /> : isGroup ? <Users size={60} color="#8696a0" /> : <User size={60} color="#8696a0" />}
                   </View>
                 )}
               </View>
@@ -214,7 +317,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             <Text style={styles.nameText}>{displayName}</Text>
 
             {isGroup ? (
-              <Text style={styles.phoneText}>Group · {chat.members.length} participants</Text>
+              <Text style={styles.phoneText}>{isMeeting ? 'Meeting' : 'Group'} · {chat.members.length} participants</Text>
             ) : otherMember?.user.phone ? (
               <Text style={styles.phoneText}>{otherMember.user.phone}</Text>
             ) : null}
@@ -234,15 +337,59 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             )}
           </View>
 
-          {/* About / Description */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{isGroup ? 'Description' : 'About'}</Text>
-            <Text style={styles.aboutText}>
-              {isGroup
-                ? 'Welcome to the group!'
-                : (otherMember?.user.profile?.about || 'Hey there! I am using ChitChat')}
-            </Text>
-          </View>
+          {/* Meeting link (meetings only) / About-Description (everyone else) */}
+          {isMeeting ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Meeting link</Text>
+              {isLoadingMeetingLink ? (
+                <ActivityIndicator size="small" color="#8696a0" />
+              ) : meetingLink?.revoked ? (
+                <Text style={styles.aboutText}>This meeting link has been revoked.</Text>
+              ) : meetingLink ? (
+                <>
+                  <Text style={styles.meetingLinkText} numberOfLines={1}>
+                    {`${WEB_APP_URL}/meet/${meetingLink.slug}`}
+                  </Text>
+                  <TouchableOpacity style={styles.shareLinkBtn} onPress={handleShareMeetingLink} activeOpacity={0.7}>
+                    {linkShared ? <Check size={16} color="#00a884" /> : <Copy size={16} color="#00a884" />}
+                    <Text style={styles.shareLinkBtnText}>{linkShared ? 'Shared' : 'Share link'}</Text>
+                  </TouchableOpacity>
+                  {meetingLink.isHost && (
+                    <TouchableOpacity
+                      style={styles.revokeLinkBtn}
+                      onPress={handleRevokeMeetingLink}
+                      disabled={isRevokingLink}
+                      activeOpacity={0.7}
+                    >
+                      {isRevokingLink
+                        ? <ActivityIndicator size="small" color="#ef4444" />
+                        : <Trash2 size={16} color="#ef4444" />}
+                      <Text style={styles.revokeLinkBtnText}>Revoke link</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.aboutText}>Unable to load this meeting's link.</Text>
+              )}
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{isGroup ? 'Description' : 'About'}</Text>
+              <Text style={styles.aboutText}>
+                {isGroup
+                  ? 'Welcome to the group!'
+                  : (otherMember?.user.profile?.about || 'Hey there! I am using ChitChat')}
+              </Text>
+            </View>
+          )}
+
+          {onOpenGallery && (
+            <TouchableOpacity style={styles.galleryRow} onPress={onOpenGallery} activeOpacity={0.7}>
+              <ImageIcon size={18} color="#8696a0" />
+              <Text style={styles.galleryRowText}>Media, links and docs</Text>
+              <ChevronRight size={16} color="#8696a0" />
+            </TouchableOpacity>
+          )}
 
           {/* Participants (groups only) */}
           {isGroup && (
@@ -397,4 +544,28 @@ const styles = StyleSheet.create({
     padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a3942', gap: 16,
   },
   dangerButtonText: { color: '#ef4444', fontSize: 16 },
+  roleActionSection: { backgroundColor: '#111b21', marginTop: 8 },
+  roleActionButton: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a3942', gap: 16,
+  },
+  roleActionButtonText: { color: '#e9edef', fontSize: 16 },
+  meetingLinkText: { fontSize: 15, color: '#8696a0', marginBottom: 12 },
+  shareLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: '#00a884', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 10, alignSelf: 'flex-start',
+  },
+  shareLinkBtnText: { color: '#00a884', fontSize: 14, fontWeight: '500' },
+  revokeLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 12, alignSelf: 'flex-start',
+  },
+  revokeLinkBtnText: { color: '#ef4444', fontSize: 14, fontWeight: '500' },
+  galleryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111b21', paddingHorizontal: 16, paddingVertical: 14,
+    marginBottom: 8,
+  },
+  galleryRowText: { flex: 1, fontSize: 14, color: '#e9edef' },
 });

@@ -15,22 +15,27 @@ datasource db {
 // ============================================
 
 model User {
-  id          String    @id @default(uuid())
-  phone       String?   @unique
-  email       String?   @unique
-  isVerified  Boolean   @default(false) @map("is_verified")
-  lastSeen    DateTime? @map("last_seen")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id         String    @id @default(uuid())
+  phone      String?   @unique
+  email      String?   @unique
+  isVerified Boolean   @default(false) @map("is_verified")
+  lastSeen   DateTime? @map("last_seen")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  authProviders  AuthProvider[]
-  profile        Profile?
-  chatMembers    ChatMember[]
-  messages       Message[]
-  createdChats   Chat[]          @relation("ChatCreator")
-  refreshTokens  RefreshToken[]
-  pushTokens     PushToken[]
+  authProviders AuthProvider[]
+  profile       Profile?
+  chatMembers   ChatMember[]
+  messages      Message[]
+  createdChats  Chat[]         @relation("ChatCreator")
+  refreshTokens RefreshToken[]
+  pushTokens    PushToken[]
+  devices       Device[]
+  backup        Backup?
+  hostedMeetings Meeting[]
+  personalMeetingId String?  @unique @map("personal_meeting_id")
+  personalMeeting   Meeting? @relation("PersonalMeeting", fields: [personalMeetingId], references: [id])
 
   @@index([phone])
   @@index([email])
@@ -82,7 +87,7 @@ model Profile {
 model OtpCode {
   id        String   @id @default(uuid())
   phone     String
-  code      String   // Hashed OTP
+  code      String // Hashed OTP
   expiresAt DateTime @map("expires_at")
   attempts  Int      @default(0)
   verified  Boolean  @default(false)
@@ -99,6 +104,7 @@ model OtpCode {
 enum ChatType {
   direct
   group
+  meeting
 }
 
 model Chat {
@@ -111,13 +117,36 @@ model Chat {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  creator  User?        @relation("ChatCreator", fields: [createdBy], references: [id])
-  members  ChatMember[]
-  messages Message[]
+  creator                User?                   @relation("ChatCreator", fields: [createdBy], references: [id])
+  members                ChatMember[]
+  messages               Message[]
+  senderKeyDistributions SenderKeyDistribution[]
+  meeting                Meeting?
 
   @@index([type])
   @@index([createdBy])
   @@map("chats")
+}
+
+// Meeting links (Google-Meet-style) — a Meeting is a thin pointer from a
+// shareable `slug` to an otherwise-ordinary Chat(type: meeting). Joining
+// via POST /meetings/:slug/join grants ChatMember membership based on
+// "you supplied the correct slug," not an admin invite — every other call/
+// E2EE/messaging code path is untouched and applies exactly as it does for
+// any other chat once that ChatMember row exists.
+model Meeting {
+  id        String   @id @default(uuid())
+  chatId    String   @unique @map("chat_id")
+  slug      String   @unique
+  hostId    String   @map("host_id")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  chat          Chat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  host          User  @relation(fields: [hostId], references: [id])
+  personalOwner User? @relation("PersonalMeeting")
+
+  @@map("meetings")
 }
 
 enum ChatMemberRole {
@@ -159,24 +188,32 @@ enum MessageStatus {
 }
 
 model Message {
-  id        String        @id @default(uuid())
-  chatId    String        @map("chat_id")
-  senderId  String        @map("sender_id")
-  content   String?
-  type      MessageType   @default(text)
-  status    MessageStatus @default(sent)
-  replyToId String?       @map("reply_to")
-  isDeleted Boolean       @default(false) @map("is_deleted")
-  isEdited  Boolean       @default(false) @map("is_edited")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id             String        @id @default(uuid())
+  chatId         String        @map("chat_id")
+  senderId       String        @map("sender_id")
+  content        String?
+  type           MessageType   @default(text)
+  status         MessageStatus @default(sent)
+  replyToId      String?       @map("reply_to")
+  isDeleted      Boolean       @default(false) @map("is_deleted")
+  isEdited       Boolean       @default(false) @map("is_edited")
+  isEncrypted    Boolean       @default(false) @map("is_encrypted")
+  encVersion     Int?          @map("enc_version")
+  // Which of the sender's devices encrypted this message — a recipient's
+  // Double Ratchet session is keyed per SENDER DEVICE, not per sender user,
+  // so this has to be persisted (not just attached to the live socket
+  // payload) for history fetches / reconnects to know which session to use.
+  senderDeviceId String?       @map("sender_device_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  chat        Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  sender      User         @relation(fields: [senderId], references: [id])
-  replyTo     Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies     Message[]    @relation("MessageReplies")
+  chat        Chat            @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender      User            @relation(fields: [senderId], references: [id])
+  replyTo     Message?        @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies     Message[]       @relation("MessageReplies")
   attachments Attachment[]
+  ciphers     MessageCipher[]
 
   // Critical: Composite index for chat message pagination
   @@index([chatId, createdAt(sort: Desc)])
@@ -249,4 +286,160 @@ model PushToken {
   @@unique([userId, deviceId, tokenType])
   @@index([userId])
   @@map("push_tokens")
+}
+
+// ============================================
+// E2EE Models (Phase 0/1 — device identity, key exchange, per-device ciphertext)
+// ============================================
+
+model Device {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  deviceId        String   @map("device_id") // client-generated, persisted in secure storage
+  identityKey     String   @map("identity_key") // base64 ed25519 public key — signs the signed prekey
+  identityDhKey   String   @map("identity_dh_key") // base64 x25519 public key — X3DH DH contribution
+  registrationId  Int      @map("registration_id")
+  signedPreKeyId  Int      @map("signed_prekey_id")
+  signedPreKeyPub String   @map("signed_prekey_pub")
+  signedPreKeySig String   @map("signed_prekey_sig")
+  revoked         Boolean  @default(false)
+  // Phase 4a (device-linking history sync, see E2EE_PLAN.md) — gates ONLY
+  // the history handoff and Linked-Devices UI, never live message delivery
+  // (see keys.service.ts's registerDevice for the bootstrap rule: a user's
+  // very first active device is always auto-approved).
+  approved        Boolean  @default(true)
+  platform        String?  @map("platform") // "web" | "ios" | "android" — cosmetic, shown in the approval prompt
+  createdAt       DateTime @default(now()) @map("created_at")
+  lastActiveAt    DateTime @default(now()) @map("last_active_at")
+
+  user                           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oneTimePreKeys                 OneTimePreKey[]
+  messageCiphers                 MessageCipher[]
+  senderKeyDistributionsSent     SenderKeyDistribution[] @relation("SenderKeyDistributionSender")
+  senderKeyDistributionsReceived SenderKeyDistribution[] @relation("SenderKeyDistributionRecipient")
+  linkPayloadsAsSource           DeviceLinkPayload[]     @relation("DeviceLinkPayloadSource")
+  linkPayloadsAsTarget           DeviceLinkPayload[]     @relation("DeviceLinkPayloadTarget")
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@map("devices")
+}
+
+model OneTimePreKey {
+  id        String  @id @default(uuid())
+  deviceId  String  @map("device_id") // FK to Device.id
+  keyId     Int     @map("key_id")
+  publicKey String  @map("public_key")
+  used      Boolean @default(false)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, keyId])
+  @@index([deviceId, used])
+  @@map("one_time_prekeys")
+}
+
+model MessageCipher {
+  id                String   @id @default(uuid())
+  messageId         String   @map("message_id")
+  recipientDeviceId String   @map("recipient_device_id") // FK to Device.id
+  ciphertext        String
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  device  Device  @relation(fields: [recipientDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, recipientDeviceId])
+  @@index([recipientDeviceId])
+  @@map("message_ciphers")
+}
+
+// ============================================
+// E2EE Models (Phase 2 — Sender Key distribution for group chats)
+// ============================================
+
+// A Sender Key chain is NOT stored here — only the pairwise-encrypted
+// "here's my chain key" handshake is. The chain itself (chainKey, iteration,
+// signing keys) lives exclusively on-device (packages/e2ee's SenderKeyState /
+// ReceivingChainState, persisted in IndexedDB/secure storage) — the server
+// only ever relays this one opaque ciphertext, same trust boundary as
+// MessageCipher for 1:1 chats.
+model SenderKeyDistribution {
+  id                String   @id @default(uuid())
+  chatId            String   @map("chat_id")
+  senderDeviceId    String   @map("sender_device_id") // FK to Device.id — chain OWNER's device
+  recipientDeviceId String   @map("recipient_device_id") // FK to Device.id — target
+  // The SenderKeyDistributionMessage payload, encrypted pairwise via the
+  // owner's existing Phase-1 Double Ratchet session with the recipient
+  // device — the server never sees the chain key in the clear.
+  ciphertext        String
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  chat            Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderDevice    Device @relation("SenderKeyDistributionSender", fields: [senderDeviceId], references: [id], onDelete: Cascade)
+  recipientDevice Device @relation("SenderKeyDistributionRecipient", fields: [recipientDeviceId], references: [id], onDelete: Cascade)
+
+  // A target device only ever needs the LATEST distribution from a given
+  // sending device for this chat — rekeying/redistributing upserts this row
+  // rather than growing an unbounded history of past epochs.
+  @@unique([chatId, senderDeviceId, recipientDeviceId])
+  @@index([recipientDeviceId])
+  @@map("sender_key_distributions")
+}
+
+// ============================================
+// E2EE Models (Phase 4a — device-linking history sync)
+// ============================================
+
+// A brand-new device has no MessageCipher/plaintext for any pre-existing
+// message (no retroactive decryption is possible — forward secrecy is
+// working as intended). This is the opaque, one-time handoff: an already
+// -approved device re-encrypts a bounded slice of a chat's history
+// (plaintext it already holds, pulled from its own local plaintext cache)
+// pairwise to the new device, exactly like SenderKeyDistribution's "one
+// device pushes an encrypted blob addressed to another specific device"
+// shape. The server never sees plaintext at any point.
+model DeviceLinkPayload {
+  id                String   @id @default(uuid())
+  approvingDeviceId String   @map("approving_device_id") // FK to Device.id — source of the history
+  newDeviceId       String   @map("new_device_id") // FK to Device.id — recipient
+  chatId            String   @map("chat_id")
+  ciphertext        String
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  approvingDevice Device @relation("DeviceLinkPayloadSource", fields: [approvingDeviceId], references: [id], onDelete: Cascade)
+  newDevice       Device @relation("DeviceLinkPayloadTarget", fields: [newDeviceId], references: [id], onDelete: Cascade)
+
+  // A re-sync (e.g. approver re-runs the push) overwrites the previous
+  // payload for that chat rather than accumulating history — same
+  // "upsert, don't append" shape as SenderKeyDistribution.
+  @@unique([newDeviceId, chatId])
+  @@index([newDeviceId])
+  @@map("device_link_payloads")
+}
+
+// ============================================
+// E2EE Models (Phase 4b — passphrase-encrypted chat backup)
+// ============================================
+
+// The fallback for when NO other device is online to sync from (Phase 4a's
+// scope). `ciphertext` is a client-encrypted snapshot of recent history —
+// the key is derived from a user passphrase via scrypt and never leaves
+// the device; the server only ever stores/serves this opaque blob plus
+// the (non-secret) salt/nonce needed to re-derive the same key at restore
+// time. One row per user — re-running "Create/Update Backup" overwrites
+// it, same "upsert, don't accumulate" shape as DeviceLinkPayload.
+model Backup {
+  id         String   @id @default(uuid())
+  userId     String   @unique @map("user_id")
+  salt       String // base64, scrypt salt — not secret
+  nonce      String // base64, XChaCha20-Poly1305 nonce
+  ciphertext String // base64 — opaque to the server always
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("backups")
 }

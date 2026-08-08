@@ -1,18 +1,19 @@
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Key, 
-  Lock, 
-  Smile, 
-  List, 
-  MessageSquare, 
-  Bell, 
-  Database, 
-  Globe, 
-  HelpCircle, 
+import {
+  ArrowLeft,
+  Key,
+  Lock,
+  Smile,
+  List,
+  MessageSquare,
+  Bell,
+  Database,
+  Globe,
+  HelpCircle,
   Users,
   QrCode,
   CheckCircle,
+  Laptop,
 } from 'lucide-react';
 import { useAuthStore } from '../stores';
 
@@ -22,6 +23,7 @@ export const SettingsPage = () => {
 
   const settingsItems = [
     { icon: Key, label: 'Account', subLabel: 'Security notifications, change number' },
+    { icon: Laptop, label: 'Linked Devices', subLabel: 'Approve or revoke devices linked to this account', onClick: () => navigate('/settings/linked-devices') },
     { icon: Lock, label: 'Privacy', subLabel: 'Block contacts, disappearing messages' },
     { icon: Smile, label: 'Avatar', subLabel: 'Create, edit, profile photo' },
     { icon: List, label: 'Lists', subLabel: 'Manage people and groups' },
@@ -101,6 +103,7 @@ export const SettingsPage = () => {
           {settingsItems.map((item, index) => (
             <button
               key={index}
+              onClick={item.onClick}
               style={{
                 display: 'flex',
                 alignItems: 'center',

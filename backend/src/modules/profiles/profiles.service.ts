@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { ChatsService } from '../chats/chats.service';
 import { UpdateProfileDto } from './dto';
 
 @Injectable()
@@ -8,7 +10,30 @@ export class ProfilesService {
   constructor(
     private prisma: PrismaService,
     private cloudinaryService: CloudinaryService,
+    private chatsService: ChatsService,
+    private eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Notifies every OTHER user who shares a chat with `userId` that their
+   * displayName/avatarUrl/about changed — without this, those users' own
+   * clients have no way to learn about it short of a full refetch, since
+   * they only ever see this data as a snapshot embedded in shared chat data.
+   */
+  private async broadcastProfileUpdate(
+    userId: string,
+    profile: { displayName: string | null; avatarUrl: string | null; about: string },
+  ) {
+    const contactUserIds = await this.chatsService.getSharedContactUserIds(userId);
+    if (contactUserIds.length === 0) return;
+    this.eventEmitter.emit('profile.updated', {
+      userId,
+      contactUserIds,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+      about: profile.about,
+    });
+  }
 
   async getProfile(userId: string) {
     const profile = await this.prisma.profile.findUnique({
@@ -38,9 +63,10 @@ export class ProfilesService {
       where: { userId },
     });
 
+    let profile;
     if (!existingProfile) {
       // Create profile if it doesn't exist
-      return this.prisma.profile.create({
+      profile = await this.prisma.profile.create({
         data: {
           userId,
           displayName: dto.displayName,
@@ -48,17 +74,20 @@ export class ProfilesService {
           about: dto.about || 'Hey there! I am using ChitChat',
         },
       });
+    } else {
+      // Update existing profile
+      profile = await this.prisma.profile.update({
+        where: { userId },
+        data: {
+          ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+          ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
+          ...(dto.about !== undefined && { about: dto.about }),
+        },
+      });
     }
 
-    // Update existing profile
-    return this.prisma.profile.update({
-      where: { userId },
-      data: {
-        ...(dto.displayName !== undefined && { displayName: dto.displayName }),
-        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
-        ...(dto.about !== undefined && { about: dto.about }),
-      },
-    });
+    await this.broadcastProfileUpdate(userId, profile);
+    return profile;
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File) {
@@ -75,12 +104,15 @@ export class ProfilesService {
     const result = await this.cloudinaryService.uploadFile(file);
 
     // Update profile
-    return this.prisma.profile.update({
+    const updated = await this.prisma.profile.update({
       where: { userId },
       data: {
         avatarUrl: result.secure_url,
       },
     });
+
+    await this.broadcastProfileUpdate(userId, updated);
+    return updated;
   }
 
   async isProfileComplete(userId: string): Promise<boolean> {

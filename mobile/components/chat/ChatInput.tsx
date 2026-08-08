@@ -38,7 +38,9 @@ import { chatApi } from "../../src/api";
 import { useSocketContext } from "../../src/contexts/SocketProvider";
 import * as Crypto from 'expo-crypto';
 import { useAuthStore, useChatStore } from '../../src/stores';
+import { encryptLocalFileForUpload, type AttachmentDescriptor } from '../../src/services/e2eeAttachments';
 import type { Message } from "../../src/types";
+import { ReplyPreviewLine } from "./ReplyPreviewLine";
 
 const { height } = Dimensions.get("window");
 
@@ -132,6 +134,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
         ? {
             id: replyingTo.id,
             content: replyingTo.content,
+            type: replyingTo.type,
             isDeleted: replyingTo.isDeleted ?? false,
             senderName: replyingTo.sender?.displayName || "Unknown",
           }
@@ -378,10 +381,45 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", { uri, name: filename, type: mimeType } as any);
-      const response = await chatApi.uploadAttachment(chatId, formData as any);
-      sendMessage(chatId, filename, msgType, undefined, [response], tempId);
+      const chat = store.chats.find((c) => c.id === chatId);
+
+      if (chat?.type === "direct" || chat?.type === "group" || chat?.type === "meeting") {
+        // Encrypt the raw file bytes BEFORE they ever reach Cloudinary —
+        // the uploaded file's own name/type describe the ciphertext
+        // wrapper, not the real file (see encryptLocalFileForUpload). The
+        // real name/type/key/nonce travel INSIDE the descriptor below,
+        // which sendMessage encrypts through the exact same path a text
+        // message's plaintext does.
+        const { uploadUri, key, nonce } = await encryptLocalFileForUpload(uri);
+        const formData = new FormData();
+        formData.append("file", { uri: uploadUri, name: "attachment.enc", type: "application/octet-stream" } as any);
+        const uploaded = await chatApi.uploadAttachment(chatId, formData as any);
+        const descriptor: AttachmentDescriptor = {
+          attachmentUrl: uploaded.url,
+          attachmentKey: key,
+          attachmentNonce: nonce,
+          mimeType,
+          fileName: filename,
+          // uploaded.size describes the CIPHERTEXT blob, not the real
+          // file — not worth plumbing the real size through from the
+          // picker result just for display purposes.
+          size: 0,
+        };
+        const descriptorJson = JSON.stringify(descriptor);
+
+        // The optimistic entry above was added before the descriptor
+        // existed (it depends on the upload finishing) — patch it in now,
+        // so handleMessageSent's cache-the-optimistic-content logic (see
+        // message.handlers.ts) picks up the REAL descriptor, not the
+        // filename placeholder, once the server confirms the send.
+        store.updateMessage(chatId, tempId, { content: descriptorJson });
+        sendMessage(chatId, descriptorJson, msgType, undefined, undefined, tempId);
+      } else {
+        const formData = new FormData();
+        formData.append("file", { uri, name: filename, type: mimeType } as any);
+        const response = await chatApi.uploadAttachment(chatId, formData as any);
+        sendMessage(chatId, filename, msgType, undefined, [response], tempId);
+      }
     } catch (err) {
       console.error("Upload failed:", err);
       // Remove temp message if upload fails
@@ -405,17 +443,16 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
             <Text style={styles.replyBannerLabel}>
               Replying to {replyingTo.sender?.displayName || "Unknown"}
             </Text>
-            <Text
-              style={[
-                styles.replyBannerText,
-                replyingTo.isDeleted && styles.replyBannerDeleted,
-              ]}
-              numberOfLines={1}
-            >
-              {replyingTo.isDeleted
-                ? "This message was deleted"
-                : replyingTo.content || "Media"}
-            </Text>
+            <ReplyPreviewLine
+              chatId={chatId}
+              replyTo={{
+                id: replyingTo.id,
+                content: replyingTo.content,
+                type: replyingTo.type,
+                isDeleted: replyingTo.isDeleted ?? false,
+                senderName: replyingTo.sender?.displayName || "Unknown",
+              }}
+            />
           </View>
           <TouchableOpacity onPress={onCancelReply} style={{ padding: 4 }}>
             <X size={18} color="#8696a0" />
@@ -676,14 +713,6 @@ const styles = StyleSheet.create({
     color: "#06cf9c",
     fontSize: 12,
     fontWeight: "500",
-  },
-  replyBannerText: {
-    color: "#8696a0",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  replyBannerDeleted: {
-    fontStyle: "italic",
   },
   pillContainer: {
     flex: 1,

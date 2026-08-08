@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MessageCircle, Loader2 } from 'lucide-react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { authApi } from '../api';
 import { useAuthStore } from '../stores';
+import { resolvePostLoginRedirect } from '../utils/postLoginRedirect';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuthStore();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
@@ -22,11 +24,14 @@ export const LoginPage = () => {
       const response = await authApi.googleAuth(credentialResponse.credential);
       login(response.accessToken, response.refreshToken, response.user, response.isNewUser);
       toast.success('Logged in with Google!');
-      
+
       if (response.isNewUser || !response.user.profile?.displayName) {
+        // Profile isn't complete yet — SetupProfilePage resolves the same
+        // redirect target itself once setup finishes, so the meeting link
+        // (or wherever ProtectedRoute bounced from) isn't lost.
         navigate('/setup-profile');
       } else {
-        navigate('/');
+        navigate(resolvePostLoginRedirect(location.state), { replace: true });
       }
     } catch (error: unknown) {
       console.error(error);

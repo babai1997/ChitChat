@@ -18,9 +18,13 @@ import {
   ZoomOut,
   Reply,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Message } from "../../types";
 import { chatApi } from "../../api";
 import { useChatStore, useAuthStore } from "../../stores";
+import { EncryptedAttachment } from "./EncryptedAttachment";
+import { ReplyPreviewLine } from "./ReplyPreviewLine";
+import { isE2eePlaceholder, PLACEHOLDER_APPROVE_DEVICE } from "../../services/e2eeSessions";
 
 interface MessageBubbleProps {
   message: Message;
@@ -29,6 +33,10 @@ interface MessageBubbleProps {
   onEdit?: (messageId: string, currentContent: string) => void;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
   onReply?: (message: Message) => void;
+  /** Briefly flashed when this message is the target of a "jump to" (see onJumpToReply). */
+  isHighlighted?: boolean;
+  /** Clicking this message's own reply-quote asks the parent to scroll to and highlight the quoted message. */
+  onJumpToReply?: (messageId: string) => void;
 }
 
 export const MessageBubble = ({
@@ -38,6 +46,8 @@ export const MessageBubble = ({
   onEdit,
   onDelete,
   onReply,
+  isHighlighted,
+  onJumpToReply,
 }: MessageBubbleProps) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -49,6 +59,7 @@ export const MessageBubble = ({
 
   const { chats } = useChatStore();
   const { user } = useAuthStore();
+  const navigate = useNavigate();
 
   // Reset zoom every time a different image is opened (or the viewer closes).
   useEffect(() => {
@@ -109,7 +120,7 @@ export const MessageBubble = ({
 
       await chatApi.sendMessage(
         chatId,
-        message.content,
+        message.content ?? '',
         message.type,
         undefined,
         [
@@ -245,7 +256,7 @@ export const MessageBubble = ({
 
   const handleEdit = () => {
     if (onEdit && message.type === "text") {
-      onEdit(message.id, message.content);
+      onEdit(message.id, message.content ?? "");
     }
     setShowContextMenu(false);
   };
@@ -263,6 +274,42 @@ export const MessageBubble = ({
     }
     setShowContextMenu(false);
   };
+
+  // A device-side E2EE limitation, not something anyone actually typed and
+  // sent — rendering it as a normal left/right bubble (with the sender's
+  // tick marks/timestamp) reads as a real chat message, which is actively
+  // misleading. Render as a centered, muted system-style notice instead,
+  // matching how WhatsApp-style apps surface this kind of app-level notice.
+  if (message.isEncrypted && isE2eePlaceholder(message.content)) {
+    const isApprovalPrompt = message.content === PLACEHOLDER_APPROVE_DEVICE;
+    return (
+      <div style={{ display: "flex", justifyContent: "center", margin: "8px 0" }}>
+        <div
+          onClick={isApprovalPrompt ? () => navigate("/settings/linked-devices") : undefined}
+          style={{
+            maxWidth: "80%",
+            padding: "6px 14px",
+            backgroundColor: "#182229",
+            borderRadius: "8px",
+            cursor: isApprovalPrompt ? "pointer" : "default",
+          }}
+        >
+          <span
+            style={{
+              display: "block",
+              fontSize: "12.5px",
+              fontStyle: "italic",
+              color: "#8696a0",
+              textAlign: "center",
+              textDecoration: isApprovalPrompt ? "underline" : "none",
+            }}
+          >
+            {message.content}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // If message is deleted, show special UI
   if (message.isDeleted) {
@@ -388,6 +435,7 @@ export const MessageBubble = ({
 
   return (
     <div
+      id={`chat-message-${message.id}`}
       className="animate-slide-up"
       style={{
         display: "flex",
@@ -405,11 +453,16 @@ export const MessageBubble = ({
         style={{
           maxWidth: "85%",
           padding: "6px 7px 8px 9px",
-          backgroundColor: isOwn ? "#005c4b" : "#202c33",
+          backgroundColor: isHighlighted
+            ? "rgba(6,207,156,0.35)"
+            : isOwn
+              ? "#005c4b"
+              : "#202c33",
           borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
           boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
           position: "relative",
           cursor: "pointer",
+          transition: "background-color 0.4s ease",
         }}
       >
         {/* Sender name for group chats */}
@@ -427,9 +480,13 @@ export const MessageBubble = ({
           </p>
         )}
 
-        {/* Quoted preview of the message being replied to */}
+        {/* Quoted preview of the message being replied to — click jumps to it, like WhatsApp */}
         {message.replyTo && (
           <div
+            onClick={(e) => {
+              e.stopPropagation(); // don't also trigger the bubble's own context-menu/select handlers
+              if (!message.replyTo!.isDeleted) onJumpToReply?.(message.replyTo!.id);
+            }}
             style={{
               display: "flex",
               flexDirection: "column",
@@ -438,29 +495,30 @@ export const MessageBubble = ({
               borderLeft: "3px solid #06cf9c",
               backgroundColor: "rgba(255,255,255,0.06)",
               borderRadius: "4px",
-              cursor: "default",
+              cursor: message.replyTo.isDeleted ? "default" : "pointer",
             }}
           >
             <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#06cf9c" }}>
               {message.replyTo.senderName}
             </span>
-            <span
-              style={{
-                fontSize: "12.5px",
-                color: message.replyTo.isDeleted ? "#8696a0" : "rgba(233,237,239,0.75)",
-                fontStyle: message.replyTo.isDeleted ? "italic" : "normal",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: "260px",
-              }}
-            >
-              {message.replyTo.isDeleted
-                ? "This message was deleted"
-                : message.replyTo.content || "Media"}
-            </span>
+            <ReplyPreviewLine chatId={message.chatId} replyTo={message.replyTo} />
           </div>
         )}
+
+        {/* Encrypted attachment — no plaintext Attachment row exists for
+            these (see ChatView.tsx's handleUploadAndSend); the real file
+            lives only inside the encrypted descriptor in `content`. */}
+        {message.isEncrypted &&
+          (!message.attachments || message.attachments.length === 0) &&
+          ["image", "video", "audio", "file"].includes(message.type) && (
+            <div style={{ marginBottom: "4px" }}>
+              <EncryptedAttachment
+                message={message}
+                isOwn={isOwn}
+                onImageClick={(url) => setSelectedImage(url)}
+              />
+            </div>
+          )}
 
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (

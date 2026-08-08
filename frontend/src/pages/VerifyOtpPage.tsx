@@ -4,6 +4,7 @@ import { MessageCircle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authApi } from '../api';
 import { useAuthStore } from '../stores';
+import { resolvePostLoginRedirect } from '../utils/postLoginRedirect';
 
 const OTP_LENGTH = 6;
 
@@ -90,7 +91,7 @@ export const VerifyOtpPage = () => {
       if (response.isNewUser || !response.user.profile?.displayName) {
         navigate('/setup-profile');
       } else {
-        navigate('/');
+        navigate(resolvePostLoginRedirect(location.state), { replace: true });
       }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

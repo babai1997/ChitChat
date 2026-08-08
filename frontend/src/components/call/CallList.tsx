@@ -3,6 +3,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Phone, PhoneMissed, PhoneIncoming, PhoneOutgoing, Video, User, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCall } from '../../contexts/CallContext';
+import { useHasCamera } from '../../hooks';
+import { Tooltip } from '../common/Tooltip';
 import { chatApi } from '../../api';
 
 interface RawCallMessage {
@@ -122,6 +124,7 @@ function buildCallRecords(messages: RawCallMessage[], currentUserId: string): Ca
 export const CallList = ({ onChatSelect }: CallListProps) => {
   const { user } = useAuthStore();
   const { startCall } = useCall();
+  const hasCamera = useHasCamera();
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const {
@@ -167,6 +170,7 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
 
   const handleCallBack = (e: React.MouseEvent, record: CallRecord) => {
     e.stopPropagation();
+    if (record.type === 'video' && !hasCamera) return;
     startCall(record.chatId, record.type);
   };
 
@@ -250,14 +254,23 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
             </div>
           </div>
 
-          <div
-            onClick={(e) => handleCallBack(e, item)}
-            style={{ padding: '8px', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
-            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'rgba(0, 168, 132, 0.1)')}
-            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            {item.type === 'video' ? <Video size={22} /> : <Phone size={22} />}
-          </div>
+          <Tooltip text="No camera detected" disabled={!(item.type === 'video' && !hasCamera)}>
+            <div
+              onClick={(e) => handleCallBack(e, item)}
+              style={{
+                padding: '8px', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+                cursor: item.type === 'video' && !hasCamera ? 'not-allowed' : 'pointer',
+                opacity: item.type === 'video' && !hasCamera ? 0.4 : 1,
+              }}
+              onMouseOver={(e) => {
+                if (item.type === 'video' && !hasCamera) return;
+                e.currentTarget.style.backgroundColor = 'rgba(0, 168, 132, 0.1)';
+              }}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            >
+              {item.type === 'video' ? <Video size={22} /> : <Phone size={22} />}
+            </div>
+          </Tooltip>
         </button>
       ))}
 

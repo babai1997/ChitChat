@@ -1,20 +1,7 @@
 import { Platform, PermissionsAndroid } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
 import { getMessaging, getToken, onTokenRefresh } from '@react-native-firebase/messaging';
 import { api } from '../api/client';
-
-const DEVICE_ID_KEY = 'call_push_device_id';
-
-/** Stable per-install id — identifies this device/install to the backend's PushToken table. */
-async function getOrCreateDeviceId(): Promise<string> {
-  const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-
-  const deviceId = Crypto.randomUUID();
-  await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
-  return deviceId;
-}
+import { getOrCreateDeviceId } from './deviceId';
 
 async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;

@@ -30,6 +30,46 @@ export const SOCKET_EVENTS = {
   CHAT_JOIN: 'chat:join',
   CHAT_LEAVE: 'chat:leave',
   CHAT_NEW: 'chat:new',
+  /** Broadcast to a group's remaining members: someone new joined — existing
+   *  sender-key owners should distribute their CURRENT chain to them. */
+  CHAT_MEMBER_ADDED: 'chat:member-added',
+  /** Broadcast to a group's remaining members: someone left/was removed —
+   *  every sender-key owner among them must rekey (fresh chain, redistributed
+   *  to the new member set) so the removed member can't decrypt anything new. */
+  CHAT_MEMBER_REMOVED: 'chat:member-removed',
+  /** Broadcast to a group's members: the name/avatar changed — without this,
+   *  only the member who made the change ever learns about it in their own
+   *  client; everyone else is stuck with stale data until a full refetch. */
+  CHAT_UPDATED: 'chat:updated',
+  /** Broadcast to a group's members: someone was promoted to admin or
+   *  demoted back to member — without this, only the admin who made the
+   *  change sees it in their own client. */
+  CHAT_MEMBER_ROLE_UPDATED: 'chat:member-role-updated',
+
+  // ── Profile: Server → Client ────────────────────────────────────────────────
+  /** Pushed to every user who shares a chat with the updater: their
+   *  displayName/avatarUrl changed — every OTHER user's client has this
+   *  person's profile only as a snapshot embedded in chat member data, with
+   *  no other way to learn it changed short of a full refetch. */
+  PROFILE_UPDATED: 'profile:updated',
+
+  // ── Sender Keys (Phase 2 group E2EE): Client → Server ───────────────────────
+  /** Distribute (or redistribute, on rekey) this device's group chain key to other members' devices. */
+  SENDER_KEY_DISTRIBUTE: 'sender-key:distribute',
+
+  // ── Sender Keys: Server → Client ────────────────────────────────────────────
+  /** Real-time push of a distribution to an online target device (persisted regardless — see GET /sender-key-distributions). */
+  SENDER_KEY_NEW: 'sender-key:new',
+
+  // ── Device Link (Phase 4a history sync): Server → Client ───────────────────
+  /** Broadcast to every one of the user's connected sockets: a new device just registered and is pending approval. Clients ignore this if it's about their own deviceId. */
+  DEVICE_LINK_REQUEST: 'device:link-request',
+  /** Broadcast to every one of the user's connected sockets: a pending device was approved. The new device dismisses its "waiting" state; the approving device already pushed history synchronously and doesn't need this for itself. */
+  DEVICE_LINK_APPROVED: 'device:link-approved',
+  /** Broadcast to every one of the user's connected sockets: a pending device was declined and its Device row deleted. */
+  DEVICE_LINK_DECLINED: 'device:link-declined',
+  /** Real-time push of one chat's re-encrypted history batch to an online new device (persisted regardless — see GET /devices/link-payloads/pending). */
+  DEVICE_HISTORY_CHUNK: 'device:history-chunk',
 
   // ── Calls: Client → Server ─────────────────────────────────────────────────
   CALL_START: 'call:start',

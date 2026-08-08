@@ -5,7 +5,7 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
+  Headers,
   HttpCode,
   HttpStatus,
   UseInterceptors,
@@ -24,16 +24,18 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
-import { CreateMessageDto, MessageQueryDto } from './dto';
-import { JwtAuthGuard } from '../../common/guards';
+import { CreateMessageDto, MessageQueryDto, GalleryQueryDto } from './dto';
 import { CurrentUser } from '../../common/decorators';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import type { User } from '@prisma/client';
 
+// JwtAuthGuard is already applied globally (see app.module.ts's APP_GUARD) —
+// it does NOT need @UseGuards here too. It used to be applied both ways,
+// which silently ran the guard (and its DB-querying JwtStrategy.validate)
+// TWICE on every single request to this controller.
 @ApiTags('Messages')
 @ApiBearerAuth('access-token')
 @Controller('chats/:chatId/messages')
-@UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(
     private readonly messagesService: MessagesService,
@@ -51,8 +53,28 @@ export class MessagesController {
     @Param('chatId') chatId: string,
     @Query() query: MessageQueryDto,
     @CurrentUser() user: User,
+    @Headers('x-device-id') deviceId?: string,
   ) {
-    return this.messagesService.getMessages(chatId, user.id, query);
+    return this.messagesService.getMessages(chatId, user.id, query, deviceId);
+  }
+
+  @Get('gallery')
+  @ApiOperation({ summary: 'Get every message of the given type(s) across the whole chat — powers the "All Media"/"Docs" tabs' })
+  @ApiParam({ name: 'chatId', description: 'Chat ID' })
+  async getGallery(
+    @Param('chatId') chatId: string,
+    @Query() query: GalleryQueryDto,
+    @CurrentUser() user: User,
+    @Headers('x-device-id') deviceId?: string,
+  ) {
+    return this.messagesService.getGallery(
+      chatId,
+      user.id,
+      query.types,
+      query.cursor,
+      query.limit ?? 30,
+      deviceId,
+    );
   }
 
   @Post()
@@ -70,14 +92,24 @@ export class MessagesController {
     @Body() dto: CreateMessageDto,
     @CurrentUser() user: User,
   ) {
-    return this.messagesService.create({
+    // Note: encrypted sends via this REST fallback are stored correctly but
+    // don't get real-time delivery — a single room broadcast can't carry
+    // different ciphertext per recipient device (see messages.service.ts's
+    // create()). The WebSocket path (message.handler.ts) is the only one
+    // that does per-device fan-out; this endpoint exists for plaintext
+    // fallbacks (e.g. the mobile notification quick-reply action).
+    const { dto: message } = await this.messagesService.create({
       chatId,
       senderId: user.id,
       content: dto.content,
       type: dto.type,
       replyToId: dto.replyToId,
       attachments: dto.attachments,
+      isEncrypted: dto.isEncrypted,
+      ciphers: dto.ciphers,
+      groupCiphertext: dto.groupCiphertext,
     });
+    return message;
   }
 
   @Post('read')

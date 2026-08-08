@@ -3,6 +3,8 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsBoolean,
+  IsArray,
   MaxLength,
   ValidateNested,
   IsNumber,
@@ -10,6 +12,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MessageType } from '@prisma/client';
+import { MessageCipherDto } from './message-cipher.dto';
 
 export class AttachmentDto {
   @ApiProperty({ example: 'photo.jpg' })
@@ -30,10 +33,13 @@ export class AttachmentDto {
 }
 
 export class CreateMessageDto {
-  @ApiProperty({ example: 'Hello!', maxLength: 5000 })
+  // Required for plaintext messages; omitted for encrypted ones, where the
+  // real content lives only in `ciphers` — see isEncrypted below.
+  @ApiPropertyOptional({ example: 'Hello!', maxLength: 5000 })
   @IsString()
+  @IsOptional()
   @MaxLength(5000)
-  content: string;
+  content?: string;
 
   @ApiPropertyOptional({ enum: MessageType, default: MessageType.text })
   @IsEnum(MessageType)
@@ -50,4 +56,21 @@ export class CreateMessageDto {
   @ValidateNested({ each: true })
   @Type(() => AttachmentDto)
   attachments?: AttachmentDto[];
+
+  @ApiPropertyOptional({ description: 'True if content is E2EE ciphertext, not plaintext' })
+  @IsBoolean()
+  @IsOptional()
+  isEncrypted?: boolean;
+
+  @ApiPropertyOptional({ type: [MessageCipherDto], description: 'DIRECT chats: per-recipient-device ciphertext, required when isEncrypted is true' })
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => MessageCipherDto)
+  ciphers?: MessageCipherDto[];
+
+  @ApiPropertyOptional({ description: "GROUP chats: the Sender Key chain's ciphertext, identical for every recipient. Mutually exclusive with `ciphers`." })
+  @IsString()
+  @IsOptional()
+  groupCiphertext?: string;
 }

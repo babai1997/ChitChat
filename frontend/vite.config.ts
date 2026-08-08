@@ -17,6 +17,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@chitchat/types': path.resolve(__dirname, '../packages/types/index.ts'),
+      '@chitchat/e2ee': path.resolve(__dirname, '../packages/e2ee/src/index.ts'),
     },
   },
   server: {

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -20,7 +13,6 @@ import {
   RefreshTokenDto,
 } from './dto';
 import { Public, CurrentUser } from '../../common/decorators';
-import { JwtAuthGuard } from '../../common/guards';
 import type { User } from '@prisma/client';
 
 @ApiTags('Auth')
@@ -81,7 +73,6 @@ export class AuthController {
     return this.authService.refreshTokens(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
@@ -95,7 +86,6 @@ export class AuthController {
   // User Info
   // ============================================
 
-  @UseGuards(JwtAuthGuard)
   @Post('me')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')

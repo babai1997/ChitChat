@@ -4,11 +4,16 @@ import { socketManager } from '../shared/socket/SocketManager';
 import { registerMessageHandlers } from '../shared/socket/handlers/message.handlers';
 import { registerPresenceHandlers } from '../shared/socket/handlers/presence.handlers';
 import { registerChatHandlers } from '../shared/socket/handlers/chat.handlers';
+import { registerDeviceLinkHandlers } from '../shared/socket/handlers/deviceLink.handlers';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
 import { useChatStore } from '../stores/chatStore';
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { registerCallPushToken, subscribeToCallPushTokenRefresh } from '../services/callPush';
+import { registerE2eeDevice } from '../services/e2ee';
+import { encryptForMembers } from '../services/e2eeSessions';
+import { encryptGroupMessage, fetchAndApplyPendingDistributions } from '../services/e2eeGroupSessions';
+import { getOrCreateDeviceId } from '../services/deviceId';
 import { getMessaging, onMessage as fcmOnMessage } from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
 import {
@@ -17,6 +22,7 @@ import {
   sendQuickReply,
   type MessagePushData,
 } from '../services/messagePushNotification';
+import type { MessageType } from '../types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -38,7 +44,7 @@ interface SocketContextType {
     replyToId?: string,
     attachments?: any[],
     customTempId?: string,
-    replyToPreview?: { id: string; content: string | null; isDeleted: boolean; senderName: string },
+    replyToPreview?: { id: string; content: string | null; type: MessageType; isDeleted: boolean; senderName: string },
   ) => string | null;
   markAsRead: (chatId: string, messageIds: string[]) => void;
   startTyping: (chatId: string) => void;
@@ -68,13 +74,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    socketManager.connect(API_URL, accessToken);
+    // deviceId is read from AsyncStorage, so connect() itself has to wait for
+    // it — but everything below (event listeners, handler registration) is
+    // safe to register synchronously first: SocketManager.on() just queues
+    // handlers until a socket exists, and connect() re-attaches all queued
+    // handlers once it actually opens the connection.
+    void getOrCreateDeviceId().then((deviceId) => {
+      socketManager.connect(API_URL, accessToken, deviceId);
+    });
 
     // Register this device for call wake-up push notifications (Android FCM
     // for now — see docs/CALL_NOTIFICATIONS_PLAN.md). Idempotent upsert, safe to
     // call on every reconnect/token-refresh.
     void registerCallPushToken();
     const unsubscribeTokenRefresh = subscribeToCallPushTokenRefresh();
+    void registerE2eeDevice();
+    // Catches up on any Sender Key distribution this device missed while
+    // offline (or never got a real-time SENDER_KEY_NEW push for) — see
+    // e2eeGroupSessions.ts. Safe to call on every (re)connect: reapplying an
+    // already-known chain is a no-op.
+    void fetchAndApplyPendingDistributions();
 
     const onConnect = () => { setIsConnected(true); setIsReconnecting(false); };
     const onDisconnect = (reason: unknown) => {
@@ -96,6 +115,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanupMessages = registerMessageHandlers();
     const cleanupPresence = registerPresenceHandlers();
     const cleanupChats = registerChatHandlers();
+    const cleanupDeviceLink = registerDeviceLinkHandlers();
 
     return () => {
       socketManager.off('connect', onConnect);
@@ -104,6 +124,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cleanupMessages();
       cleanupPresence();
       cleanupChats();
+      cleanupDeviceLink();
       unsubscribeTokenRefresh();
     };
   }, [isAuthenticated, accessToken]);
@@ -185,7 +206,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       replyToId?: string,
       attachments?: any[],
       customTempId?: string,
-      replyToPreview?: { id: string; content: string | null; isDeleted: boolean; senderName: string },
+      replyToPreview?: { id: string; content: string | null; type: MessageType; isDeleted: boolean; senderName: string },
     ) => {
       if (!socketManager.isConnected) {
         console.warn('[Socket] Cannot send — not connected');
@@ -237,14 +258,60 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
 
-      socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
-        tempId,
-        chatId,
-        content,
-        type,
-        replyToId,
-        attachments,
-      });
+      // Both direct (Phase 1, per-device Double Ratchet) and group (Phase 2,
+      // Sender Keys) chats are E2EE. Encryption needs an async key-bundle
+      // fetch either way — the optimistic update above already happened
+      // synchronously, so this just delays the actual wire send, same as
+      // any other fire-and-forget emit.
+      const chat = store.chats.find((c) => c.id === chatId);
+      if (chat?.type === 'direct') {
+        const memberUserIds = chat.members.map((m) => m.userId);
+        void encryptForMembers(memberUserIds, content)
+          .then((ciphers) => {
+            socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+              tempId,
+              chatId,
+              type,
+              replyToId,
+              attachments,
+              isEncrypted: true,
+              ciphers,
+            });
+          })
+          .catch((err) => {
+            console.error('[E2EE] Failed to encrypt message:', err);
+          });
+      } else if (chat?.type === 'group' || chat?.type === 'meeting') {
+        // 'meeting' chats use the exact same Sender-Key group E2EE as
+        // 'group' — without this branch, a meeting chat fell through to
+        // the plaintext else-case below (this WAS a real bug: E2EE
+        // silently didn't apply to any in-meeting text chat at all).
+        const memberUserIds = chat.members.map((m) => m.userId);
+        void encryptGroupMessage(chatId, memberUserIds, content)
+          .then((groupCiphertext) => {
+            socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+              tempId,
+              chatId,
+              type,
+              replyToId,
+              attachments,
+              isEncrypted: true,
+              groupCiphertext,
+            });
+          })
+          .catch((err) => {
+            console.error('[E2EE] Failed to encrypt group message:', err);
+          });
+      } else {
+        socketManager.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+          tempId,
+          chatId,
+          content,
+          type,
+          replyToId,
+          attachments,
+        });
+      }
       return tempId;
     },
     [],
@@ -283,7 +350,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             lastMessage: prev
               ? {
                   id: prev.id,
-                  content: prev.content,
+                  content: prev.content ?? '',
                   type: prev.type,
                   createdAt: prev.createdAt,
                   senderId: prev.senderId,

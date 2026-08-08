@@ -22,12 +22,15 @@ import { SocketRegistryService } from './services/socket-registry.service';
 import { MessageHandler } from './handlers/message.handler';
 import { PresenceHandler } from './handlers/presence.handler';
 import { CallHandler } from './handlers/call.handler';
+import { SenderKeyHandler } from './handlers/sender-key.handler';
 import { SOCKET_EVENTS } from '../../shared/constants/socket-events';
 import { SendMessageDto, TypingDto, ReadMessagesDto } from './dto';
+import type { DistributeSenderKeyDto } from '../sender-keys/dto';
 import { User, Profile } from '@prisma/client';
 
 interface AuthenticatedSocket extends Socket {
   user: User & { profile: Profile | null };
+  deviceId?: string;
 }
 
 @UseFilters(WsExceptionFilter)
@@ -58,6 +61,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly messageHandler: MessageHandler,
     private readonly presenceHandler: PresenceHandler,
     private readonly callHandler: CallHandler,
+    private readonly senderKeyHandler: SenderKeyHandler,
   ) {}
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -71,14 +75,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       (socket as AuthenticatedSocket).user = user;
+      const deviceId = this.extractDeviceId(socket);
+      (socket as AuthenticatedSocket).deviceId = deviceId;
 
       // Share server reference with sub-services (done once here)
       this.registry.setServer(this.server);
       this.messageHandler.setServer(this.server);
       this.callHandler.setServer(this.server);
 
-      // Register socket
-      this.registry.register(user.id, socket.id);
+      // Register socket — deviceId falls back to socket.id for clients that
+      // haven't sent one yet (see SocketRegistryService.register's jsdoc).
+      this.registry.register(user.id, socket.id, deviceId);
 
       // Join all user's chat rooms
       const userChatIds = await this.chatsService.getUserChatIds(user.id);
@@ -139,7 +146,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!authSocket.user) return;
 
     const userId = authSocket.user.id;
-    const isLastConnection = this.registry.unregister(userId, socket.id);
+    const isLastConnection = this.registry.unregister(
+      userId,
+      socket.id,
+      authSocket.deviceId,
+    );
 
     if (isLastConnection) {
       await this.usersService.setOnlineStatus(userId, false);
@@ -319,6 +330,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.callHandler.handleAddToCall(socket as any, data);
   }
 
+  // ─── Sender Key Events (Phase 2 group E2EE) ────────────────────────────────
+
+  @SubscribeMessage(SOCKET_EVENTS.SENDER_KEY_DISTRIBUTE)
+  handleSenderKeyDistribute(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() data: { chatId: string } & DistributeSenderKeyDto,
+  ) {
+    const { chatId, ...dto } = data;
+    return this.senderKeyHandler.handleDistribute(socket as any, chatId, dto);
+  }
+
   // ─── Room Management ───────────────────────────────────────────────────────
 
   @SubscribeMessage(SOCKET_EVENTS.CHAT_JOIN)
@@ -366,7 +388,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     userIds.forEach((userId) => {
       const socketIds = this.registry.getSocketIds(userId);
       socketIds.forEach((socketId) => {
-        const socket = this.server.sockets.sockets.get(socketId);
+        // NestJS injects the Namespace (not the global Server) for a
+        // namespaced gateway — Namespace.sockets is ALREADY the
+        // Map<socketId, Socket> (see socket-registry.service.ts's own
+        // comment on this); there's no nested `.sockets.sockets`.
+        const socket = (
+          this.server as unknown as { sockets: Map<string, Socket> }
+        ).sockets.get(socketId);
         if (socket) {
           void socket.join(`chat:${chat.id}`);
           socket.emit(SOCKET_EVENTS.CHAT_NEW, chat);
@@ -383,6 +411,150 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.logger.log(
       `📢 New chat ${chat.id} broadcast to ${userIds.join(', ')}`,
+    );
+  }
+
+  @OnEvent('chat.member-added')
+  handleChatMemberAdded(payload: { chatId: string; newUserId: string }) {
+    // Existing members' clients react to this by distributing their CURRENT
+    // sender-key chain (targeted at just the new member's devices) — not a
+    // full-group redistribution. The new member gets no retroactive access
+    // to history (matches Signal/WhatsApp's default), only messages from
+    // whenever their distribution actually lands.
+    this.server
+      .to(`chat:${payload.chatId}`)
+      .emit(SOCKET_EVENTS.CHAT_MEMBER_ADDED, payload);
+  }
+
+  @OnEvent('chat.member-removed')
+  handleChatMemberRemoved(payload: {
+    chatId: string;
+    removedUserId: string;
+    remainingMemberIds: string[];
+  }) {
+    // Evict the removed user's sockets from the room FIRST — otherwise
+    // they'd keep receiving MESSAGE_NEW broadcasts for this group in real
+    // time via the room, even though their ChatMember row (and therefore
+    // any REST fetch) already denies them. Group ciphertext is identical
+    // for every room member, so room membership IS an access boundary here,
+    // unlike 1:1 chats where per-device targeting already gates delivery.
+    const removedSocketIds = this.registry.getSocketIds(payload.removedUserId);
+    removedSocketIds.forEach((socketId) => {
+      const socket = (
+        this.server as unknown as { sockets: Map<string, Socket> }
+      ).sockets.get(socketId);
+      void socket?.leave(`chat:${payload.chatId}`);
+    });
+
+    // Remaining members' clients react by rekeying: a fresh sender-key
+    // chain, redistributed to `remainingMemberIds` only — the removed
+    // member never receives the new chain, so they're locked out of every
+    // future message even if they cached the old chain key (see
+    // senderKeys.ts's rekey self-test).
+    this.server
+      .to(`chat:${payload.chatId}`)
+      .emit(SOCKET_EVENTS.CHAT_MEMBER_REMOVED, payload);
+  }
+
+  @OnEvent('chat.updated')
+  handleChatUpdated(payload: {
+    chatId: string;
+    name: string | null;
+    avatarUrl: string | null;
+  }) {
+    // Without this, only the member who made the change ever learns about
+    // it in their own client — everyone else's chatStore has no mechanism
+    // to pick it up short of a full refetch (see chats.service.ts's
+    // updateGroup, which used to just return the new DTO to the caller
+    // and nothing else).
+    this.server
+      .to(`chat:${payload.chatId}`)
+      .emit(SOCKET_EVENTS.CHAT_UPDATED, payload);
+  }
+
+  @OnEvent('chat.member-role-updated')
+  handleChatMemberRoleUpdated(payload: {
+    chatId: string;
+    userId: string;
+    role: 'admin' | 'member';
+  }) {
+    // Same gap as chat.updated — only the admin who made the change
+    // otherwise ever learns about it.
+    this.server
+      .to(`chat:${payload.chatId}`)
+      .emit(SOCKET_EVENTS.CHAT_MEMBER_ROLE_UPDATED, payload);
+  }
+
+  @OnEvent('profile.updated')
+  handleProfileUpdated(payload: {
+    userId: string;
+    contactUserIds: string[];
+    displayName: string | null;
+    avatarUrl: string | null;
+    about: string;
+  }) {
+    // Not chat-room-scoped like the events above — a profile change is
+    // relevant to every contact across every chat this user is in, so it's
+    // targeted per-user via emitToUser rather than a single room broadcast.
+    const { contactUserIds, ...profileUpdate } = payload;
+    contactUserIds.forEach((userId) => {
+      this.registry.emitToUser(
+        userId,
+        SOCKET_EVENTS.PROFILE_UPDATED,
+        profileUpdate,
+      );
+    });
+  }
+
+  @OnEvent('device.link-requested')
+  handleDeviceLinkRequested(payload: {
+    userId: string;
+    newDeviceId: string;
+    platform?: string;
+  }) {
+    // Every one of the user's connected sockets gets this — including the
+    // new device itself (which ignores it, it's not "about" any other
+    // device) and any other already-approved device, which is what
+    // actually drives the approval-prompt UI.
+    this.registry.emitToUser(
+      payload.userId,
+      SOCKET_EVENTS.DEVICE_LINK_REQUEST,
+      payload,
+    );
+  }
+
+  @OnEvent('device.link-approved')
+  handleDeviceLinkApproved(payload: { userId: string; deviceId: string }) {
+    this.registry.emitToUser(
+      payload.userId,
+      SOCKET_EVENTS.DEVICE_LINK_APPROVED,
+      payload,
+    );
+  }
+
+  @OnEvent('device.link-declined')
+  handleDeviceLinkDeclined(payload: { userId: string; deviceId: string }) {
+    this.registry.emitToUser(
+      payload.userId,
+      SOCKET_EVENTS.DEVICE_LINK_DECLINED,
+      payload,
+    );
+  }
+
+  @OnEvent('device.history-chunk')
+  handleDeviceHistoryChunk(payload: {
+    userId: string;
+    newDeviceId: string;
+    chatId: string;
+    ciphertext: string;
+    approvingDeviceId: string;
+  }) {
+    const { userId, newDeviceId, ...rest } = payload;
+    this.registry.emitToDevice(
+      userId,
+      newDeviceId,
+      SOCKET_EVENTS.DEVICE_HISTORY_CHUNK,
+      rest,
     );
   }
 
@@ -434,6 +606,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const header = socket.handshake?.headers?.authorization;
     if (header?.startsWith('Bearer ')) return header.slice(7);
+
+    return undefined;
+  }
+
+  /**
+   * Falls back to socket.id (undefined here — SocketRegistryService.register
+   * applies its own socket.id fallback) for clients on a build that predates
+   * the E2EE device-identity rollout.
+   */
+  private extractDeviceId(socket: Socket): string | undefined {
+    const auth = socket.handshake?.auth;
+    if (typeof auth?.deviceId === 'string') return auth.deviceId;
+
+    const query = socket.handshake?.query;
+    if (typeof query?.deviceId === 'string') return query.deviceId;
 
     return undefined;
   }

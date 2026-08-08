@@ -1,15 +1,14 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PushService } from './push.service';
-import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { RegisterPushTokenDto, UnregisterPushTokenDto } from './dto';
 import type { User } from '@prisma/client';
 
+// JwtAuthGuard is already applied globally (see app.module.ts's APP_GUARD).
 @ApiTags('Push')
 @ApiBearerAuth('access-token')
 @Controller('push')
-@UseGuards(JwtAuthGuard)
 export class PushController {
   constructor(private readonly pushService: PushService) {}
 

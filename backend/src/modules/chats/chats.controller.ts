@@ -6,7 +6,7 @@ import {
   Delete,
   Body,
   Param,
-  UseGuards,
+  Headers,
   HttpCode,
   HttpStatus,
   Query,
@@ -25,15 +25,15 @@ import {
   CreateGroupDto,
   UpdateGroupDto,
   AddMemberDto,
+  UpdateMemberRoleDto,
 } from './dto';
-import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import type { User } from '@prisma/client';
 
+// JwtAuthGuard is already applied globally (see app.module.ts's APP_GUARD).
 @ApiTags('Chats')
 @ApiBearerAuth('access-token')
 @Controller('chats')
-@UseGuards(JwtAuthGuard)
 export class ChatsController {
   constructor(private readonly chatsService: ChatsService) {}
 
@@ -47,8 +47,11 @@ export class ChatsController {
     status: 200,
     description: 'List of chats with latest message & unread count',
   })
-  async getChats(@CurrentUser() user: User) {
-    return this.chatsService.getUserChats(user.id);
+  async getChats(
+    @CurrentUser() user: User,
+    @Headers('x-device-id') deviceId?: string,
+  ) {
+    return this.chatsService.getUserChats(user.id, deviceId);
   }
 
   @Get('calls/history')
@@ -77,8 +80,12 @@ export class ChatsController {
   @ApiParam({ name: 'id', description: 'Chat ID' })
   @ApiResponse({ status: 200, description: 'Chat details with members' })
   @ApiResponse({ status: 404, description: 'Chat not found' })
-  async getChat(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.chatsService.getChatById(id, user.id);
+  async getChat(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Headers('x-device-id') deviceId?: string,
+  ) {
+    return this.chatsService.getChatById(id, user.id, deviceId);
   }
 
   // ============================================
@@ -160,6 +167,24 @@ export class ChatsController {
   @ApiResponse({ status: 200, description: 'Left the group' })
   async leaveGroup(@Param('id') id: string, @CurrentUser() user: User) {
     return this.chatsService.leaveGroup(id, user.id);
+  }
+
+  @Put(':id/members/:userId/role')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Promote a member to admin, or demote an admin back to member — admin-only',
+  })
+  @ApiParam({ name: 'id', description: 'Chat ID' })
+  @ApiParam({ name: 'userId', description: 'User ID whose role to change' })
+  @ApiResponse({ status: 200, description: 'Role updated' })
+  async updateMemberRole(
+    @Param('id') id: string,
+    @Param('userId') memberId: string,
+    @Body() dto: UpdateMemberRoleDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.updateMemberRole(id, user.id, memberId, dto.role);
   }
 
   // ============================================

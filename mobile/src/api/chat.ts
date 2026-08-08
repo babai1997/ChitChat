@@ -52,6 +52,14 @@ export const chatApi = {
     await api.delete(`/chats/${chatId}/members/${userId}`);
   },
 
+  updateMemberRole: async (
+    chatId: string,
+    userId: string,
+    role: "admin" | "member",
+  ): Promise<void> => {
+    await api.put(`/chats/${chatId}/members/${userId}/role`, { role });
+  },
+
   leaveChat: async (chatId: string): Promise<void> => {
     await api.post(`/chats/${chatId}/leave`);
   },
@@ -71,6 +79,22 @@ export const chatApi = {
     if (limit) params.append("limit", limit.toString());
 
     const response = await api.get(`/chats/${chatId}/messages?${params}`);
+    return response.data;
+  },
+
+  /** Every message of the given type(s) across the WHOLE chat — powers the "All Media"/"Docs" tabs (see ChatGalleryModal). */
+  getGallery: async (
+    chatId: string,
+    types: ("image" | "video" | "audio" | "file")[],
+    cursor?: string,
+    limit?: number,
+  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> => {
+    const params = new URLSearchParams();
+    types.forEach((t) => params.append("types", t));
+    if (cursor) params.append("cursor", cursor);
+    if (limit) params.append("limit", limit.toString());
+
+    const response = await api.get(`/chats/${chatId}/messages/gallery?${params}`);
     return response.data;
   },
 
