@@ -52,17 +52,17 @@ export function EncryptedAttachment({
     // or genuinely empty. Show whatever's there as plain text rather than
     // nothing, since those placeholders ARE the useful information here.
     return message.content ? (
-      <span style={{ fontSize: "13px", color: "#8696a0", fontStyle: "italic" }}>{message.content}</span>
+      <span style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontStyle: "italic" }}>{message.content}</span>
     ) : null;
   }
 
   if (error) {
-    return <span style={{ fontSize: "13px", color: "#ef4444" }}>⚠️ {error}</span>;
+    return <span style={{ fontSize: "13px", color: "var(--color-danger)" }}>⚠️ {error}</span>;
   }
 
   if (!blobUrl) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", color: "#8696a0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", color: "var(--color-text-secondary)" }}>
         <Loader2 size={16} className="animate-spin" />
         <span style={{ fontSize: "13px" }}>Decrypting…</span>
       </div>
@@ -112,7 +112,7 @@ export function EncryptedAttachment({
         borderRadius: "8px",
       }}
     >
-      <FileText size={24} color={isOwn ? "#e9edef" : "#8696a0"} />
+      <FileText size={24} color={isOwn ? "var(--color-text-primary)" : "var(--color-text-secondary)"} />
       <a
         href={blobUrl}
         download={descriptor.fileName}

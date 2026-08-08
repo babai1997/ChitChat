@@ -89,14 +89,14 @@ const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerO
     <div style={{
       width: '100%',
       height: '100%',
-      backgroundColor: '#111b21',
+      backgroundColor: 'var(--color-bg)',
       borderRadius: '8px',
       overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      outline: isSpeaking ? '2.5px solid #00a884' : '2.5px solid transparent',
+      outline: isSpeaking ? '2.5px solid var(--color-accent)' : '2.5px solid transparent',
       transition: 'outline 0.15s ease',
     }}>
       {isVideo ? (
@@ -116,17 +116,17 @@ const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerO
               alt={memberName}
               style={{
                 width: '88px', height: '88px', borderRadius: '50%', objectFit: 'cover',
-                border: isSpeaking ? '3px solid #00a884' : '3px solid transparent',
+                border: isSpeaking ? '3px solid var(--color-accent)' : '3px solid transparent',
                 transition: 'border 0.15s ease',
               }}
             />
           ) : (
             <div style={{
               width: '88px', height: '88px', borderRadius: '50%',
-              backgroundColor: '#2a3942',
+              backgroundColor: 'var(--color-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '36px', fontWeight: 700, color: '#e9edef',
-              border: isSpeaking ? '3px solid #00a884' : '3px solid transparent',
+              fontSize: '36px', fontWeight: 700, color: 'var(--color-text-primary)',
+              border: isSpeaking ? '3px solid var(--color-accent)' : '3px solid transparent',
               transition: 'border 0.15s ease',
             }}>
               {initial}
@@ -142,11 +142,11 @@ const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerO
       {isRemoteMuted && (
         <div style={{
           position: 'absolute', top: '8px', right: '8px',
-          backgroundColor: 'rgba(234,67,53,0.85)',
+          backgroundColor: 'rgba(239, 68, 68,0.85)',
           borderRadius: '50%', width: '28px', height: '28px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <MicOff size={14} color="#fff" />
+          <MicOff size={14} color="var(--color-white)" />
         </div>
       )}
 
@@ -158,15 +158,15 @@ const ParticipantTile = ({ stream, isVideo, memberName, memberAvatar, isSpeakerO
         display: 'flex', alignItems: 'center', gap: '6px',
       }}>
         {isRemoteMuted ? (
-          <MicOff size={12} color="#ea4335" style={{ flexShrink: 0 }} />
+          <MicOff size={12} color="var(--color-danger)" style={{ flexShrink: 0 }} />
         ) : isSpeaking ? (
           <div style={{
             width: '8px', height: '8px', borderRadius: '50%',
-            backgroundColor: '#00a884', flexShrink: 0,
+            backgroundColor: 'var(--color-accent)', flexShrink: 0,
           }} />
         ) : null}
         <span style={{
-          color: '#fff', fontSize: '13px', fontWeight: 600,
+          color: 'var(--color-white)', fontSize: '13px', fontWeight: 600,
           textShadow: '0 1px 3px rgba(0,0,0,0.8)',
           overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
         }}>
@@ -203,7 +203,7 @@ const ScreenView = ({ stream }: { stream: MediaStream }) => {
       autoPlay
       playsInline
       muted
-      style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#0b141a' }}
+      style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: 'var(--color-bg-deepest)' }}
     />
   );
 };
@@ -230,7 +230,7 @@ const LocalTile = ({ stream, isVideoEnabled, localUserName, localUserAvatar }: L
 
   return (
     <div style={{
-      width: '100%', height: '100%', backgroundColor: '#111b21',
+      width: '100%', height: '100%', backgroundColor: 'var(--color-bg)',
       borderRadius: '8px', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       position: 'relative',
@@ -251,9 +251,9 @@ const LocalTile = ({ stream, isVideoEnabled, localUserName, localUserAvatar }: L
           ) : (
             <div style={{
               width: '88px', height: '88px', borderRadius: '50%',
-              backgroundColor: '#2a3942',
+              backgroundColor: 'var(--color-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '36px', fontWeight: 700, color: '#e9edef',
+              fontSize: '36px', fontWeight: 700, color: 'var(--color-text-primary)',
             }}>
               {initial}
             </div>
@@ -266,7 +266,7 @@ const LocalTile = ({ stream, isVideoEnabled, localUserName, localUserAvatar }: L
         padding: '20px 10px 8px',
         display: 'flex', alignItems: 'center', gap: '6px',
       }}>
-        <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+        <span style={{ color: 'var(--color-white)', fontSize: '13px', fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
           You
         </span>
       </div>
@@ -473,26 +473,26 @@ export const CallModal = () => {
         zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <div style={{
-          backgroundColor: '#1f2c34', borderRadius: 16, padding: '32px 28px',
+          backgroundColor: 'var(--color-surface-elevated)', borderRadius: 16, padding: '32px 28px',
           maxWidth: 360, width: '90%', textAlign: 'center',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
         }}>
           <div style={{
-            width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.15)',
+            width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68,0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <MicOff size={28} color="#ef4444" />
+            <MicOff size={28} color="var(--color-danger)" />
           </div>
-          <div style={{ fontSize: 17, fontWeight: 600, color: '#e9edef' }}>Microphone needed</div>
-          <div style={{ fontSize: 14, color: '#8696a0', lineHeight: 1.5 }}>{mediaError}</div>
-          <div style={{ fontSize: 12.5, color: '#667781', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--color-text-primary)' }}>Microphone needed</div>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{mediaError}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             Look for a camera/mic icon in your browser's address bar, allow access, then try again.
           </div>
           <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 8 }}>
             <button
               onClick={dismissMediaError}
               style={{
-                flex: 1, background: 'none', border: '1px solid #3b4a54', color: '#e9edef',
+                flex: 1, background: 'none', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
                 borderRadius: 8, padding: '10px', cursor: 'pointer', fontSize: 14,
               }}
             >
@@ -501,7 +501,7 @@ export const CallModal = () => {
             <button
               onClick={retryMedia}
               style={{
-                flex: 1, background: '#00a884', border: 'none', color: '#0b141a',
+                flex: 1, background: 'var(--color-accent)', border: 'none', color: 'var(--color-bg-deepest)',
                 borderRadius: 8, padding: '10px', cursor: 'pointer', fontSize: 14, fontWeight: 600,
               }}
             >
@@ -524,29 +524,29 @@ export const CallModal = () => {
         animation: 'fadeInCall 160ms ease',
       }}>
         <div style={{
-          backgroundColor: '#202c33', padding: '32px', borderRadius: '16px',
+          backgroundColor: 'var(--color-surface)', padding: '32px', borderRadius: '16px',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           gap: '24px', minWidth: '300px',
         }}>
           <div style={{
             width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden',
-            backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {incomingCall.callerAvatar ? (
               <img src={incomingCall.callerAvatar} alt="Caller" referrerPolicy="no-referrer"
                 style={{ width: '100%', height: '100%' }} />
             ) : (
-              <span style={{ fontSize: '32px', color: '#8696a0' }}>
+              <span style={{ fontSize: '32px', color: 'var(--color-text-secondary)' }}>
                 {incomingCall.callerName.charAt(0)}
               </span>
             )}
           </div>
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#e9edef', margin: 0 }}>{incomingCall.callerName}</h2>
-            <p style={{ color: '#8696a0', margin: '8px 0' }}>Incoming {incomingCall.type} call...</p>
+            <h2 style={{ color: 'var(--color-text-primary)', margin: 0 }}>{incomingCall.callerName}</h2>
+            <p style={{ color: 'var(--color-text-secondary)', margin: '8px 0' }}>Incoming {incomingCall.type} call...</p>
           </div>
           <div style={{ display: 'flex', gap: '32px' }}>
-            <button onClick={rejectCall} style={circleBtn('#ea4335')}><PhoneOff size={24} /></button>
+            <button onClick={rejectCall} style={circleBtn('var(--color-danger)')}><PhoneOff size={24} /></button>
             <button onClick={answerCall} style={{ ...circleBtn('#34a853'), animation: 'pulse 1.5s infinite' }}>
               {incomingCall.type === 'video' ? <Video size={24} /> : <Phone size={24} />}
             </button>
@@ -567,7 +567,7 @@ export const CallModal = () => {
     return (
       <div ref={pipRef} style={{
         position: 'fixed', left: `${pipPosition.x}px`, top: `${pipPosition.y}px`,
-        width: '180px', height: '240px', backgroundColor: '#202c33',
+        width: '180px', height: '240px', backgroundColor: 'var(--color-surface)',
         borderRadius: '12px', overflow: 'hidden', zIndex: 9999,
         boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.7)' : '0 4px 12px rgba(0,0,0,0.5)',
         display: 'flex', flexDirection: 'column',
@@ -580,7 +580,7 @@ export const CallModal = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'grab', zIndex: 10,
         }}>
-          <GripHorizontal size={16} color="#8696a0" />
+          <GripHorizontal size={16} color="var(--color-text-secondary)" />
         </div>
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden', marginTop: '32px' }}>
           {firstEntry ? (
@@ -595,8 +595,8 @@ export const CallModal = () => {
           ) : (
             <div style={{
               width: '100%', height: '100%', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', backgroundColor: '#2a3942',
-              fontSize: '48px', color: '#8696a0',
+              alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-border)',
+              fontSize: '48px', color: 'var(--color-text-secondary)',
             }}>···</div>
           )}
         </div>
@@ -608,7 +608,7 @@ export const CallModal = () => {
           <button onClick={toggleMinimize} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
             <Maximize2 size={20} />
           </button>
-          <button onClick={endCall} style={{ background: 'none', border: 'none', color: '#ea4335', cursor: 'pointer' }}>
+          <button onClick={endCall} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
             <PhoneOff size={20} />
           </button>
         </div>
@@ -640,7 +640,7 @@ export const CallModal = () => {
   // ── Full screen active call ────────────────────────────────────────────────
   return (
     <div style={{
-      position: 'fixed', inset: 0, backgroundColor: '#0b141a',
+      position: 'fixed', inset: 0, backgroundColor: 'var(--color-bg-deepest)',
       zIndex: 9999, display: 'flex', flexDirection: 'column',
       animation: 'fadeInCall 160ms ease',
     }}>
@@ -667,10 +667,10 @@ export const CallModal = () => {
         {isScreenSharing && (
           <div style={{ display: 'flex', width: '100%', height: '100%', gap: '8px' }}>
             {/* Main screen — no overlaid banner/button; those live in the draggable bar */}
-            <div style={{ flex: 1, position: 'relative', backgroundColor: '#0b141a', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
+            <div style={{ flex: 1, position: 'relative', backgroundColor: 'var(--color-bg-deepest)', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
               {screenStream
                 ? <ScreenView stream={screenStream} />
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>Starting screen share…</div>
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>Starting screen share…</div>
               }
             </div>
 
@@ -705,15 +705,15 @@ export const CallModal = () => {
         {isRemoteScreenSharing && (
           <div style={{ display: 'flex', width: '100%', height: '100%', gap: '8px' }}>
             {/* Main screen — takes all remaining width */}
-            <div style={{ flex: 1, position: 'relative', backgroundColor: '#0b141a', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
+            <div style={{ flex: 1, position: 'relative', backgroundColor: 'var(--color-bg-deepest)', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
               {sharingStream
                 ? <ScreenView stream={sharingStream} />
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>Waiting for screen…</div>
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>Waiting for screen…</div>
               }
               <div style={{
                 position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)',
                 backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '20px',
-                padding: '4px 14px', color: '#e9edef', fontSize: '13px', fontWeight: 500,
+                padding: '4px 14px', color: 'var(--color-text-primary)', fontSize: '13px', fontWeight: 500,
                 display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
               }}>
                 <ScreenShare size={14} />
@@ -833,16 +833,16 @@ export const CallModal = () => {
               ) : (
                 <div style={{
                   width: '120px', height: '120px', borderRadius: '50%',
-                  backgroundColor: '#2a3942',
+                  backgroundColor: 'var(--color-border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '48px', fontWeight: 700, color: '#e9edef',
+                  fontSize: '48px', fontWeight: 700, color: 'var(--color-text-primary)',
                 }}>
                   {chatName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
             <div style={{ textAlign: 'center' }}>
-              <p style={{ color: '#e9edef', fontSize: '20px', fontWeight: 500, margin: '0 0 8px' }}>
+              <p style={{ color: 'var(--color-text-primary)', fontSize: '20px', fontWeight: 500, margin: '0 0 8px' }}>
                 {chatName}
               </p>
               <p style={{
@@ -870,7 +870,7 @@ export const CallModal = () => {
               position: 'fixed', left: `${localPipPosition.x}px`, top: `${localPipPosition.y}px`,
               width: '120px', height: '160px', borderRadius: '8px', overflow: 'hidden',
               boxShadow: isLocalDragging ? '0 8px 16px rgba(0,0,0,0.5)' : '0 4px 6px rgba(0,0,0,0.3)',
-              backgroundColor: '#202c33', zIndex: 20,
+              backgroundColor: 'var(--color-surface)', zIndex: 20,
               cursor: isLocalDragging ? 'grabbing' : 'pointer',
               transition: isLocalDragging ? 'none' : 'box-shadow 0.2s ease',
             }}
@@ -894,7 +894,7 @@ export const CallModal = () => {
                   background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
                   padding: '14px 6px 4px', textAlign: 'center',
                 }}>
-                  <span style={{ color: '#fff', fontSize: '11px', fontWeight: 600 }}>You</span>
+                  <span style={{ color: 'var(--color-white)', fontSize: '11px', fontWeight: 600 }}>You</span>
                 </div>
               </>
             )}
@@ -906,21 +906,21 @@ export const CallModal = () => {
       {showAddMemberPicker && (
         <div style={{
           position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
-          width: 'min(320px, 90vw)', backgroundColor: '#202c33',
+          width: 'min(320px, 90vw)', backgroundColor: 'var(--color-surface)',
           borderRadius: '12px', zIndex: 30, overflow: 'hidden',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 16px', borderBottom: '1px solid #2a3942',
+            padding: '14px 16px', borderBottom: '1px solid var(--color-border)',
           }}>
-            <span style={{ color: '#e9edef', fontWeight: 600, fontSize: '15px' }}>Add to call</span>
-            <button onClick={() => setShowAddMemberPicker(false)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: '4px' }}>
+            <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: '15px' }}>Add to call</span>
+            <button onClick={() => setShowAddMemberPicker(false)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px' }}>
               <X size={18} />
             </button>
           </div>
           {invitableMembers.length === 0 ? (
-            <p style={{ color: '#8696a0', fontSize: '13px', textAlign: 'center', padding: '20px 16px', margin: 0 }}>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', textAlign: 'center', padding: '20px 16px', margin: 0 }}>
               All chat members are already in the call.
             </p>
           ) : (
@@ -937,21 +937,21 @@ export const CallModal = () => {
                       width: '100%', padding: '10px 16px', background: 'none',
                       border: 'none', cursor: 'pointer', textAlign: 'left',
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#2a3942')}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-border)')}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
                     <div style={{
                       width: '40px', height: '40px', borderRadius: '50%',
-                      backgroundColor: '#2a3942', overflow: 'hidden', flexShrink: 0,
+                      backgroundColor: 'var(--color-border)', overflow: 'hidden', flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {avatar
                         ? <img src={avatar} referrerPolicy="no-referrer" alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ color: '#e9edef', fontWeight: 700, fontSize: '16px' }}>{name.charAt(0).toUpperCase()}</span>
+                        : <span style={{ color: 'var(--color-text-primary)', fontWeight: 700, fontSize: '16px' }}>{name.charAt(0).toUpperCase()}</span>
                       }
                     </div>
-                    <span style={{ flex: 1, color: '#e9edef', fontSize: '14px' }}>{name}</span>
-                    <UserPlus size={16} color="#00a884" />
+                    <span style={{ flex: 1, color: 'var(--color-text-primary)', fontSize: '14px' }}>{name}</span>
+                    <UserPlus size={16} color="var(--color-accent)" />
                   </button>
                 );
               })}
@@ -962,7 +962,7 @@ export const CallModal = () => {
 
       {/* Controls bar */}
       <div style={{
-        height: '80px', backgroundColor: '#202c33',
+        height: '80px', backgroundColor: 'var(--color-surface)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
         position: 'relative',
       }}>
@@ -975,12 +975,12 @@ export const CallModal = () => {
             {formatDuration(elapsed)}
           </div>
         )}
-        <button onClick={toggleMute} style={circleBtn(isMuted ? '#ea4335' : '#374045')}>
+        <button onClick={toggleMute} style={circleBtn(isMuted ? 'var(--color-danger)' : 'var(--color-border-strong)')}>
           {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
         </button>
 
         {isVideo && (
-          <button onClick={toggleVideo} style={circleBtn(!isVideoEnabled ? '#ea4335' : '#374045')}>
+          <button onClick={toggleVideo} style={circleBtn(!isVideoEnabled ? 'var(--color-danger)' : 'var(--color-border-strong)')}>
             {!isVideoEnabled ? <VideoOff size={22} /> : <Video size={22} />}
           </button>
         )}
@@ -988,7 +988,7 @@ export const CallModal = () => {
         <button
           onClick={toggleSpeaker}
           title={isSpeaker ? 'Turn off speaker' : 'Turn on speaker'}
-          style={circleBtn(isSpeaker ? '#374045' : '#555')}
+          style={circleBtn(isSpeaker ? 'var(--color-border-strong)' : 'var(--color-border-strong)')}
         >
           {isSpeaker ? <Volume2 size={22} /> : <VolumeX size={22} />}
         </button>
@@ -997,7 +997,7 @@ export const CallModal = () => {
           <button
             onClick={isScreenSharing ? stopScreenShare : startScreenShare}
             title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-            style={circleBtn(isScreenSharing ? '#00a884' : '#374045')}
+            style={circleBtn(isScreenSharing ? 'var(--color-accent)' : 'var(--color-border-strong)')}
           >
             {isScreenSharing ? <ScreenShareOff size={22} /> : <ScreenShare size={22} />}
           </button>
@@ -1006,12 +1006,12 @@ export const CallModal = () => {
         <button
           onClick={() => setShowAddMemberPicker((p) => !p)}
           title="Add member to call"
-          style={circleBtn(showAddMemberPicker ? '#00a884' : '#374045')}
+          style={circleBtn(showAddMemberPicker ? 'var(--color-accent)' : 'var(--color-border-strong)')}
         >
           <UserPlus size={22} />
         </button>
 
-        <button onClick={endCall} style={circleBtn('#ea4335')}>
+        <button onClick={endCall} style={circleBtn('var(--color-danger)')}>
           <PhoneOff size={22} />
         </button>
       </div>
@@ -1072,7 +1072,7 @@ function PiPVideoTile({ stream, name, avatarUrl, isSelf, muted }: {
   return (
     <div style={{
       position: 'relative', borderRadius: '8px', overflow: 'hidden',
-      background: '#1e2a30', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <video
         ref={videoRef}
@@ -1096,7 +1096,7 @@ function PiPVideoTile({ stream, name, avatarUrl, isSelf, muted }: {
         ) : (
         <div style={{
           width: '52px', height: '52px', borderRadius: '50%',
-          background: '#2a3942', color: '#e9edef',
+          background: 'var(--color-border)', color: 'var(--color-text-primary)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '22px', fontWeight: 700,
         }}>
@@ -1106,7 +1106,7 @@ function PiPVideoTile({ stream, name, avatarUrl, isSelf, muted }: {
       )}
       <div style={{
         position: 'absolute', bottom: 5, left: 6,
-        color: '#fff', fontSize: '11px', fontWeight: 500,
+        color: 'var(--color-white)', fontSize: '11px', fontWeight: 500,
         textShadow: '0 1px 2px rgba(0,0,0,0.9)',
         background: 'rgba(0,0,0,0.45)', borderRadius: '4px', padding: '2px 6px',
       }}>
@@ -1183,7 +1183,7 @@ export function ScreenShareOverlay() {
     <div style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px',
-      background: '#111b21',
+      background: 'var(--color-bg)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       {/* Participant tiles */}
@@ -1211,10 +1211,10 @@ export function ScreenShareOverlay() {
           onClick={toggleMute}
           title={isMuted ? 'Unmute' : 'Mute'}
           style={{
-            background: isMuted ? '#ea4335' : 'rgba(255,255,255,0.15)',
+            background: isMuted ? 'var(--color-danger)' : 'rgba(255,255,255,0.15)',
             border: 'none', borderRadius: '50%',
             width: '38px', height: '38px',
-            color: '#fff', cursor: 'pointer',
+            color: 'var(--color-white)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -1225,8 +1225,8 @@ export function ScreenShareOverlay() {
           onClick={stopScreenShare}
           title="Stop sharing"
           style={{
-            background: '#ea4335', border: 'none', borderRadius: '8px',
-            padding: '8px 12px', color: '#fff',
+            background: 'var(--color-danger)', border: 'none', borderRadius: '8px',
+            padding: '8px 12px', color: 'var(--color-white)',
             fontSize: '12px', fontWeight: 600, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
           }}
@@ -1239,8 +1239,8 @@ export function ScreenShareOverlay() {
           onClick={endCall}
           title="End call"
           style={{
-            background: '#ea4335', border: 'none', borderRadius: '50%',
-            width: '38px', height: '38px', color: '#fff', cursor: 'pointer',
+            background: 'var(--color-danger)', border: 'none', borderRadius: '50%',
+            width: '38px', height: '38px', color: 'var(--color-white)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -1254,34 +1254,34 @@ export function ScreenShareOverlay() {
   const fallbackBar = (
     <div style={{
       position: 'fixed', left: shareBarPos.x, top: shareBarPos.y,
-      backgroundColor: '#1e2a30', borderRadius: '12px',
+      backgroundColor: 'var(--color-surface)', borderRadius: '12px',
       boxShadow: isDragging ? '0 8px 28px rgba(0,0,0,0.75)' : '0 4px 20px rgba(0,0,0,0.6)',
       display: 'flex', alignItems: 'center', gap: '6px',
       padding: '8px 12px', zIndex: 10001, userSelect: 'none', minWidth: '460px',
     }}>
       <div onMouseDown={handleDragStart} onTouchStart={handleDragStart}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#8696a0', display: 'flex', padding: '4px 6px' }}>
+        style={{ cursor: isDragging ? 'grabbing' : 'grab', color: 'var(--color-text-secondary)', display: 'flex', padding: '4px 6px' }}>
         <GripHorizontal size={16} />
       </div>
-      <ScreenShare size={15} color="#00a884" />
-      <span style={{ color: '#e9edef', fontSize: '13px', fontWeight: 500, flex: 1, whiteSpace: 'nowrap' }}>
+      <ScreenShare size={15} color="var(--color-accent)" />
+      <span style={{ color: 'var(--color-text-primary)', fontSize: '13px', fontWeight: 500, flex: 1, whiteSpace: 'nowrap' }}>
         You are presenting
       </span>
       <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '13px', fontVariantNumeric: 'tabular-nums', marginRight: '4px' }}>
         {formatDuration(elapsed)}
       </span>
-      <button onClick={toggleMute} style={{ background: isMuted ? '#ea4335' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <button onClick={toggleMute} style={{ background: isMuted ? 'var(--color-danger)' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', color: 'var(--color-white)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {isMuted ? <MicOff size={15} /> : <Mic size={15} />}
       </button>
-      <button onClick={stopScreenShare} style={{ backgroundColor: '#ea4335', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+      <button onClick={stopScreenShare} style={{ backgroundColor: 'var(--color-danger)', color: 'var(--color-white)', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
         <ScreenShareOff size={14} /> Stop sharing
       </button>
       {isMinimized ? (
-        <button onClick={toggleMinimize} style={{ backgroundColor: '#00a884', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <button onClick={toggleMinimize} style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
           Return to call
         </button>
       ) : (
-        <button onClick={toggleMinimize} title="Minimize" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '6px 10px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={toggleMinimize} title="Minimize" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '6px 10px', color: 'var(--color-white)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Minimize2 size={15} />
         </button>
       )}

@@ -30,7 +30,7 @@ export const AvatarUpload = ({ currentAvatarUrl, onUpload, isUploading }: Avatar
 
   return (
     <div className="relative group w-32 h-32 mx-auto">
-      <div className="w-full h-full rounded-full overflow-hidden bg-gray-700 border-4 border-[#202c33] relative">
+      <div className="w-full h-full rounded-full overflow-hidden bg-gray-700 border-4 border-[var(--color-surface)] relative">
         {previewUrl ? (
           <img 
             src={previewUrl} 

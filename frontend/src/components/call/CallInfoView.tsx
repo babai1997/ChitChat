@@ -125,12 +125,12 @@ export const CallInfoView = ({
 
   const getCallIcon = (direction: string) => {
     if (direction === "missed") {
-      return <PhoneMissed size={20} color="#ef4444" />;
+      return <PhoneMissed size={20} color="var(--color-danger)" />;
     }
     if (direction === "outgoing") {
-      return <PhoneOutgoing size={20} color="#00a884" />;
+      return <PhoneOutgoing size={20} color="var(--color-accent)" />;
     }
-    return <PhoneIncoming size={20} color="#53bdeb" />;
+    return <PhoneIncoming size={20} color="var(--color-info)" />;
   };
 
   const formatDuration = (seconds: number) => {
@@ -147,7 +147,7 @@ export const CallInfoView = ({
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#0b141a",
+        backgroundColor: "var(--color-bg-deepest)",
         height: "100%",
         overflow: "hidden",
       }}
@@ -159,7 +159,7 @@ export const CallInfoView = ({
           padding: "0 16px",
           display: "flex",
           alignItems: "center",
-          backgroundColor: "#202c33",
+          backgroundColor: "var(--color-surface)",
           flexShrink: 0,
         }}
       >
@@ -169,7 +169,7 @@ export const CallInfoView = ({
             style={{
               background: "none",
               border: "none",
-              color: "#e9edef",
+              color: "var(--color-text-primary)",
               cursor: "pointer",
               marginRight: "16px",
               display: "flex",
@@ -183,7 +183,7 @@ export const CallInfoView = ({
           style={{
             fontSize: "18px",
             fontWeight: 500,
-            color: "#e9edef",
+            color: "var(--color-text-primary)",
             margin: 0,
           }}
         >
@@ -199,7 +199,7 @@ export const CallInfoView = ({
             flexDirection: "column",
             alignItems: "center",
             padding: "32px 16px",
-            borderBottom: "1px solid #202c33",
+            borderBottom: "1px solid var(--color-surface)",
           }}
         >
           {/* Avatar */}
@@ -222,13 +222,13 @@ export const CallInfoView = ({
                   width: "140px",
                   height: "140px",
                   borderRadius: "50%",
-                  backgroundColor: "#1f2c33",
+                  backgroundColor: "var(--color-surface-elevated)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <User size={64} color="#8696a0" />
+                <User size={64} color="var(--color-text-secondary)" />
               </div>
             )}
           </div>
@@ -238,7 +238,7 @@ export const CallInfoView = ({
             style={{
               fontSize: "24px",
               fontWeight: 500,
-              color: "#e9edef",
+              color: "var(--color-text-primary)",
               margin: "0 0 8px 0",
             }}
           >
@@ -248,7 +248,7 @@ export const CallInfoView = ({
             <p
               style={{
                 fontSize: "16px",
-                color: "#8696a0",
+                color: "var(--color-text-secondary)",
                 margin: "0 0 24px 0",
               }}
             >
@@ -266,18 +266,18 @@ export const CallInfoView = ({
                 width: "80px",
                 height: "80px",
                 borderRadius: "16px",
-                border: "1px solid #202c33",
-                backgroundColor: "#111b21",
+                border: "1px solid var(--color-surface)",
+                backgroundColor: "var(--color-bg)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "8px",
                 cursor: "pointer",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
               }}
             >
-              <MessageSquare size={24} color="#00a884" />
+              <MessageSquare size={24} color="var(--color-accent)" />
               <span style={{ fontSize: "14px", fontWeight: 500 }}>Message</span>
             </button>
 
@@ -287,18 +287,18 @@ export const CallInfoView = ({
                 width: "80px",
                 height: "80px",
                 borderRadius: "16px",
-                border: "1px solid #202c33",
-                backgroundColor: "#111b21",
+                border: "1px solid var(--color-surface)",
+                backgroundColor: "var(--color-bg)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "8px",
                 cursor: "pointer",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
               }}
             >
-              <Phone size={24} color="#00a884" />
+              <Phone size={24} color="var(--color-accent)" />
               <span style={{ fontSize: "14px", fontWeight: 500 }}>Audio</span>
             </button>
 
@@ -310,8 +310,8 @@ export const CallInfoView = ({
                   width: "80px",
                   height: "80px",
                   borderRadius: "16px",
-                  border: "1px solid #202c33",
-                  backgroundColor: "#111b21",
+                  border: "1px solid var(--color-surface)",
+                  backgroundColor: "var(--color-bg)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -319,10 +319,10 @@ export const CallInfoView = ({
                   gap: "8px",
                   cursor: hasCamera ? "pointer" : "not-allowed",
                   opacity: hasCamera ? 1 : 0.4,
-                  color: "#e9edef",
+                  color: "var(--color-text-primary)",
                 }}
               >
-                <Video size={24} color="#00a884" />
+                <Video size={24} color="var(--color-accent)" />
                 <span style={{ fontSize: "14px", fontWeight: 500 }}>Video</span>
               </button>
             </Tooltip>
@@ -333,7 +333,7 @@ export const CallInfoView = ({
         <div style={{ padding: "24px 0" }}>
           <div style={{ padding: "0 24px 16px 24px" }}>
             <span
-              style={{ color: "#8696a0", fontSize: "14px", fontWeight: 500 }}
+              style={{ color: "var(--color-text-secondary)", fontSize: "14px", fontWeight: 500 }}
             >
               Today
             </span>
@@ -349,7 +349,7 @@ export const CallInfoView = ({
             >
               <div
                 style={{
-                  color: "#00a884",
+                  color: "var(--color-accent)",
                   animation: "spin 1s linear infinite",
                 }}
               >
@@ -357,7 +357,7 @@ export const CallInfoView = ({
               </div>
             </div>
           ) : callRecords.length === 0 ? (
-            <div style={{ padding: "0 24px", color: "#8696a0" }}>
+            <div style={{ padding: "0 24px", color: "var(--color-text-secondary)" }}>
               No call history
             </div>
           ) : (
@@ -384,7 +384,7 @@ export const CallInfoView = ({
                   <div style={{ flex: 1 }}>
                     <div
                       style={{
-                        color: "#e9edef",
+                        color: "var(--color-text-primary)",
                         fontSize: "16px",
                         fontWeight: 500,
                         marginBottom: "4px",
@@ -396,11 +396,11 @@ export const CallInfoView = ({
                           ? "Outgoing"
                           : "Incoming"}
                     </div>
-                    <div style={{ color: "#8696a0", fontSize: "14px" }}>
+                    <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
                       {formatTime(item.time)}
                     </div>
                   </div>
-                  <div style={{ color: "#8696a0", fontSize: "14px" }}>
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
                     {formatDuration(item.duration)}
                   </div>
                 </div>

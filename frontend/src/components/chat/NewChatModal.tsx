@@ -198,7 +198,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
       <div className="glass" style={{
         width: '100%',
         maxWidth: '450px',
-        backgroundColor: '#1f2c34',
+        backgroundColor: 'var(--color-surface-elevated)',
         borderRadius: '16px',
         display: 'flex',
         flexDirection: 'column',
@@ -211,24 +211,24 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid #2a3942',
-          backgroundColor: '#202c33',
+          borderBottom: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-surface)',
           borderTopLeftRadius: '16px',
           borderTopRightRadius: '16px',
         }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#e9edef' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
               {view === 'list' ? 'New Chat' : 'New Group'}
             </h2>
             {view === 'list' && selectedUsers.length > 0 && (
-              <p style={{ fontSize: '12px', color: '#8696a0', marginTop: '2px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 {selectedUsers.length} selected
               </p>
             )}
           </div>
           <button
             onClick={view === 'new-group-details' ? () => setView('list') : onClose}
-            style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer' }}
           >
             <X size={24} />
           </button>
@@ -241,18 +241,18 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
               width: '100px',
               height: '100px',
               borderRadius: '50%',
-              backgroundColor: '#2a3942',
+              backgroundColor: 'var(--color-border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: '24px',
               cursor: 'pointer',
             }}>
-              <Camera size={40} color="#8696a0" />
+              <Camera size={40} color="var(--color-text-secondary)" />
             </div>
 
             <div style={{ width: '100%', marginBottom: '8px' }}>
-              <p style={{ fontSize: '12px', color: '#8696a0', marginBottom: '8px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
                 {selectedUsers.map(u => u.profile?.displayName || u.phone).join(', ')}
               </p>
               <input
@@ -266,9 +266,9 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                   width: '100%',
                   backgroundColor: 'transparent',
                   border: 'none',
-                  borderBottom: '2px solid #00a884',
+                  borderBottom: '2px solid var(--color-accent)',
                   padding: '8px 0',
-                  color: '#e9edef',
+                  color: 'var(--color-text-primary)',
                   fontSize: '16px',
                   outline: 'none',
                 }}
@@ -283,8 +283,8 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
               style={{
                 width: '100%',
                 padding: '12px',
-                backgroundColor: !groupName.trim() || isCreating ? '#2a3942' : '#00a884',
-                color: !groupName.trim() || isCreating ? '#8696a0' : 'white',
+                backgroundColor: !groupName.trim() || isCreating ? 'var(--color-border)' : 'var(--color-accent)',
+                color: !groupName.trim() || isCreating ? 'var(--color-text-secondary)' : 'white',
                 border: 'none',
                 borderRadius: '24px',
                 fontWeight: 600,
@@ -306,11 +306,11 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
               <div style={{ position: 'relative' }}>
                 <Search
                   size={18}
-                  style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8696a0' }}
+                  style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }}
                 />
                 {isLoading && (
                   <div style={{ position: 'absolute', right: '12px', top: 0, bottom: 0, display: 'flex', alignItems: 'center' }}>
-                    <Loader2 size={16} color="#8696a0" className="animate-spin" />
+                    <Loader2 size={16} color="var(--color-text-secondary)" className="animate-spin" />
                   </div>
                 )}
                 <input
@@ -321,11 +321,11 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                   autoFocus
                   style={{
                     width: '100%',
-                    backgroundColor: '#2a3942',
+                    backgroundColor: 'var(--color-border)',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '10px 16px 10px 44px',
-                    color: '#e9edef',
+                    color: 'var(--color-text-primary)',
                     fontSize: '15px',
                     outline: 'none',
                   }}
@@ -346,16 +346,16 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                   border: 'none',
                   cursor: 'pointer',
                   width: '100%',
-                  borderBottom: '1px solid #2a3942',
+                  borderBottom: '1px solid var(--color-border)',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#202c33'}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-surface)'}
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <div style={{
                   width: '46px',
                   height: '46px',
                   borderRadius: '50%',
-                  backgroundColor: '#00a884',
+                  backgroundColor: 'var(--color-accent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -363,7 +363,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                 }}>
                   <Users size={22} color="white" />
                 </div>
-                <span style={{ fontSize: '15px', fontWeight: 500, color: '#e9edef' }}>New Group</span>
+                <span style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)' }}>New Group</span>
               </button>
             )}
 
@@ -374,16 +374,16 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                 alignItems: 'center',
                 gap: '10px',
                 padding: '10px 16px',
-                backgroundColor: '#182229',
-                borderBottom: '1px solid #2a3942',
+                backgroundColor: 'var(--color-bg-deepest)',
+                borderBottom: '1px solid var(--color-border)',
               }}>
-                <Users size={16} color="#00a884" style={{ flexShrink: 0 }} />
-                <p style={{ flex: 1, fontSize: '13px', color: '#8696a0', margin: 0 }}>
+                <Users size={16} color="var(--color-accent)" style={{ flexShrink: 0 }} />
+                <p style={{ flex: 1, fontSize: '13px', color: 'var(--color-text-secondary)', margin: 0 }}>
                   Select 2 or more contacts to create a group
                 </p>
                 <button
                   onClick={() => setShowGroupHint(false)}
-                  style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: '2px', flexShrink: 0 }}
+                  style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '2px', flexShrink: 0 }}
                 >
                   <X size={14} />
                 </button>
@@ -395,13 +395,13 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {listItems.length === 0 || (listItems.length === 1 && listItems[0].kind === 'header') ? (
                     contacts.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '48px 32px', color: '#8696a0' }}>
-                        <Users size={40} color="#2a3942" style={{ margin: '0 auto 12px' }} />
+                      <div style={{ textAlign: 'center', padding: '48px 32px', color: 'var(--color-text-secondary)' }}>
+                        <Users size={40} color="var(--color-border)" style={{ margin: '0 auto 12px' }} />
                         <p>No contacts yet</p>
                         <p style={{ fontSize: '13px', marginTop: '4px' }}>Search to start a new chat</p>
                       </div>
                     ) : query.trim().length >= 2 ? (
-                      <div style={{ textAlign: 'center', padding: '32px', color: '#8696a0' }}>
+                      <div style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-secondary)' }}>
                         No users found
                       </div>
                     ) : null
@@ -411,12 +411,12 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                         return (
                           <div
                             key={`header-${index}`}
-                            style={{ padding: '6px 16px', backgroundColor: '#1f2c34' }}
+                            style={{ padding: '6px 16px', backgroundColor: 'var(--color-surface-elevated)' }}
                           >
                             <span style={{
                               fontSize: '11px',
                               fontWeight: 700,
-                              color: '#8696a0',
+                              color: 'var(--color-text-secondary)',
                               textTransform: 'uppercase',
                               letterSpacing: '0.8px',
                             }}>
@@ -437,14 +437,14 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                             alignItems: 'center',
                             gap: '12px',
                             padding: '10px 16px',
-                            backgroundColor: isSelected ? '#182229' : 'transparent',
+                            backgroundColor: isSelected ? 'var(--color-bg-deepest)' : 'transparent',
                             border: 'none',
                             cursor: 'pointer',
                             textAlign: 'left',
                             width: '100%',
                           }}
                           onMouseOver={(e) => {
-                            if (!isSelected) e.currentTarget.style.backgroundColor = '#202c33';
+                            if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--color-surface)';
                           }}
                           onMouseOut={(e) => {
                             if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -455,7 +455,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                             width: '46px',
                             height: '46px',
                             borderRadius: '50%',
-                            backgroundColor: '#2a3942',
+                            backgroundColor: 'var(--color-border)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -470,16 +470,16 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               />
                             ) : (
-                              <User size={22} color="#8696a0" />
+                              <User size={22} color="var(--color-text-secondary)" />
                             )}
                           </div>
 
                           {/* Name + about */}
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <h3 style={{ fontSize: '15px', fontWeight: 500, color: '#e9edef', marginBottom: '2px' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: '2px' }}>
                               {user.profile?.displayName || user.phone || 'Unknown User'}
                             </h3>
-                            <p style={{ fontSize: '13px', color: '#8696a0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {user.profile?.about || 'Hey there! I am using ChitChat'}
                             </p>
                           </div>
@@ -489,8 +489,8 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                             width: '22px',
                             height: '22px',
                             borderRadius: '50%',
-                            border: isSelected ? 'none' : '2px solid #3b4a54',
-                            backgroundColor: isSelected ? '#00a884' : 'transparent',
+                            border: isSelected ? 'none' : '2px solid var(--color-border-strong)',
+                            backgroundColor: isSelected ? 'var(--color-accent)' : 'transparent',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -510,8 +510,8 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
             {selectedUsers.length > 0 && (
               <div style={{
                 padding: '12px 16px',
-                borderTop: '1px solid #2a3942',
-                backgroundColor: '#202c33',
+                borderTop: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-surface)',
                 borderBottomLeftRadius: '16px',
                 borderBottomRightRadius: '16px',
               }}>
@@ -522,8 +522,8 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                     style={{
                       width: '100%',
                       padding: '12px',
-                      backgroundColor: isCreating ? '#2a3942' : '#00a884',
-                      color: isCreating ? '#8696a0' : 'white',
+                      backgroundColor: isCreating ? 'var(--color-border)' : 'var(--color-accent)',
+                      color: isCreating ? 'var(--color-text-secondary)' : 'white',
                       border: 'none',
                       borderRadius: '24px',
                       fontWeight: 600,
@@ -547,7 +547,7 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
                     style={{
                       width: '100%',
                       padding: '12px',
-                      backgroundColor: '#00a884',
+                      backgroundColor: 'var(--color-accent)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '24px',

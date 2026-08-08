@@ -1,7 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MessageCircle } from 'lucide-react-native';
+import { MessageCircle, Lock } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
+import { router } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { authApi } from '../../src/api';
@@ -94,13 +95,21 @@ export default function LoginScreen() {
           <View style={styles.badgeContainer}>
             <Text style={styles.badgeText}>✨ Quick, secure, and passwordless entry.</Text>
           </View>
+
+          <View style={styles.encryptionRow}>
+            <Lock size={14} color="#8696a0" />
+            <Text style={styles.encryptionText}>Your messages are end-to-end encrypted</Text>
+          </View>
         </View>
 
       </View>
 
       {/* Footer */}
       <Text style={styles.footerText}>
-        By continuing, you agree to our <Text style={styles.link}>Terms</Text> and <Text style={styles.link}>Privacy Policy</Text>
+        By continuing, you agree to our{' '}
+        <Text style={styles.link} onPress={() => router.push('/(auth)/terms')}>Terms</Text>
+        {' '}and{' '}
+        <Text style={styles.link} onPress={() => router.push('/(auth)/privacy')}>Privacy Policy</Text>
       </Text>
     </SafeAreaView>
   );
@@ -190,6 +199,17 @@ const styles = StyleSheet.create({
     color: '#25d366',
     fontSize: 13,
     fontWeight: '500',
+  },
+  encryptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  encryptionText: {
+    color: '#8696a0',
+    fontSize: 13,
   },
   footerText: {
     position: 'absolute',

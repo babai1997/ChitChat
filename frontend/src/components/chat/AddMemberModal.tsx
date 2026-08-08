@@ -161,7 +161,7 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
       <div style={{
         width: '100%',
         maxWidth: '450px',
-        backgroundColor: '#1f2c34',
+        backgroundColor: 'var(--color-surface-elevated)',
         borderRadius: '16px',
         display: 'flex',
         flexDirection: 'column',
@@ -174,20 +174,20 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid #2a3942',
-          backgroundColor: '#202c33',
+          borderBottom: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-surface)',
           borderTopLeftRadius: '16px',
           borderTopRightRadius: '16px',
         }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#e9edef' }}>Add Member</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-primary)' }}>Add Member</h2>
             {selectedUsers.length > 0 && (
-              <p style={{ fontSize: '12px', color: '#8696a0', marginTop: '2px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 {selectedUsers.length} selected
               </p>
             )}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
             <X size={24} />
           </button>
         </div>
@@ -195,10 +195,10 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
         {/* Search */}
         <div style={{ padding: '12px 16px' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8696a0' }} />
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
             {isSearching && (
               <div style={{ position: 'absolute', right: '12px', top: 0, bottom: 0, display: 'flex', alignItems: 'center' }}>
-                <Loader2 size={16} color="#8696a0" className="animate-spin" />
+                <Loader2 size={16} color="var(--color-text-secondary)" className="animate-spin" />
               </div>
             )}
             <input
@@ -209,11 +209,11 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
               autoFocus
               style={{
                 width: '100%',
-                backgroundColor: '#2a3942',
+                backgroundColor: 'var(--color-border)',
                 border: 'none',
                 borderRadius: '8px',
                 padding: '10px 16px 10px 44px',
-                color: '#e9edef',
+                color: 'var(--color-text-primary)',
                 fontSize: '15px',
                 outline: 'none',
               }}
@@ -225,8 +225,8 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {contacts.length === 0 && !query ? (
-              <div style={{ textAlign: 'center', padding: '48px 32px', color: '#8696a0' }}>
-                <Users size={40} color="#2a3942" style={{ margin: '0 auto 12px' }} />
+              <div style={{ textAlign: 'center', padding: '48px 32px', color: 'var(--color-text-secondary)' }}>
+                <Users size={40} color="var(--color-border)" style={{ margin: '0 auto 12px' }} />
                 <p>No contacts to add</p>
                 <p style={{ fontSize: '13px', marginTop: '4px' }}>All your contacts are already in this group</p>
               </div>
@@ -234,8 +234,8 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
               listItems.map((item, index) => {
                 if (item.kind === 'header') {
                   return (
-                    <div key={`h-${index}`} style={{ padding: '6px 16px', backgroundColor: '#1f2c34' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#8696a0', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                    <div key={`h-${index}`} style={{ padding: '6px 16px', backgroundColor: 'var(--color-surface-elevated)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                         {item.label}
                       </span>
                     </div>
@@ -251,34 +251,34 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
                       alignItems: 'center',
                       gap: '12px',
                       padding: '10px 16px',
-                      backgroundColor: isSelected ? '#182229' : 'transparent',
+                      backgroundColor: isSelected ? 'var(--color-bg-deepest)' : 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       textAlign: 'left',
                       width: '100%',
                     }}
-                    onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#202c33'; }}
+                    onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--color-surface)'; }}
                     onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', backgroundColor: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                       {user.profile?.avatarUrl ? (
                         <img src={user.profile.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <User size={22} color="#8696a0" />
+                        <User size={22} color="var(--color-text-secondary)" />
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 500, color: '#e9edef', marginBottom: '2px' }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: '2px' }}>
                         {user.profile?.displayName || user.phone || 'Unknown User'}
                       </h3>
-                      <p style={{ fontSize: '13px', color: '#8696a0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {user.profile?.about || 'Hey there! I am using ChitChat'}
                       </p>
                     </div>
                     <div style={{
                       width: '22px', height: '22px', borderRadius: '50%',
-                      border: isSelected ? 'none' : '2px solid #3b4a54',
-                      backgroundColor: isSelected ? '#00a884' : 'transparent',
+                      border: isSelected ? 'none' : '2px solid var(--color-border-strong)',
+                      backgroundColor: isSelected ? 'var(--color-accent)' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
                       {isSelected && <Check size={13} color="white" strokeWidth={3} />}
@@ -292,14 +292,14 @@ export const AddMemberModal = ({ isOpen, onClose, chat, currentUserId }: AddMemb
 
         {/* Add button */}
         {selectedUsers.length > 0 && (
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #2a3942', backgroundColor: '#202c33', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
             <button
               onClick={() => void handleAdd()}
               disabled={isAdding}
               style={{
                 width: '100%', padding: '12px',
-                backgroundColor: isAdding ? '#2a3942' : '#00a884',
-                color: isAdding ? '#8696a0' : 'white',
+                backgroundColor: isAdding ? 'var(--color-border)' : 'var(--color-accent)',
+                color: isAdding ? 'var(--color-text-secondary)' : 'white',
                 border: 'none', borderRadius: '24px',
                 fontWeight: 600, fontSize: '15px',
                 cursor: isAdding ? 'not-allowed' : 'pointer',

@@ -64,7 +64,7 @@ export const ImageCropModal = ({
         style={{
           width: '100%',
           maxWidth: '440px',
-          backgroundColor: '#111b21',
+          backgroundColor: 'var(--color-bg)',
           borderRadius: '12px',
           overflow: 'hidden',
           display: 'flex',
@@ -72,7 +72,7 @@ export const ImageCropModal = ({
           boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
         }}
       >
-        <div style={{ height: '360px', position: 'relative', backgroundColor: '#0b141a' }}>
+        <div style={{ height: '360px', position: 'relative', backgroundColor: 'var(--color-bg-deepest)' }}>
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -95,7 +95,7 @@ export const ImageCropModal = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <ZoomIn size={18} color="#8696a0" />
+            <ZoomIn size={18} color="var(--color-text-secondary)" />
             <input
               type="range"
               min={1}
@@ -103,7 +103,7 @@ export const ImageCropModal = ({
               step={0.01}
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
-              style={{ flex: 1, accentColor: '#00a884' }}
+              style={{ flex: 1, accentColor: 'var(--color-accent)' }}
             />
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -113,8 +113,8 @@ export const ImageCropModal = ({
               style={{
                 flex: 1,
                 background: 'none',
-                border: '1px solid #8696a0',
-                color: '#e9edef',
+                border: '1px solid var(--color-text-secondary)',
+                color: 'var(--color-text-primary)',
                 borderRadius: '8px',
                 padding: '12px',
                 cursor: isSaving ? 'default' : 'pointer',
@@ -132,9 +132,9 @@ export const ImageCropModal = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                background: '#00a884',
+                background: 'var(--color-accent)',
                 border: 'none',
-                color: '#0b141a',
+                color: 'var(--color-bg-deepest)',
                 borderRadius: '8px',
                 padding: '12px',
                 cursor: isSaving ? 'default' : 'pointer',

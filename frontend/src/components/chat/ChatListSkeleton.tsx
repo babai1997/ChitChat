@@ -7,7 +7,7 @@ export const ChatListSkeleton = () => {
             100% { background-position: 200% 0; }
           }
           .skeleton-item {
-            background: linear-gradient(90deg, #202c33 25%, #2a3942 50%, #202c33 75%);
+            background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-border) 50%, var(--color-surface) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
           }
@@ -20,7 +20,7 @@ export const ChatListSkeleton = () => {
             padding: '12px 16px', 
             alignItems: 'center', 
             gap: '12px',
-            borderBottom: '1px solid rgba(134, 150, 160, 0.15)' 
+            borderBottom: '1px solid rgba(156, 147, 179, 0.15)' 
           }}
         >
           {/* Avatar Skeleton */}

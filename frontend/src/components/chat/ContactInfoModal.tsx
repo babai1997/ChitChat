@@ -33,13 +33,13 @@ export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: Conta
         style={{
           width: '100%',
           maxWidth: '350px',
-          backgroundColor: '#1f2c34',
+          backgroundColor: 'var(--color-surface-elevated)',
           borderRadius: '16px',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
           overflow: 'hidden',
-          border: '1px solid #2a3942'
+          border: '1px solid var(--color-border)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -49,16 +49,16 @@ export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: Conta
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          borderBottom: '1px solid #2a3942',
-          backgroundColor: '#202c33'
+          borderBottom: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-surface)'
         }}>
           <button 
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', display: 'flex' }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', display: 'flex' }}
           >
             <X size={24} />
           </button>
-          <h2 style={{ fontSize: '18px', fontWeight: 500, color: '#e9edef', margin: 0 }}>Contact Info</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 500, color: 'var(--color-text-primary)', margin: 0 }}>Contact Info</h2>
         </div>
 
         <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -67,7 +67,7 @@ export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: Conta
             width: '120px', 
             height: '120px', 
             borderRadius: '50%', 
-            backgroundColor: '#2a3942', 
+            backgroundColor: 'var(--color-border)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
@@ -77,41 +77,41 @@ export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: Conta
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt={user.displayName} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <User size={60} color="#8696a0" />
+              <User size={60} color="var(--color-text-secondary)" />
             )}
           </div>
 
           {/* Name & Phone */}
-          <h3 style={{ fontSize: '22px', fontWeight: 600, color: '#e9edef', marginBottom: '4px', textAlign: 'center' }}>
+          <h3 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '4px', textAlign: 'center' }}>
             {user.displayName}
           </h3>
-          <p style={{ fontSize: '16px', color: '#8696a0', marginBottom: '24px' }}>
+          <p style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginBottom: '24px' }}>
             {user.phone || user.email || ''}
           </p>
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', width: '100%', justifyContent: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <div style={{ padding: '12px', borderRadius: '50%', backgroundColor: '#202c33', border: '1px solid #2a3942', color: '#25d366' }}>
+              <div style={{ padding: '12px', borderRadius: '50%', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-accent-secondary)' }}>
                 <Phone size={24} />
               </div>
-              <span style={{ fontSize: '12px', color: '#25d366', fontWeight: 500 }}>Audio</span>
+              <span style={{ fontSize: '12px', color: 'var(--color-accent-secondary)', fontWeight: 500 }}>Audio</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <div style={{ padding: '12px', borderRadius: '50%', backgroundColor: '#202c33', border: '1px solid #2a3942', color: '#25d366' }}>
+              <div style={{ padding: '12px', borderRadius: '50%', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-accent-secondary)' }}>
                 <Video size={24} />
               </div>
-              <span style={{ fontSize: '12px', color: '#25d366', fontWeight: 500 }}>Video</span>
+              <span style={{ fontSize: '12px', color: 'var(--color-accent-secondary)', fontWeight: 500 }}>Video</span>
             </div>
           </div>
 
           {/* About */}
-          <div style={{ width: '100%', backgroundColor: '#111b21', borderRadius: '12px', padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#8696a0' }}>
+          <div style={{ width: '100%', backgroundColor: 'var(--color-bg)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--color-text-secondary)' }}>
               <Info size={16} />
               <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>Allowed</span>
             </div>
-            <p style={{ fontSize: '15px', color: '#e9edef', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '15px', color: 'var(--color-text-primary)', lineHeight: '1.5' }}>
               {user.about || 'Hey there! I am using ChitChat'}
             </p>
           </div>
@@ -126,16 +126,16 @@ export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: Conta
                 alignItems: 'center',
                 gap: '12px',
                 padding: '14px 16px',
-                backgroundColor: '#111b21',
+                backgroundColor: 'var(--color-bg)',
                 borderRadius: '12px',
                 border: 'none',
                 cursor: 'pointer',
                 textAlign: 'left',
               }}
             >
-              <ImageIcon size={18} color="#8696a0" />
-              <span style={{ flex: 1, fontSize: '14px', color: '#e9edef' }}>Media, links and docs</span>
-              <ChevronRight size={16} color="#8696a0" />
+              <ImageIcon size={18} color="var(--color-text-secondary)" />
+              <span style={{ flex: 1, fontSize: '14px', color: 'var(--color-text-primary)' }}>Media, links and docs</span>
+              <ChevronRight size={16} color="var(--color-text-secondary)" />
             </button>
           )}
         </div>

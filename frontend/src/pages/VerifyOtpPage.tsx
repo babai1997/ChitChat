@@ -125,10 +125,10 @@ export const VerifyOtpPage = () => {
     textAlign: 'center',
     fontSize: '24px',
     fontWeight: 'bold',
-    backgroundColor: '#2a3942',
-    border: '2px solid #3b4a54',
+    backgroundColor: 'var(--color-border)',
+    border: '2px solid var(--color-border-strong)',
     borderRadius: '12px',
-    color: '#e9edef',
+    color: 'var(--color-text-primary)',
     outline: 'none'
   };
 
@@ -141,7 +141,7 @@ export const VerifyOtpPage = () => {
         alignItems: 'center', 
         justifyContent: 'center', 
         padding: '16px',
-        backgroundColor: '#111b21',
+        backgroundColor: 'var(--color-bg)',
         position: 'relative'
       }}
     >
@@ -155,7 +155,7 @@ export const VerifyOtpPage = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          color: '#8696a0',
+          color: 'var(--color-text-secondary)',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -173,7 +173,7 @@ export const VerifyOtpPage = () => {
             width: '64px', 
             height: '64px', 
             borderRadius: '50%', 
-            backgroundColor: '#25d366', 
+            backgroundColor: 'var(--color-accent-secondary)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center', 
@@ -182,12 +182,12 @@ export const VerifyOtpPage = () => {
         >
           <MessageCircle size={32} color="white" />
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#e9edef', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '8px' }}>
           Verify OTP
         </h1>
-        <p style={{ color: '#8696a0' }}>
+        <p style={{ color: 'var(--color-text-secondary)' }}>
           Enter the code sent to<br />
-          <span style={{ color: '#e9edef', fontWeight: '500' }}>{phone}</span>
+          <span style={{ color: 'var(--color-text-primary)', fontWeight: '500' }}>{phone}</span>
         </p>
       </div>
 
@@ -197,10 +197,10 @@ export const VerifyOtpPage = () => {
         style={{ 
           width: '100%', 
           maxWidth: '400px',
-          backgroundColor: '#1f2c34',
+          backgroundColor: 'var(--color-surface-elevated)',
           borderRadius: '16px',
           padding: '32px',
-          border: '1px solid #2a3942',
+          border: '1px solid var(--color-border)',
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)'
         }}
       >
@@ -228,7 +228,7 @@ export const VerifyOtpPage = () => {
         </div>
 
         {isLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#25d366', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--color-accent-secondary)', marginBottom: '24px' }}>
             <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
             Verifying...
           </div>
@@ -240,7 +240,7 @@ export const VerifyOtpPage = () => {
             <button
               onClick={handleResend}
               style={{
-                color: '#25d366',
+                color: 'var(--color-accent-secondary)',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -254,15 +254,15 @@ export const VerifyOtpPage = () => {
               Resend OTP
             </button>
           ) : (
-            <p style={{ color: '#8696a0' }}>
-              Resend OTP in <span style={{ color: '#25d366', fontWeight: '500' }}>{resendTimer}s</span>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
+              Resend OTP in <span style={{ color: 'var(--color-accent-secondary)', fontWeight: '500' }}>{resendTimer}s</span>
             </p>
           )}
         </div>
       </div>
 
       {/* Dev hint */}
-      <p style={{ color: '#8696a0', fontSize: '12px', marginTop: '32px', textAlign: 'center' }}>
+      <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginTop: '32px', textAlign: 'center' }}>
         💡 Check server console for OTP in development mode
       </p>
     </div>

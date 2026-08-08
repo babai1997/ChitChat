@@ -185,24 +185,24 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
   };
 
   const getCallIcon = (record: CallRecord) => {
-    if (record.direction === 'missed') return <PhoneMissed size={16} color="#ef4444" />;
-    if (record.direction === 'outgoing') return <PhoneOutgoing size={16} color="#00a884" />;
-    return <PhoneIncoming size={16} color="#53bdeb" />;
+    if (record.direction === 'missed') return <PhoneMissed size={16} color="var(--color-danger)" />;
+    if (record.direction === 'outgoing') return <PhoneOutgoing size={16} color="var(--color-accent)" />;
+    return <PhoneIncoming size={16} color="var(--color-info)" />;
   };
 
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
-        <Loader2 size={24} color="#00a884" style={{ animation: 'spin 1s linear infinite' }} />
+        <Loader2 size={24} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
 
   if (callRecords.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '256px', color: '#8696a0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '256px', color: 'var(--color-text-secondary)' }}>
         <Phone size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-        <p style={{ fontSize: '18px', fontWeight: 500, color: '#e9edef', marginBottom: '8px' }}>No recent calls</p>
+        <p style={{ fontSize: '18px', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: '8px' }}>No recent calls</p>
         <p style={{ fontSize: '14px', textAlign: 'center' }}>Start a new call from a chat conversation</p>
       </div>
     );
@@ -222,31 +222,31 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
             gap: '16px',
             backgroundColor: 'transparent',
             border: 'none',
-            borderBottom: '1px solid #202c33',
+            borderBottom: '1px solid var(--color-surface)',
             cursor: 'pointer',
             textAlign: 'left',
             transition: 'background-color 0.2s ease',
           }}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#202c33')}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-surface)')}
           onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
           <div style={{ flexShrink: 0 }}>
-            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {item.avatarUrl ? (
                 <img src={item.avatarUrl} referrerPolicy="no-referrer" alt={item.chatName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <User size={24} color="#8696a0" />
+                <User size={24} color="var(--color-text-secondary)" />
               )}
             </div>
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontWeight: 500, color: item.direction === 'missed' ? '#ef4444' : '#e9edef', fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontWeight: 500, color: item.direction === 'missed' ? 'var(--color-danger)' : 'var(--color-text-primary)', fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.chatName}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', color: '#8696a0', fontSize: '14px', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-secondary)', fontSize: '14px', gap: '4px' }}>
               {getCallIcon(item)}
               <span>{item.direction === 'missed' ? 'Missed' : item.direction === 'outgoing' ? 'Outgoing' : 'Incoming'}</span>
               {item.type === 'video' && <Video size={14} style={{ marginLeft: '4px' }} />}
@@ -258,13 +258,13 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
             <div
               onClick={(e) => handleCallBack(e, item)}
               style={{
-                padding: '8px', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+                padding: '8px', color: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
                 cursor: item.type === 'video' && !hasCamera ? 'not-allowed' : 'pointer',
                 opacity: item.type === 'video' && !hasCamera ? 0.4 : 1,
               }}
               onMouseOver={(e) => {
                 if (item.type === 'video' && !hasCamera) return;
-                e.currentTarget.style.backgroundColor = 'rgba(0, 168, 132, 0.1)';
+                e.currentTarget.style.backgroundColor = 'rgba(108, 93, 216, 0.1)';
               }}
               onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
@@ -279,7 +279,7 @@ export const CallList = ({ onChatSelect }: CallListProps) => {
 
       {isFetchingNextPage && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
-          <Loader2 size={20} color="#00a884" style={{ animation: 'spin 1s linear infinite' }} />
+          <Loader2 size={20} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
         </div>
       )}
     </div>

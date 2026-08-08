@@ -102,11 +102,11 @@ export const SetupProfilePage = () => {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    backgroundColor: '#2a3942',
-    border: '1px solid #3b4a54',
+    backgroundColor: 'var(--color-border)',
+    border: '1px solid var(--color-border-strong)',
     borderRadius: '12px',
     padding: '12px 16px',
-    color: '#e9edef',
+    color: 'var(--color-text-primary)',
     fontSize: '16px',
     outline: 'none'
   };
@@ -121,7 +121,7 @@ export const SetupProfilePage = () => {
               width: '100%',
               height: '100%',
               borderRadius: '50%',
-              backgroundColor: '#202c33',
+              backgroundColor: 'var(--color-surface)',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -136,7 +136,7 @@ export const SetupProfilePage = () => {
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <User size={80} color="#6a7f8a" />
+              <User size={80} color="var(--color-text-tertiary)" />
             )}
           </div>
           <button
@@ -150,16 +150,16 @@ export const SetupProfilePage = () => {
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              backgroundColor: '#00a884',
-              border: '2px solid #111b21',
+              backgroundColor: 'var(--color-accent)',
+              border: '2px solid var(--color-bg)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
             }}
-            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#017a62')}
-            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#00a884')}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-accent-deep)')}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-accent)')}
           >
             {isUploadingAvatar ? (
               <Loader2 size={20} color="white" className="animate-spin" />
@@ -172,39 +172,39 @@ export const SetupProfilePage = () => {
 
       {/* Name Section */}
       <div style={{ marginBottom: '32px', cursor: 'pointer' }} onClick={() => setIsEditing(true)}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#8696a0', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
            <User size={20} />
            <span style={{ fontSize: '14px' }}>Name</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #202c33', paddingBottom: '8px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 400, color: '#e9edef', margin: 0 }}>{displayName}</h2>
-            <Edit2 size={18} color="#00a884" />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-surface)', paddingBottom: '8px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-text-primary)', margin: 0 }}>{displayName}</h2>
+            <Edit2 size={18} color="var(--color-accent)" />
         </div>
-        <p style={{ fontSize: '12px', color: '#8696a0', marginTop: '8px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
           This is not your username or pin. This name will be visible to your ChitChat contacts.
         </p>
       </div>
 
       {/* About Section */}
       <div style={{ marginBottom: '32px', cursor: 'pointer' }} onClick={() => setIsEditing(true)}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#8696a0', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
            <Info size={20} />
            <span style={{ fontSize: '14px' }}>About</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #202c33', paddingBottom: '8px' }}>
-            <p style={{ fontSize: '16px', color: '#e9edef', margin: 0 }}>{about}</p>
-            <Edit2 size={18} color="#00a884" />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-surface)', paddingBottom: '8px' }}>
+            <p style={{ fontSize: '16px', color: 'var(--color-text-primary)', margin: 0 }}>{about}</p>
+            <Edit2 size={18} color="var(--color-accent)" />
         </div>
       </div>
 
       {/* Phone Section */}
       <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#8696a0', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
            <Phone size={20} />
            <span style={{ fontSize: '14px' }}>Phone</span>
         </div>
-        <div style={{ borderBottom: '1px solid #202c33', paddingBottom: '8px' }}>
-            <p style={{ fontSize: '16px', color: '#e9edef', margin: 0 }}>{user?.phone || '+91 83488 15989'}</p>
+        <div style={{ borderBottom: '1px solid var(--color-surface)', paddingBottom: '8px' }}>
+            <p style={{ fontSize: '16px', color: 'var(--color-text-primary)', margin: 0 }}>{user?.phone || '+91 83488 15989'}</p>
         </div>
       </div>
     </div>
@@ -219,7 +219,7 @@ export const SetupProfilePage = () => {
         alignItems: 'center', 
         justifyContent: 'center', 
         padding: '16px',
-        backgroundColor: '#111b21',
+        backgroundColor: 'var(--color-bg)',
         position: 'relative'
       }}
     >
@@ -233,7 +233,7 @@ export const SetupProfilePage = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          color: '#8696a0',
+          color: 'var(--color-text-secondary)',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -245,11 +245,11 @@ export const SetupProfilePage = () => {
       </button>
       {/* Header */}
       <div style={{ marginBottom: '32px', textAlign: 'center' }} className="animate-fade-in">
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#e9edef', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '8px' }}>
           {isEditing && !user?.profile?.displayName ? 'Set Up Your Profile' : 'Profile'}
         </h1>
         {isEditing && !user?.profile?.displayName && (
-            <p style={{ color: '#8696a0' }}>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
             Let others know who you are
             </p>
         )}
@@ -261,10 +261,10 @@ export const SetupProfilePage = () => {
         style={{ 
           width: '100%', 
           maxWidth: isEditing ? '400px' : '600px',
-          backgroundColor: isEditing ? '#1f2c34' : 'transparent',
+          backgroundColor: isEditing ? 'var(--color-surface-elevated)' : 'transparent',
           borderRadius: isEditing ? '16px' : '0',
           padding: isEditing ? '32px' : '0',
-          border: isEditing ? '1px solid #2a3942' : 'none',
+          border: isEditing ? '1px solid var(--color-border)' : 'none',
           boxShadow: isEditing ? '0 4px 24px rgba(0, 0, 0, 0.4)' : 'none'
         }}
       >
@@ -287,7 +287,7 @@ export const SetupProfilePage = () => {
                       width: '100%',
                       height: '100%',
                       borderRadius: '50%',
-                      backgroundColor: '#2a3942',
+                      backgroundColor: 'var(--color-border)',
                       overflow: 'hidden',
                       display: 'flex',
                       alignItems: 'center',
@@ -302,7 +302,7 @@ export const SetupProfilePage = () => {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <User size={50} color="#6a7f8a" />
+                      <User size={50} color="var(--color-text-tertiary)" />
                     )}
                   </div>
                   <button
@@ -317,16 +317,16 @@ export const SetupProfilePage = () => {
                       width: '34px',
                       height: '34px',
                       borderRadius: '50%',
-                      backgroundColor: '#00a884',
-                      border: '2px solid #1f2c34',
+                      backgroundColor: 'var(--color-accent)',
+                      border: '2px solid var(--color-surface-elevated)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#017a62')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#00a884')}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-accent-deep)')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-accent)')}
                   >
                     {isUploadingAvatar ? (
                       <Loader2 size={16} color="white" className="animate-spin" />
@@ -339,7 +339,7 @@ export const SetupProfilePage = () => {
 
             {/* Display Name */}
             <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', color: '#8696a0', fontSize: '14px', marginBottom: '8px' }}>
+                <label style={{ display: 'block', color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
                 Your Name
                 </label>
                 <input
@@ -351,14 +351,14 @@ export const SetupProfilePage = () => {
                 disabled={isLoading}
                 style={inputStyle}
                 />
-                <p style={{ color: '#8696a0', fontSize: '12px', marginTop: '4px', textAlign: 'right' }}>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginTop: '4px', textAlign: 'right' }}>
                 {displayName.length}/50
                 </p>
             </div>
 
             {/* About */}
             <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', color: '#8696a0', fontSize: '14px', marginBottom: '8px' }}>
+                <label style={{ display: 'block', color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
                 About
                 </label>
                 <textarea
@@ -370,7 +370,7 @@ export const SetupProfilePage = () => {
                 disabled={isLoading}
                 style={{ ...inputStyle, resize: 'none' }}
                 />
-                <p style={{ color: '#8696a0', fontSize: '12px', marginTop: '4px', textAlign: 'right' }}>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginTop: '4px', textAlign: 'right' }}>
                 {about.length}/140
                 </p>
             </div>
@@ -381,7 +381,7 @@ export const SetupProfilePage = () => {
                 disabled={isLoading || !displayName.trim()}
                 style={{
                 width: '100%',
-                backgroundColor: isLoading || !displayName.trim() ? '#1a5c3e' : '#25d366',
+                backgroundColor: isLoading || !displayName.trim() ? 'var(--color-border-strong)' : 'var(--color-accent-secondary)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',

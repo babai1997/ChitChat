@@ -81,10 +81,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#8696a0'
+          color: 'var(--color-text-secondary)'
         }}
       >
-        {isPlaying ? <Pause size={24} fill="#8696a0" /> : <Play size={24} fill="#8696a0" />}
+        {isPlaying ? <Pause size={24} fill="var(--color-text-secondary)" /> : <Play size={24} fill="var(--color-text-secondary)" />}
       </button>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -97,11 +97,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url }) => {
           style={{
             width: '100%',
             height: '4px',
-            accentColor: '#00a884',
+            accentColor: 'var(--color-accent)',
             cursor: 'pointer'
           }}
         />
-        <span style={{ fontSize: '11px', color: '#8696a0' }}>
+        <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
           {formatTime(currentTime)}
         </span>
       </div>

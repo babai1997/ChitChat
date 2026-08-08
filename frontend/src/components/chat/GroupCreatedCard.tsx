@@ -23,8 +23,8 @@ export const GroupCreatedCard = ({ chat, currentUserId, onAddMember }: GroupCrea
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 8px 8px' }}>
       <div style={{
-        backgroundColor: '#1f2c34',
-        border: '1px solid #2a3942',
+        backgroundColor: 'var(--color-surface-elevated)',
+        border: '1px solid var(--color-border)',
         borderRadius: '12px',
         padding: '16px',
         maxWidth: '300px',
@@ -39,26 +39,26 @@ export const GroupCreatedCard = ({ chat, currentUserId, onAddMember }: GroupCrea
         overflow: 'hidden',
       }}>
         {/* Group avatar */}
-        <div style={{ width: '72px', height: '72px', borderRadius: '50%', backgroundColor: '#2a3942', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ width: '72px', height: '72px', borderRadius: '50%', backgroundColor: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {chat.avatarUrl ? (
             <img src={chat.avatarUrl} alt={chat.name || 'Group'} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <Users size={36} color="#8696a0" />
+            <Users size={36} color="var(--color-text-secondary)" />
           )}
         </div>
 
         {/* Name */}
         <div>
-          <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#e9edef', margin: '0 0 4px' }}>
+          <h3 style={{ fontSize: '17px', fontWeight: 600, color: 'var(--color-text-primary)', margin: '0 0 4px' }}>
             {chat.name || 'Group Chat'}
           </h3>
-          <p style={{ fontSize: '13px', color: '#8696a0', margin: 0 }}>
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: 0 }}>
             Group · {chat.members.length} participants
           </p>
         </div>
 
         {/* Created by */}
-        <p style={{ fontSize: '13px', color: '#8696a0', margin: 0, wordBreak: 'break-word' }}>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: 0, wordBreak: 'break-word' }}>
           {creatorName} created this group on {dateStr}
         </p>
 
@@ -68,10 +68,10 @@ export const GroupCreatedCard = ({ chat, currentUserId, onAddMember }: GroupCrea
             onClick={onAddMember}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              backgroundColor: 'transparent', border: '1px solid #00a884',
-              borderRadius: '20px', padding: '6px 16px', cursor: 'pointer', color: '#00a884',
+              backgroundColor: 'transparent', border: '1px solid var(--color-accent)',
+              borderRadius: '20px', padding: '6px 16px', cursor: 'pointer', color: 'var(--color-accent)',
             }}
-            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#0d2e25')}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-accent-muted-bg)')}
             onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <UserPlus size={14} />
@@ -80,9 +80,9 @@ export const GroupCreatedCard = ({ chat, currentUserId, onAddMember }: GroupCrea
         )}
 
         {/* End-to-end note */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px', borderTop: '1px solid #2a3942', width: '100%', justifyContent: 'center' }}>
-          <Lock size={12} color="#8696a0" />
-          <p style={{ fontSize: '12px', color: '#8696a0', margin: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px', borderTop: '1px solid var(--color-border)', width: '100%', justifyContent: 'center' }}>
+          <Lock size={12} color="var(--color-text-secondary)" />
+          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0 }}>
             Messages are end-to-end encrypted
           </p>
         </div>

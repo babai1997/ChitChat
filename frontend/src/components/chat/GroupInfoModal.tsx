@@ -200,21 +200,21 @@ export const GroupInfoModal = ({
     width: "100%",
     maxWidth: "400px",
     maxHeight: "80vh",
-    backgroundColor: "#1f2c34",
+    backgroundColor: "var(--color-surface-elevated)",
     borderRadius: "16px",
     display: "flex",
     flexDirection: "column",
     boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
     overflow: "hidden",
-    border: "1px solid #2a3942",
+    border: "1px solid var(--color-border)",
   };
   const headerStyle: React.CSSProperties = {
     padding: "12px 16px",
     display: "flex",
     alignItems: "center",
     gap: "12px",
-    borderBottom: "1px solid #2a3942",
-    backgroundColor: "#202c33",
+    borderBottom: "1px solid var(--color-border)",
+    backgroundColor: "var(--color-surface)",
   };
 
   // ── Member profile / remove view ───────────────────────────────────────────
@@ -232,42 +232,42 @@ export const GroupInfoModal = ({
           <div style={headerStyle}>
             <button
               onClick={() => setSelectedMember(null)}
-              style={{ background: "none", border: "none", color: "#e9edef", cursor: "pointer", display: "flex" }}
+              style={{ background: "none", border: "none", color: "var(--color-text-primary)", cursor: "pointer", display: "flex" }}
             >
               <ArrowLeft size={22} />
             </button>
-            <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#e9edef", margin: 0 }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 500, color: "var(--color-text-primary)", margin: 0 }}>
               Member Info
             </h2>
           </div>
 
           <div style={{ overflowY: "auto", flex: 1 }}>
             {/* Avatar + name */}
-            <div style={{ padding: "32px 16px 24px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "8px solid #111b21" }}>
-              <div style={{ width: "100px", height: "100px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: "16px" }}>
+            <div style={{ padding: "32px 16px 24px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "8px solid var(--color-bg)" }}>
+              <div style={{ width: "100px", height: "100px", borderRadius: "50%", backgroundColor: "var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: "16px" }}>
                 {selectedMember.user.profile?.avatarUrl ? (
                   <img src={selectedMember.user.profile.avatarUrl} alt={memberName} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
-                  <User size={48} color="#8696a0" />
+                  <User size={48} color="var(--color-text-secondary)" />
                 )}
               </div>
-              <h3 style={{ fontSize: "22px", fontWeight: 600, color: "#e9edef", marginBottom: "4px", textAlign: "center" }}>
+              <h3 style={{ fontSize: "22px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "4px", textAlign: "center" }}>
                 {memberName}
               </h3>
               {selectedMember.user.phone && (
-                <p style={{ fontSize: "14px", color: "#8696a0" }}>{selectedMember.user.phone}</p>
+                <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>{selectedMember.user.phone}</p>
               )}
               {selectedMember.role === "admin" && (
-                <span style={{ fontSize: "12px", color: "#25d366", border: "1px solid #25d366", padding: "2px 8px", borderRadius: "4px", marginTop: "6px" }}>
+                <span style={{ fontSize: "12px", color: "var(--color-accent-secondary)", border: "1px solid var(--color-accent-secondary)", padding: "2px 8px", borderRadius: "4px", marginTop: "6px" }}>
                   Group Admin
                 </span>
               )}
             </div>
 
             {/* About */}
-            <div style={{ padding: "16px", borderBottom: "8px solid #111b21" }}>
-              <p style={{ fontSize: "13px", color: "#25d366", marginBottom: "4px" }}>About</p>
-              <p style={{ fontSize: "15px", color: "#e9edef" }}>
+            <div style={{ padding: "16px", borderBottom: "8px solid var(--color-bg)" }}>
+              <p style={{ fontSize: "13px", color: "var(--color-accent-secondary)", marginBottom: "4px" }}>About</p>
+              <p style={{ fontSize: "15px", color: "var(--color-text-primary)" }}>
                 {selectedMember.user.profile?.about || "Hey there! I am using ChitChat"}
               </p>
             </div>
@@ -281,8 +281,8 @@ export const GroupInfoModal = ({
                 <button
                   onClick={() => void handleRoleChange(selectedMember.role === "admin" ? "member" : "admin")}
                   disabled={isChangingRole}
-                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isChangingRole ? "not-allowed" : "pointer", color: "#e9edef" }}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a3942")}
+                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isChangingRole ? "not-allowed" : "pointer", color: "var(--color-text-primary)" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "var(--color-border)")}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   {isChangingRole ? (
@@ -305,8 +305,8 @@ export const GroupInfoModal = ({
                 <button
                   onClick={() => void handleRemoveMember()}
                   disabled={isRemoving}
-                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isRemoving ? "not-allowed" : "pointer", color: "#ef4444" }}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a1a1a")}
+                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isRemoving ? "not-allowed" : "pointer", color: "var(--color-danger)" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.15)")}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   {isRemoving ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
@@ -326,17 +326,17 @@ export const GroupInfoModal = ({
     <div style={overlayStyle} onClick={onClose}>
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#8696a0", cursor: "pointer", display: "flex" }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", display: "flex" }}>
             <X size={24} />
           </button>
-          <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#e9edef", margin: 0 }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 500, color: "var(--color-text-primary)", margin: 0 }}>
             {isMeeting ? "Meeting Info" : "Group Info"}
           </h2>
         </div>
 
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
           {/* Avatar + name */}
-          <div style={{ padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "10px solid #111b21" }}>
+          <div style={{ padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "10px solid var(--color-bg)" }}>
             {!isMeeting && (
               <input
                 ref={avatarInputRef}
@@ -350,13 +350,13 @@ export const GroupInfoModal = ({
                 meeting's identity is its link, not a photo, so no upload
                 affordance for it. */}
             <div style={{ position: "relative", width: "120px", height: "120px", marginBottom: "16px" }}>
-              <div style={{ width: "120px", height: "120px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              <div style={{ width: "120px", height: "120px", borderRadius: "50%", backgroundColor: "var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {chat.avatarUrl ? (
                   <img src={chat.avatarUrl} alt={chat.name || "Group"} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : isMeeting ? (
-                  <Video size={60} color="#8696a0" />
+                  <Video size={60} color="var(--color-text-secondary)" />
                 ) : (
-                  <Users size={60} color="#8696a0" />
+                  <Users size={60} color="var(--color-text-secondary)" />
                 )}
               </div>
               {!isMeeting && isCurrentUserAdmin && (
@@ -367,12 +367,12 @@ export const GroupInfoModal = ({
                   style={{
                     position: "absolute", bottom: "4px", right: "4px",
                     width: "34px", height: "34px", borderRadius: "50%",
-                    backgroundColor: "#00a884", border: "2px solid #1f2c34",
+                    backgroundColor: "var(--color-accent)", border: "2px solid var(--color-surface-elevated)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
                   }}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#017a62")}
-                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#00a884")}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "var(--color-accent-deep)")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "var(--color-accent)")}
                 >
                   {isUploading
                     ? <Loader2 size={16} color="white" className="animate-spin" />
@@ -382,32 +382,32 @@ export const GroupInfoModal = ({
               )}
             </div>
 
-            <h3 style={{ fontSize: "22px", fontWeight: 600, color: "#e9edef", marginBottom: "4px", textAlign: "center" }}>
+            <h3 style={{ fontSize: "22px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "4px", textAlign: "center" }}>
               {chat.name || (isMeeting ? "Meeting" : "Group Chat")}
             </h3>
-            <p style={{ fontSize: "14px", color: "#8696a0" }}>
+            <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>
               {isMeeting ? "Meeting" : "Group"} · {chat.members.length} participants
             </p>
           </div>
 
           {isMeeting ? (
             /* Meeting link — the actual reason anyone opens this panel for a meeting chat */
-            <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
-              <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "8px" }}>Meeting link</p>
+            <div style={{ padding: "16px", borderBottom: "10px solid var(--color-bg)" }}>
+              <p style={{ fontSize: "14px", color: "var(--color-accent-secondary)", marginBottom: "8px" }}>Meeting link</p>
               {isLoadingMeetingLink ? (
-                <p style={{ fontSize: "14px", color: "#8696a0" }}>Loading…</p>
+                <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>Loading…</p>
               ) : meetingLink?.revoked ? (
-                <p style={{ fontSize: "14px", color: "#8696a0" }}>This meeting link has been revoked.</p>
+                <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>This meeting link has been revoked.</p>
               ) : meetingLink ? (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#2a3942", borderRadius: "8px", padding: "10px 12px" }}>
-                    <span style={{ flex: 1, fontSize: "13px", color: "#e9edef", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "var(--color-border)", borderRadius: "8px", padding: "10px 12px" }}>
+                    <span style={{ flex: 1, fontSize: "13px", color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {window.location.origin}/meet/{meetingLink.slug}
                     </span>
                     <button
                       onClick={handleCopyMeetingLink}
                       title="Copy link"
-                      style={{ background: "none", border: "none", color: linkCopied ? "#00a884" : "#8696a0", cursor: "pointer", padding: "4px" }}
+                      style={{ background: "none", border: "none", color: linkCopied ? "var(--color-accent)" : "var(--color-text-secondary)", cursor: "pointer", padding: "4px" }}
                     >
                       {linkCopied ? <Check size={18} /> : <Copy size={18} />}
                     </button>
@@ -416,7 +416,7 @@ export const GroupInfoModal = ({
                     <button
                       onClick={handleRevokeMeetingLink}
                       disabled={isRevokingLink}
-                      style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "10px 0 0", fontSize: "13px" }}
+                      style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", color: "var(--color-danger)", cursor: "pointer", padding: "10px 0 0", fontSize: "13px" }}
                     >
                       {isRevokingLink ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       Revoke link
@@ -424,14 +424,14 @@ export const GroupInfoModal = ({
                   )}
                 </>
               ) : (
-                <p style={{ fontSize: "14px", color: "#8696a0" }}>No link found for this meeting.</p>
+                <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>No link found for this meeting.</p>
               )}
             </div>
           ) : (
             /* Description */
-            <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
-              <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "4px" }}>Description</p>
-              <p style={{ fontSize: "15px", color: "#e9edef" }}>Welcome to the group!</p>
+            <div style={{ padding: "16px", borderBottom: "10px solid var(--color-bg)" }}>
+              <p style={{ fontSize: "14px", color: "var(--color-accent-secondary)", marginBottom: "4px" }}>Description</p>
+              <p style={{ fontSize: "15px", color: "var(--color-text-primary)" }}>Welcome to the group!</p>
             </div>
           )}
 
@@ -446,26 +446,26 @@ export const GroupInfoModal = ({
                 padding: "14px 16px",
                 backgroundColor: "transparent",
                 border: "none",
-                borderBottom: "10px solid #111b21",
+                borderBottom: "10px solid var(--color-bg)",
                 cursor: "pointer",
                 textAlign: "left",
               }}
             >
-              <ImageIcon size={18} color="#8696a0" />
-              <span style={{ flex: 1, fontSize: "14px", color: "#e9edef" }}>Media, links and docs</span>
-              <ChevronRight size={16} color="#8696a0" />
+              <ImageIcon size={18} color="var(--color-text-secondary)" />
+              <span style={{ flex: 1, fontSize: "14px", color: "var(--color-text-primary)" }}>Media, links and docs</span>
+              <ChevronRight size={16} color="var(--color-text-secondary)" />
             </button>
           )}
 
           {/* Participants */}
           <div style={{ padding: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-              <p style={{ fontSize: "14px", color: "#8696a0" }}>{chat.members.length} participants</p>
+              <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>{chat.members.length} participants</p>
               {isCurrentUserAdmin && (
                 <button
                   onClick={onAddMember}
-                  style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "transparent", border: "1px solid #00a884", borderRadius: "16px", padding: "4px 12px", cursor: "pointer", color: "#00a884" }}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#0d2e25")}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", backgroundColor: "transparent", border: "1px solid var(--color-accent)", borderRadius: "16px", padding: "4px 12px", cursor: "pointer", color: "var(--color-accent)" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "var(--color-accent-muted-bg)")}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   <UserPlus size={14} />
@@ -487,28 +487,28 @@ export const GroupInfoModal = ({
                     key={member.id}
                     onClick={clickable ? () => setSelectedMember(member) : undefined}
                     style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px", borderRadius: "8px", cursor: clickable ? "pointer" : "default" }}
-                    onMouseOver={(e) => { if (clickable) e.currentTarget.style.backgroundColor = "#2a3942"; }}
+                    onMouseOver={(e) => { if (clickable) e.currentTarget.style.backgroundColor = "var(--color-border)"; }}
                     onMouseOut={(e) => { if (clickable) e.currentTarget.style.backgroundColor = "transparent"; }}
                   >
-                    <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+                    <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                       {member.user.profile?.avatarUrl ? (
                         <img src={member.user.profile.avatarUrl} alt={name} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <User size={20} color="#8696a0" />
+                        <User size={20} color="var(--color-text-secondary)" />
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <h4 style={{ fontSize: "16px", color: "#e9edef", fontWeight: 400, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <h4 style={{ fontSize: "16px", color: "var(--color-text-primary)", fontWeight: 400, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {name}
                         </h4>
                         {member.role === "admin" && (
-                          <span style={{ fontSize: "11px", color: "#25d366", border: "1px solid #25d366", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", flexShrink: 0 }}>
+                          <span style={{ fontSize: "11px", color: "var(--color-accent-secondary)", border: "1px solid var(--color-accent-secondary)", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", flexShrink: 0 }}>
                             Group Admin
                           </span>
                         )}
                       </div>
-                      <p style={{ fontSize: "13px", color: "#8696a0", margin: 0, marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0, marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {member.user.profile?.about || "Hey there! I am using ChitChat"}
                       </p>
                     </div>

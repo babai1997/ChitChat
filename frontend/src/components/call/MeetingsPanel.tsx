@@ -24,7 +24,7 @@ function CopyButton({ slug }: { slug: string }) {
     <button
       onClick={handleCopy}
       title="Copy link"
-      style={{ background: 'none', border: 'none', color: copied ? '#00a884' : '#8696a0', cursor: 'pointer', padding: '6px' }}
+      style={{ background: 'none', border: 'none', color: copied ? 'var(--color-accent)' : 'var(--color-text-secondary)', cursor: 'pointer', padding: '6px' }}
     >
       {copied ? <Check size={18} /> : <Copy size={18} />}
     </button>
@@ -102,7 +102,7 @@ export const MeetingsPanel = () => {
   const namedMeetings = meetings.filter((m) => !m.isPersonal && !m.revoked);
 
   return (
-    <div style={{ padding: '16px', borderBottom: '1px solid #202c33' }}>
+    <div style={{ padding: '16px', borderBottom: '1px solid var(--color-surface)' }}>
       {/* Personal Meeting Room — the actual fix: one link, reused forever */}
       <div
         style={{
@@ -110,18 +110,18 @@ export const MeetingsPanel = () => {
           alignItems: 'center',
           gap: '12px',
           padding: '12px',
-          backgroundColor: '#202c33',
+          backgroundColor: 'var(--color-surface)',
           borderRadius: '8px',
           marginBottom: '12px',
         }}
       >
-        <Video size={22} color="#00a884" />
+        <Video size={22} color="var(--color-accent)" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', color: '#e9edef', fontWeight: 500 }}>Your Personal Meeting Room</div>
+          <div style={{ fontSize: '14px', color: 'var(--color-text-primary)', fontWeight: 500 }}>Your Personal Meeting Room</div>
           <div
             style={{
               fontSize: '12.5px',
-              color: '#8696a0',
+              color: 'var(--color-text-secondary)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -136,9 +136,9 @@ export const MeetingsPanel = () => {
             <button
               onClick={() => navigate(`/meet/${personalSlug}`)}
               style={{
-                background: '#00a884',
+                background: 'var(--color-accent)',
                 border: 'none',
-                color: '#0b141a',
+                color: 'var(--color-bg-deepest)',
                 borderRadius: '6px',
                 padding: '6px 12px',
                 cursor: 'pointer',
@@ -163,8 +163,8 @@ export const MeetingsPanel = () => {
           gap: '6px',
           width: '100%',
           background: 'none',
-          border: '1px solid #2a3942',
-          color: '#00a884',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-accent)',
           borderRadius: '8px',
           padding: '10px',
           cursor: isCreating ? 'default' : 'pointer',
@@ -179,7 +179,7 @@ export const MeetingsPanel = () => {
 
       {!isLoadingMine && namedMeetings.length > 0 && (
         <div>
-          <div style={{ color: '#8696a0', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>My Meetings</div>
+          <div style={{ color: 'var(--color-text-secondary)', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>My Meetings</div>
           {namedMeetings.map((m) => (
             <div
               key={m.slug}
@@ -191,10 +191,10 @@ export const MeetingsPanel = () => {
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', color: '#e9edef', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '14px', color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m.name || 'Meeting'}
                 </div>
-                <div style={{ fontSize: '12px', color: '#8696a0' }}>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
                   Created {new Date(m.createdAt).toLocaleDateString()}
                 </div>
               </div>
@@ -202,7 +202,7 @@ export const MeetingsPanel = () => {
               <button
                 onClick={() => navigate(`/meet/${m.slug}`)}
                 title="Join"
-                style={{ background: 'none', border: 'none', color: '#00a884', cursor: 'pointer', padding: '6px' }}
+                style={{ background: 'none', border: 'none', color: 'var(--color-accent)', cursor: 'pointer', padding: '6px' }}
               >
                 <Video size={18} />
               </button>
@@ -210,7 +210,7 @@ export const MeetingsPanel = () => {
                 onClick={() => handleRevoke(m.slug)}
                 disabled={actioningSlug === m.slug}
                 title="Revoke"
-                style={{ background: 'none', border: 'none', color: '#ff5252', cursor: 'pointer', padding: '6px' }}
+                style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '6px' }}
               >
                 {actioningSlug === m.slug ? (
                   <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />

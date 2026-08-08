@@ -52,16 +52,16 @@ export function ReplyPreviewLine({
             />
           )
         ) : source.kind === "image" ? (
-          <ImageIcon size={iconSize} color="#8696a0" />
+          <ImageIcon size={iconSize} color="var(--color-text-secondary)" />
         ) : (
-          <VideoIcon size={iconSize} color="#8696a0" />
+          <VideoIcon size={iconSize} color="var(--color-text-secondary)" />
         )}
       </div>
     );
   } else if (source.kind === "audio") {
-    media = <Mic size={iconSize} color="#8696a0" style={{ flexShrink: 0 }} />;
+    media = <Mic size={iconSize} color="var(--color-text-secondary)" style={{ flexShrink: 0 }} />;
   } else if (source.kind === "file") {
-    media = <FileText size={iconSize} color="#8696a0" style={{ flexShrink: 0 }} />;
+    media = <FileText size={iconSize} color="var(--color-text-secondary)" style={{ flexShrink: 0 }} />;
   }
 
   return (
@@ -70,7 +70,7 @@ export function ReplyPreviewLine({
       <span
         style={{
           fontSize: "12.5px",
-          color: source.kind === "deleted" ? "#8696a0" : "rgba(233,237,239,0.75)",
+          color: source.kind === "deleted" ? "var(--color-text-secondary)" : "rgba(240, 238, 247,0.75)",
           fontStyle: source.kind === "deleted" ? "italic" : "normal",
           whiteSpace: "nowrap",
           overflow: "hidden",

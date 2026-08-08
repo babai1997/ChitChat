@@ -943,7 +943,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           // Basic reset so our dark UI renders correctly
           const style = pip.document.createElement('style');
-          style.textContent = '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; } html, body { height:100%; overflow:hidden; background:#111b21; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }';
+          style.textContent = '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; } html, body { height:100%; overflow:hidden; background:var(--color-bg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }';
           pip.document.head.appendChild(style);
           pipWindowRef.current = pip;
           setPipWindow(pip);

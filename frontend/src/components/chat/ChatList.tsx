@@ -55,15 +55,15 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'sending':
-        return <Clock size={16} color="#8696a0" />;
+        return <Clock size={16} color="var(--color-text-secondary)" />;
       case 'sent':
-        return <Check size={16} color="#8696a0" />;
+        return <Check size={16} color="var(--color-text-secondary)" />;
       case 'delivered':
-        return <CheckCheck size={16} color="#8696a0" />;
+        return <CheckCheck size={16} color="var(--color-text-secondary)" />;
       case 'read':
-        return <CheckCheck size={16} color="#53bdeb" />;
+        return <CheckCheck size={16} color="var(--color-info)" />;
       default:
-        return <Check size={16} color="#8696a0" />;
+        return <Check size={16} color="var(--color-text-secondary)" />;
     }
   };
 
@@ -113,15 +113,15 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
             display: 'flex',
             alignItems: 'center',
             gap: '16px',
-            backgroundColor: activeChat?.id === chat.id ? '#2a3942' : 'transparent',
+            backgroundColor: activeChat?.id === chat.id ? 'var(--color-border)' : 'transparent',
             border: 'none',
-            borderBottom: '1px solid #202c33',
+            borderBottom: '1px solid var(--color-surface)',
             cursor: 'pointer',
             textAlign: 'left',
             transition: 'background-color 0.2s ease'
           }}
           onMouseOver={(e) => {
-            if (activeChat?.id !== chat.id) e.currentTarget.style.backgroundColor = '#202c33';
+            if (activeChat?.id !== chat.id) e.currentTarget.style.backgroundColor = 'var(--color-surface)';
           }}
           onMouseOut={(e) => {
             if (activeChat?.id !== chat.id) e.currentTarget.style.backgroundColor = 'transparent';
@@ -129,7 +129,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
         >
           {/* Avatar */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {getChatAvatar(chat) ? (
                 <img 
                   src={getChatAvatar(chat)!} 
@@ -138,28 +138,28 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <User size={24} color="#8696a0" />
+                <User size={24} color="var(--color-text-secondary)" />
               )}
             </div>
             {isOnline(chat) && (
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', backgroundColor: '#25d366', borderRadius: '50%', border: '2px solid #111b21' }} />
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', backgroundColor: 'var(--color-accent-secondary)', borderRadius: '50%', border: '2px solid var(--color-bg)' }} />
             )}
           </div>
 
           {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontWeight: 500, color: '#e9edef', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {getChatName(chat)}
               </span>
               {chat.lastMessage && (
-                <span style={{ fontSize: '12px', color: '#8696a0', flexShrink: 0, marginLeft: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', flexShrink: 0, marginLeft: '8px' }}>
                   {formatTime(chat.lastMessage.createdAt)}
                 </span>
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, color: '#8696a0', fontSize: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, color: 'var(--color-text-secondary)', fontSize: '14px' }}>
                 {chat.lastMessage ? (
                     <>
                         {chat.lastMessage.senderId === currentUserId && (
@@ -178,7 +178,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
               </div>
               
               {chat.unreadCount > 0 && (
-                <span style={{ marginLeft: '8px', minWidth: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#25d366', color: 'white', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', fontWeight: 600 }}>
+                <span style={{ marginLeft: '8px', minWidth: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--color-accent-secondary)', color: 'white', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', fontWeight: 600 }}>
                   {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
                 </span>
               )}
