@@ -3,7 +3,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ChatMemberRole, ChatType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatsService } from '../chats/chats.service';
-import { CreateMeetingDto } from './dto';
+import { CreateMeetingDto, RenameMeetingDto } from './dto';
 
 const SLUG_GENERATION_ATTEMPTS = 5;
 
@@ -157,6 +157,23 @@ export class MeetingsService {
 
     await this.chatsService.addSelfAsMember(meeting.chatId, userId);
     return { chatId: meeting.chatId };
+  }
+
+  /** Renames a meeting's room — host-only, updates the underlying Chat's name since that's what listMine()/getByChatId() display. */
+  async rename(slug: string, userId: string, dto: RenameMeetingDto) {
+    const meeting = await this.prisma.meeting.findUnique({ where: { slug } });
+    if (!meeting) {
+      throw new NotFoundException('Meeting not found');
+    }
+    if (meeting.hostId !== userId) {
+      throw new ForbiddenException('Only the host can rename this meeting');
+    }
+
+    await this.prisma.chat.update({
+      where: { id: meeting.chatId },
+      data: { name: dto.name },
+    });
+    return { success: true };
   }
 
   async revoke(slug: string, userId: string) {

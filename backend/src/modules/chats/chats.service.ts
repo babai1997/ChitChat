@@ -29,7 +29,7 @@ export class ChatsService {
   async getUserChats(userId: string, requesterDeviceId?: string) {
     // Query 1: load all chat data with members + last message in one round-trip.
     const chatMembers = await this.prisma.chatMember.findMany({
-      where: { userId },
+      where: { userId, deletedAt: null },
       include: {
         chat: {
           include: {
@@ -184,6 +184,28 @@ export class ChatsService {
       distinct: ['userId'],
     });
     return members.map((m) => m.userId);
+  }
+
+  /**
+   * "Delete chat" (WhatsApp-style, delete-for-me): hides the chat from just
+   * this user's own list — other members are unaffected, no messages are
+   * removed. Cleared automatically the next time any message is sent or
+   * received in the chat (see MessagesService.create), so it reappears the
+   * same way WhatsApp's deleted chats do.
+   */
+  async deleteChatForUser(chatId: string, userId: string) {
+    const member = await this.prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId } },
+    });
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this chat');
+    }
+
+    await this.prisma.chatMember.update({
+      where: { id: member.id },
+      data: { deletedAt: new Date() },
+    });
+    return { success: true };
   }
 
   async isChatMember(chatId: string, userId: string): Promise<boolean> {

@@ -780,21 +780,25 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Tooltip text="No camera detected" disabled={hasCamera}>
-            <button
-              style={hasCamera ? buttonStyle : { ...buttonStyle, cursor: "not-allowed", opacity: 0.4 }}
-              onClick={() => hasCamera && startCall(chat.id, "video")}
-              aria-disabled={!hasCamera}
-            >
-              <Video size={20} />
-            </button>
-          </Tooltip>
-          <button
-            style={buttonStyle}
-            onClick={() => startCall(chat.id, "audio")}
-          >
-            <Phone size={20} />
-          </button>
+          {chat.type !== 'meeting' && (
+            <>
+              <Tooltip text="No camera detected" disabled={hasCamera}>
+                <button
+                  style={hasCamera ? buttonStyle : { ...buttonStyle, cursor: "not-allowed", opacity: 0.4 }}
+                  onClick={() => hasCamera && startCall(chat.id, "video")}
+                  aria-disabled={!hasCamera}
+                >
+                  <Video size={20} />
+                </button>
+              </Tooltip>
+              <button
+                style={buttonStyle}
+                onClick={() => startCall(chat.id, "audio")}
+              >
+                <Phone size={20} />
+              </button>
+            </>
+          )}
           <div style={{ position: 'relative' }}>
             <button style={buttonStyle} onClick={() => setShowChatMenu(s => !s)}>
               <MoreVertical size={20} />
@@ -851,6 +855,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
 
       {/* Ongoing call banner */}
       {(() => {
+        if (chat.type === 'meeting') return null;
         const ongoing = ongoingCallsByChatId.get(chat.id);
         if (!ongoing || callStatus !== 'idle') return null;
         return (

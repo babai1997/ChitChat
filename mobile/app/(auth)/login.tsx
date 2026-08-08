@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { authApi } from '../../src/api';
+import { COLORS } from '../../src/theme/colors';
 
 console.log('EXPO_PUBLIC_WEB_CLIENT_ID:', process.env.EXPO_PUBLIC_WEB_CLIENT_ID);
 console.log('EXPO_PUBLIC_ANDROID_CLIENT_ID:', process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID);
@@ -97,7 +98,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.encryptionRow}>
-            <Lock size={14} color="#8696a0" />
+            <Lock size={14} color={COLORS.textSecondary} />
             <Text style={styles.encryptionText}>Your messages are end-to-end encrypted</Text>
           </View>
         </View>
@@ -118,7 +119,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
   },
   content: {
     flex: 1,
@@ -134,13 +135,13 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 24,
-    backgroundColor: '#25d366',
+    backgroundColor: COLORS.accentSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     transform: [{ rotate: '-4deg' }],
     // React Native Shadow
-    shadowColor: '#25d366',
+    shadowColor: COLORS.accentSecondary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
@@ -149,12 +150,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
@@ -188,15 +189,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   badgeContainer: {
-    backgroundColor: 'rgba(37, 211, 102, 0.1)',
-    borderColor: 'rgba(37, 211, 102, 0.2)',
+    backgroundColor: 'rgba(139, 127, 234, 0.1)',
+    borderColor: 'rgba(139, 127, 234, 0.2)',
     borderWidth: 1,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
   badgeText: {
-    color: '#25d366',
+    color: COLORS.accentSecondary,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   encryptionText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
   footerText: {
@@ -217,11 +218,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
   link: {
-    color: '#25d366',
+    color: COLORS.accentSecondary,
     fontWeight: '500',
   },
 });

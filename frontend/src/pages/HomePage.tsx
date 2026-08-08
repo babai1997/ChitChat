@@ -14,6 +14,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { chatApi } from '../api';
 import { decryptMessagesInPlace } from '../services/e2eeSessions';
 import { useAuthStore, useChatStore } from '../stores';
@@ -95,6 +96,7 @@ export const HomePage = () => {
   const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'communities' | 'calls'>('chats');
   const [activeCallInfoId, setActiveCallInfoId] = useState<string | null>(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [newChatStartsInGroupMode, setNewChatStartsInGroupMode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -203,6 +205,21 @@ export const HomePage = () => {
        } catch (error) {
          console.error('Failed to load chat from call record', error);
        }
+    }
+  };
+
+  const handleDeleteChat = async (chat: Chat) => {
+    const previousChats = chats;
+    const previousActiveChat = activeChat;
+    setChats(chats.filter((c) => c.id !== chat.id));
+    if (activeChat?.id === chat.id) setActiveChat(null);
+    try {
+      await chatApi.deleteChat(chat.id);
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+      toast.error('Failed to delete chat');
+      setChats(previousChats);
+      setActiveChat(previousActiveChat);
     }
   };
 
@@ -367,8 +384,8 @@ export const HomePage = () => {
                 <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>Chats</h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button 
-                    onClick={() => setIsNewChatModalOpen(true)}
+                  <button
+                    onClick={() => { setNewChatStartsInGroupMode(false); setIsNewChatModalOpen(true); }}
                     title="New Chat"
                     style={{ padding: '8px', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}
                   >
@@ -395,8 +412,12 @@ export const HomePage = () => {
                           zIndex: 50,
                           marginTop: '4px'
                         }}>
-                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>New group</button>
-                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Starred messages</button>
+                          <button
+                            onClick={() => { setNewChatStartsInGroupMode(true); setIsNewChatModalOpen(true); setShowMenu(false); }}
+                            style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}
+                          >
+                            New group
+                          </button>
                           <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Settings</button>
                           <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Log out</button>
                         </div>
@@ -490,10 +511,11 @@ export const HomePage = () => {
               {isLoading ? (
                 <ChatListSkeleton />
               ) : filteredChats.length > 0 ? (
-                <ChatList 
-                  chats={filteredChats} 
+                <ChatList
+                  chats={filteredChats}
                   activeChat={activeChat}
                   onChatSelect={handleChatSelect}
+                  onDeleteChat={handleDeleteChat}
                   currentUserId={user?.id || ''}
                 />
               ) : (
@@ -602,11 +624,12 @@ export const HomePage = () => {
       `}</style>
       
       {/* New Chat Modal */}
-      <NewChatModal 
+      <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
         onChatCreated={handleChatCreated}
         currentUserId={user?.id || ''}
+        startInGroupMode={newChatStartsInGroupMode}
       />
       </div>
     </div>

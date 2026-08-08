@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Video } from 'lucide-react-native';
 import { meetingsApi } from '../../../src/api';
 import { useCall } from '../../../src/contexts/CallContext';
+import { COLORS } from '../../../src/theme/colors';
 
 /**
  * Landing screen for a shared meeting link (`/meet/:slug`). Joining grants
@@ -51,7 +52,7 @@ export default function MeetingJoinScreen() {
     <View style={styles.container}>
       {error ? (
         <>
-          <Video size={40} color="#8696a0" />
+          <Video size={40} color={COLORS.textSecondary} />
           <Text style={styles.message}>{error}</Text>
           <TouchableOpacity style={styles.button} onPress={() => router.replace('/')}>
             <Text style={styles.buttonText}>Go to ChitChat</Text>
@@ -59,7 +60,7 @@ export default function MeetingJoinScreen() {
         </>
       ) : (
         <>
-          <ActivityIndicator size="large" color="#00a884" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.message}>Joining meeting…</Text>
         </>
       )}
@@ -70,18 +71,18 @@ export default function MeetingJoinScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b141a',
+    backgroundColor: COLORS.bgDeepest,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
     padding: 24,
   },
-  message: { color: '#8696a0', fontSize: 15, textAlign: 'center' },
+  message: { color: COLORS.textSecondary, fontSize: 15, textAlign: 'center' },
   button: {
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  buttonText: { color: '#0b141a', fontWeight: '600', fontSize: 15 },
+  buttonText: { color: COLORS.bgDeepest, fontWeight: '600', fontSize: 15 },
 });

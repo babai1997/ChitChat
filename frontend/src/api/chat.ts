@@ -54,6 +54,11 @@ export const chatApi = {
     await api.post(`/chats/${chatId}/leave`);
   },
 
+  /** Delete a chat for yourself only (WhatsApp-style) — other members keep it, and it reappears on new activity. */
+  deleteChat: async (chatId: string): Promise<void> => {
+    await api.delete(`/chats/${chatId}`);
+  },
+
   markAsRead: async (chatId: string): Promise<void> => {
     await api.post(`/chats/${chatId}/read`);
   },

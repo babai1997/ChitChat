@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ import type { Chat } from "../../src/types";
 import { ChatListSkeleton } from "../../components/common/SkeletonLoader";
 import UnapprovedDeviceBanner from "../../components/common/UnapprovedDeviceBanner";
 import { useCall } from "../../src/contexts/CallContext";
+import { COLORS } from '../../src/theme/colors';
 
 export default function ChatsScreen() {
   const router = useRouter();
@@ -121,21 +123,47 @@ export default function ChatsScreen() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "sending":
-        return <Clock size={14} color="#8696a0" />;
+        return <Clock size={14} color={COLORS.textSecondary} />;
       case "sent":
-        return <Check size={14} color="#8696a0" />;
+        return <Check size={14} color={COLORS.textSecondary} />;
       case "delivered":
-        return <CheckCheck size={14} color="#8696a0" />;
+        return <CheckCheck size={14} color={COLORS.textSecondary} />;
       case "read":
-        return <CheckCheck size={14} color="#53bdeb" />;
+        return <CheckCheck size={14} color={COLORS.info} />;
       default:
-        return <Check size={14} color="#8696a0" />;
+        return <Check size={14} color={COLORS.textSecondary} />;
     }
   };
 
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
     router.push(`/(main)/chat/${chat.id}`);
+  };
+
+  const handleDeleteChat = (chat: Chat) => {
+    const who = chat.type === "direct" ? "the other person" : "other participants";
+    Alert.alert(
+      "Delete chat",
+      `It will be removed from your chat list, but not for ${who}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const previousChats = chats;
+            setChats(chats.filter((c) => c.id !== chat.id));
+            try {
+              await chatApi.deleteChat(chat.id);
+            } catch (err) {
+              console.error("Failed to delete chat:", err);
+              Alert.alert("Error", "Failed to delete chat");
+              setChats(previousChats);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleJoinCall = async (chat: Chat) => {
@@ -178,6 +206,7 @@ export default function ChatsScreen() {
       <TouchableOpacity
         style={styles.chatItem}
         onPress={() => handleChatSelect(chat)}
+        onLongPress={() => handleDeleteChat(chat)}
         activeOpacity={0.7}
       >
         {/* Avatar */}
@@ -186,7 +215,7 @@ export default function ChatsScreen() {
             <Image source={{ uri: avatar }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <User size={24} color="#8696a0" />
+              <User size={24} color={COLORS.textSecondary} />
             </View>
           )}
           {isOnline && <View style={styles.onlineIndicator} />}
@@ -215,8 +244,8 @@ export default function ChatsScreen() {
             <View style={styles.ongoingCallRow}>
               <View style={styles.ongoingCallLeft}>
                 {ongoing.type === "video"
-                  ? <Video size={13} color="#00a884" />
-                  : <Phone size={13} color="#00a884" />}
+                  ? <Video size={13} color={COLORS.accent} />
+                  : <Phone size={13} color={COLORS.accent} />}
                 <Text style={styles.ongoingCallText}>
                   Ongoing {ongoing.type} call · {ongoing.participantCount} joined
                 </Text>
@@ -318,7 +347,7 @@ export default function ChatsScreen() {
           style={styles.headerBtn}
           onPress={() => router.push("/new-chat")}
         >
-          <MessageSquarePlus size={22} color="#aebac1" />
+          <MessageSquarePlus size={22} color={COLORS.textTertiary} />
         </TouchableOpacity>
       </View>
 
@@ -339,17 +368,17 @@ export default function ChatsScreen() {
                 }}
                 style={styles.searchIcon}
               >
-                <X size={18} color="#00a884" />
+                <X size={18} color={COLORS.accent} />
               </TouchableOpacity>
             ) : (
               <View style={styles.searchIcon}>
-                <Search size={18} color="#8696a0" />
+                <Search size={18} color={COLORS.textSecondary} />
               </View>
             )}
             <TextInput
               style={styles.searchInput}
               placeholder="Search chats…"
-              placeholderTextColor="#8696a0"
+              placeholderTextColor={COLORS.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setIsSearchFocused(true)}
@@ -375,8 +404,8 @@ export default function ChatsScreen() {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                tintColor="#00a884"
-                colors={["#00a884"]}
+                tintColor={COLORS.accent}
+                colors={[COLORS.accent]}
               />
             }
           />
@@ -411,18 +440,18 @@ export default function ChatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#202c33", // header colour — fills all the way to top status bar
+    backgroundColor: COLORS.surface, // header colour — fills all the way to top status bar
   },
   contentWrapper: {
     flex: 1,
-    backgroundColor: "#111b21",
+    backgroundColor: COLORS.bg,
   },
   centerContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    backgroundColor: "#111b21",
+    backgroundColor: COLORS.bg,
   },
   header: {
     flexDirection: "row",
@@ -430,13 +459,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#202c33",
+    backgroundColor: COLORS.surface,
     // Removed borderBottom to make it flow seamlessly into the search bar or content
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#e9edef",
+    color: COLORS.textPrimary,
   },
   headerBtn: {
     padding: 4,
@@ -444,12 +473,12 @@ const styles = StyleSheet.create({
   searchWrapper: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "#111b21",
+    backgroundColor: COLORS.bg,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#202c33",
+    backgroundColor: COLORS.surface,
     borderRadius: 48,
     borderWidth: 1,
     borderColor: "transparent",
@@ -457,7 +486,7 @@ const styles = StyleSheet.create({
     height: 54,
   },
   searchBarFocused: {
-    borderColor: "#00a884",
+    borderColor: COLORS.accent,
   },
   searchIcon: {
     marginRight: 10,
@@ -467,7 +496,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     fontSize: 15,
   },
   chatItem: {
@@ -475,7 +504,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#2a3942",
+    borderBottomColor: COLORS.border,
   },
   avatarContainer: {
     position: "relative",
@@ -490,7 +519,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#2a3942",
+    backgroundColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -500,10 +529,10 @@ const styles = StyleSheet.create({
     right: 1,
     width: 13,
     height: 13,
-    backgroundColor: "#25d366",
+    backgroundColor: COLORS.accentSecondary,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: "#111b21",
+    borderColor: COLORS.bg,
   },
   chatContent: {
     flex: 1,
@@ -518,16 +547,16 @@ const styles = StyleSheet.create({
   chatName: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     flex: 1,
     marginRight: 8,
   },
   chatTime: {
     fontSize: 12,
-    color: "#8696a0",
+    color: COLORS.textSecondary,
   },
   chatTimeUnread: {
-    color: "#00a884",
+    color: COLORS.accent,
     fontWeight: "500",
   },
   chatFooter: {
@@ -543,11 +572,11 @@ const styles = StyleSheet.create({
   },
   lastMessageText: {
     fontSize: 14,
-    color: "#8696a0",
+    color: COLORS.textSecondary,
     flex: 1,
   },
   unreadBadge: {
-    backgroundColor: "#25d366",
+    backgroundColor: COLORS.accentSecondary,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -561,13 +590,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   emptyText: {
-    color: "#8696a0",
+    color: COLORS.textSecondary,
     fontSize: 16,
     textAlign: "center",
     marginBottom: 8,
   },
   emptySubtext: {
-    color: "#4f6672",
+    color: COLORS.textTertiary,
     fontSize: 14,
     textAlign: "center",
   },
@@ -578,11 +607,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#00a884",
+    backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
     elevation: 6,
-    shadowColor: "#00a884",
+    shadowColor: COLORS.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -600,19 +629,19 @@ const styles = StyleSheet.create({
   },
   ongoingCallText: {
     fontSize: 13,
-    color: "#00a884",
+    color: COLORS.accent,
     fontWeight: "500",
     flexShrink: 1,
   },
   joinBtn: {
-    backgroundColor: "#00a884",
+    backgroundColor: COLORS.accent,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 4,
     marginLeft: 8,
   },
   joinBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 13,
     fontWeight: "600",
   },

@@ -40,6 +40,7 @@ import AudioPlayer from "./AudioPlayer";
 import { EncryptedAttachment } from "./EncryptedAttachment";
 import { ReplyPreviewLine } from "./ReplyPreviewLine";
 import { isE2eePlaceholder, PLACEHOLDER_APPROVE_DEVICE } from "../../src/services/e2eeSessions";
+import { COLORS } from '../../src/theme/colors';
 
 interface MessageBubbleProps {
   message: Message;
@@ -55,12 +56,12 @@ interface MessageBubbleProps {
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────────
-const OWN_BG = "#0a7260"; // richer teal-green (more vibrant than WhatsApp's #005c4b)
-const THEIR_BG = "#1e2c35"; // deep blue-grey (warmer than #202c33)
-const OWN_TEXT = "#e9f8f5"; // slightly green-tinted white
-const THEIR_TEXT = "#e9edef";
-const TIME_COLOR = "rgba(233,237,239,0.6)";
-const READ_TICK = "#7edcf5"; // sky-blue for read ticks
+const OWN_BG = COLORS.accentStrong; // richer teal-green (more vibrant than WhatsApp's COLORS.accentStrong)
+const THEIR_BG = COLORS.surface; // deep blue-grey (warmer than COLORS.surface)
+const OWN_TEXT = COLORS.textPrimary; // slightly green-tinted white
+const THEIR_TEXT = COLORS.textPrimary;
+const TIME_COLOR = "rgba(240, 238, 247,0.6)";
+const READ_TICK = COLORS.info; // sky-blue for read ticks
 
 export default function MessageBubble({
   message,
@@ -187,7 +188,7 @@ export default function MessageBubble({
             maxWidth: "80%",
             paddingHorizontal: 14,
             paddingVertical: 6,
-            backgroundColor: "#182229",
+            backgroundColor: COLORS.bgDeepest,
             borderRadius: 8,
           }}
           {...(isApprovalPrompt ? { onPress: () => router.push("/linked-devices") } : {})}
@@ -196,7 +197,7 @@ export default function MessageBubble({
             style={{
               fontSize: 12.5,
               fontStyle: "italic",
-              color: "#8696a0",
+              color: COLORS.textSecondary,
               textAlign: "center",
               textDecorationLine: isApprovalPrompt ? "underline" : "none",
             }}
@@ -220,9 +221,9 @@ export default function MessageBubble({
           ]}
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ban size={14} color="#8696a0" style={{ marginRight: 6 }} />
+            <Ban size={14} color={COLORS.textSecondary} style={{ marginRight: 6 }} />
             <Text
-              style={{ fontSize: 14, fontStyle: "italic", color: "#8696a0" }}
+              style={{ fontSize: 14, fontStyle: "italic", color: COLORS.textSecondary }}
             >
               This message was deleted
             </Text>
@@ -274,16 +275,16 @@ export default function MessageBubble({
     let AudioIcon: typeof Phone;
 
     if (ended) {
-      iconColor = "#25d366";
-      iconBg    = "rgba(37,211,102,0.15)";
+      iconColor = COLORS.accentSecondary;
+      iconBg    = "rgba(139, 127, 234,0.15)";
       AudioIcon = isOwn ? PhoneOutgoing : PhoneIncoming;
     } else if (isOwn) {
-      iconColor = "rgba(233,237,239,0.65)";
+      iconColor = "rgba(240, 238, 247,0.65)";
       iconBg    = "rgba(255,255,255,0.08)";
       AudioIcon = PhoneOutgoing;
     } else {
-      iconColor = "#ea4335";
-      iconBg    = "rgba(234,67,53,0.15)";
+      iconColor = COLORS.danger;
+      iconBg    = "rgba(239, 68, 68,0.15)";
       AudioIcon = PhoneIncoming;
     }
 
@@ -390,7 +391,7 @@ export default function MessageBubble({
                 <AudioPlayer key={index} uri={att.url} isOwn={isOwn} />
               ) : (
                 <View key={index} style={styles.fileAttach}>
-                  <FileText size={24} color={isOwn ? OWN_TEXT : "#8696a0"} />
+                  <FileText size={24} color={isOwn ? OWN_TEXT : COLORS.textSecondary} />
                   <Text style={styles.fileName} numberOfLines={1}>
                     {att.filename}
                   </Text>
@@ -430,7 +431,7 @@ export default function MessageBubble({
                 onReply?.(message);
               }}
             >
-              <Reply size={18} color="#e9edef" />
+              <Reply size={18} color={COLORS.textPrimary} />
               <Text style={styles.menuTxt}>Reply</Text>
             </TouchableOpacity>
             {isOwn && message.type === "text" && (
@@ -441,7 +442,7 @@ export default function MessageBubble({
                   onEdit?.(message.id, message.content ?? "");
                 }}
               >
-                <Edit2 size={18} color="#e9edef" />
+                <Edit2 size={18} color={COLORS.textPrimary} />
                 <Text style={styles.menuTxt}>Edit</Text>
               </TouchableOpacity>
             )}
@@ -452,7 +453,7 @@ export default function MessageBubble({
                 onDelete?.(message.id, false);
               }}
             >
-              <Trash2 size={18} color="#e9edef" />
+              <Trash2 size={18} color={COLORS.textPrimary} />
               <Text style={styles.menuTxt}>Delete for me</Text>
             </TouchableOpacity>
             {isOwn && (
@@ -463,8 +464,8 @@ export default function MessageBubble({
                   onDelete?.(message.id, true);
                 }}
               >
-                <Trash2 size={18} color="#ef4444" />
-                <Text style={[styles.menuTxt, { color: "#ef4444" }]}>
+                <Trash2 size={18} color={COLORS.danger} />
+                <Text style={[styles.menuTxt, { color: COLORS.danger }]}>
                   Delete for everyone
                 </Text>
               </TouchableOpacity>
@@ -499,14 +500,14 @@ export default function MessageBubble({
             }}
           >
             <TouchableOpacity onPress={() => setSelectedImage(null)}>
-              <X size={28} color="#fff" />
+              <X size={28} color={COLORS.white} />
             </TouchableOpacity>
             <View style={{ flexDirection: "row", gap: 16 }}>
               <TouchableOpacity onPress={handleDownload}>
-                <Download size={24} color="#fff" />
+                <Download size={24} color={COLORS.white} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowForward(true)}>
-                <Forward size={24} color="#fff" />
+                <Forward size={24} color={COLORS.white} />
               </TouchableOpacity>
             </View>
           </View>
@@ -526,15 +527,15 @@ export default function MessageBubble({
         animationType="slide"
         onRequestClose={() => setShowForward(false)}
       >
-        <View style={{ flex: 1, backgroundColor: "#111b21" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 16, backgroundColor: "#202c33" }}>
+        <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 16, backgroundColor: COLORS.surface }}>
             <TouchableOpacity onPress={() => setShowForward(false)}>
-              <X size={24} color="#e9edef" />
+              <X size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text
               style={{
                 fontSize: 20,
-                color: "#e9edef",
+                color: COLORS.textPrimary,
                 marginLeft: 16,
                 fontWeight: "500",
               }}
@@ -558,11 +559,11 @@ export default function MessageBubble({
                   style={{
                     padding: 16,
                     borderBottomWidth: 1,
-                    borderBottomColor: "#2a3942",
+                    borderBottomColor: COLORS.border,
                   }}
                   onPress={() => handleForward(item.id)}
                 >
-                  <Text style={{ color: "#e9edef", fontSize: 16 }}>{name}</Text>
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 16 }}>{name}</Text>
                 </TouchableOpacity>
               );
             }}
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
   // Overrides bubbleOwn/bubbleTheirs's backgroundColor while a "jump to
   // reply" target is briefly flashed (see ChatInput's onJumpToReply).
   bubbleHighlighted: {
-    backgroundColor: "rgba(6,207,156,0.35)",
+    backgroundColor: "rgba(125, 111, 224,0.35)",
   },
 
   // ── Message text
@@ -697,7 +698,7 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#7edcf5",
+    color: COLORS.info,
     marginBottom: 4,
     letterSpacing: 0.1,
   },
@@ -705,7 +706,7 @@ const styles = StyleSheet.create({
   // ── Quoted reply preview
   replyQuote: {
     borderLeftWidth: 3,
-    borderLeftColor: "#06cf9c",
+    borderLeftColor: COLORS.accentHover,
     backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 4,
     paddingVertical: 6,
@@ -715,7 +716,7 @@ const styles = StyleSheet.create({
   replyQuoteSender: {
     fontSize: 12.5,
     fontWeight: "600",
-    color: "#06cf9c",
+    color: COLORS.accentHover,
   },
 
   // ── Attachments
@@ -734,7 +735,7 @@ const styles = StyleSheet.create({
     width: 210,
   },
   fileName: {
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     marginLeft: 8,
     fontSize: 14,
     flex: 1,
@@ -758,7 +759,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "rgba(234,67,53,0.18)",
+    backgroundColor: "rgba(239, 68, 68,0.18)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -773,7 +774,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   menu: {
-    backgroundColor: "#1e2c35",
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     width: 260,
     padding: 6,
@@ -792,7 +793,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   menuTxt: {
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     fontSize: 15,
     marginLeft: 14,
     fontWeight: "500",

@@ -393,6 +393,18 @@ export class MessagesService {
         console.error('Failed to bump chat.updatedAt after message send:', err);
       });
 
+    // Any member who had "deleted" this chat (WhatsApp-style, delete-for-me)
+    // gets it un-hidden by new activity, same as WhatsApp — also fire-and-forget,
+    // same reasoning as the updatedAt bump above.
+    this.prisma.chatMember
+      .updateMany({
+        where: { chatId: data.chatId, deletedAt: { not: null } },
+        data: { deletedAt: null },
+      })
+      .catch((err) => {
+        console.error('Failed to clear deletedAt after message send:', err);
+      });
+
     const formattedMessage = MessagesMapper.toDto(
       message,
       undefined,

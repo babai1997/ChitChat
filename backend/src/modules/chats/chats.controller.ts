@@ -169,6 +169,18 @@ export class ChatsController {
     return this.chatsService.leaveGroup(id, user.id);
   }
 
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Delete a chat for yourself only (WhatsApp-style) — other members keep it',
+  })
+  @ApiParam({ name: 'id', description: 'Chat ID' })
+  @ApiResponse({ status: 200, description: 'Chat deleted for this user' })
+  async deleteChat(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.chatsService.deleteChatForUser(id, user.id);
+  }
+
   @Put(':id/members/:userId/role')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

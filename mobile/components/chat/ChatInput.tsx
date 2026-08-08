@@ -41,6 +41,7 @@ import { useAuthStore, useChatStore } from '../../src/stores';
 import { encryptLocalFileForUpload, type AttachmentDescriptor } from '../../src/services/e2eeAttachments';
 import type { Message } from "../../src/types";
 import { ReplyPreviewLine } from "./ReplyPreviewLine";
+import { COLORS } from '../../src/theme/colors';
 
 const { height } = Dimensions.get("window");
 
@@ -455,7 +456,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
             />
           </View>
           <TouchableOpacity onPress={onCancelReply} style={{ padding: 4 }}>
-            <X size={18} color="#8696a0" />
+            <X size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -468,7 +469,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
               onPress={toggleEmojiKeyboard}
               activeOpacity={0.7}
             >
-              <Smile size={24} color={isEmojiOpen ? "#00a884" : "#8696a0"} />
+              <Smile size={24} color={isEmojiOpen ? COLORS.accent : COLORS.textSecondary} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -476,7 +477,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
               onPress={cancelRecording}
               activeOpacity={0.7}
             >
-              <Trash2 size={24} color="#ef4444" />
+              <Trash2 size={24} color={COLORS.danger} />
             </TouchableOpacity>
           )}
 
@@ -488,9 +489,9 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
                 activeOpacity={0.7}
               >
                 {isRecordingPaused ? (
-                  <Mic size={24} color="#ff5252" />
+                  <Mic size={24} color={COLORS.danger} />
                 ) : (
-                  <Pause size={24} color="#ff5252" />
+                  <Pause size={24} color={COLORS.danger} />
                 )}
               </TouchableOpacity>
               {!isRecordingPaused && <View style={styles.recordingPulse} />}
@@ -502,7 +503,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
             <TextInput
               style={styles.textInput}
               placeholder="Message"
-              placeholderTextColor="#8696a0"
+              placeholderTextColor={COLORS.textSecondary}
               value={inputText}
               onChangeText={handleTextChange}
               multiline
@@ -517,7 +518,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
               onPress={toggleAttachmentMenu}
               activeOpacity={0.7}
             >
-              <Paperclip size={24} color="#8696a0" style={isMenuOpen ? { transform: [{ rotate: '-45deg' }] } : {}} />
+              <Paperclip size={24} color={COLORS.textSecondary} style={isMenuOpen ? { transform: [{ rotate: '-45deg' }] } : {}} />
             </TouchableOpacity>
           )}
 
@@ -527,7 +528,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
               onPress={handleCameraPick}
               activeOpacity={0.7}
             >
-              <Camera size={24} color="#8696a0" />
+              <Camera size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -559,22 +560,22 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
         )}
       </View>
       {isEmojiOpen && (
-        <View style={{ height: 320, backgroundColor: '#202c33' }}>
+        <View style={{ height: 320, backgroundColor: COLORS.surface }}>
           <EmojiKeyboard
             onEmojiSelected={(emojiObject) => {
               setInputText((prev) => prev + emojiObject.emoji);
             }}
             theme={{
-              backdrop: '#111b2188',
-              knob: '#00a884',
-              container: '#202c33',
-              header: '#e9edef',
-              skinTonesContainer: '#2a3942',
+              backdrop: COLORS.bg + '88', // ~53% opacity, RN 8-digit hex alpha suffix
+              knob: COLORS.accent,
+              container: COLORS.surface,
+              header: COLORS.textPrimary,
+              skinTonesContainer: COLORS.border,
               category: {
-                icon: '#8696a0',
-                iconActive: '#00a884',
-                container: '#202c33',
-                containerActive: '#2a3942',
+                icon: COLORS.textSecondary,
+                iconActive: COLORS.accent,
+                container: COLORS.surface,
+                containerActive: COLORS.border,
               },
             }}
           />
@@ -589,7 +590,7 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
                 style={styles.menuItem}
                 onPress={() => setIsMenuOpen(false)}
               >
-                <View style={[styles.menuIcon, { backgroundColor: "#7f66ff" }]}>
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.accent }]}>
                   <FileText size={28} color="white" />
                 </View>
                 <Text style={styles.menuText}>Document</Text>
@@ -650,12 +651,12 @@ export default function ChatInput({ chatId, replyingTo, onCancelReply }: ChatInp
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#0b141a",
+    backgroundColor: COLORS.bgDeepest,
   },
   inlineBottomSheet: {
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2a3942',
+    borderTopColor: COLORS.border,
     overflow: 'hidden',
   },
   sheetContent: {
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   menuText: {
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     fontSize: 13,
   },
   inputRow: {
@@ -700,9 +701,9 @@ const styles = StyleSheet.create({
   replyBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1f2c34",
+    backgroundColor: COLORS.surfaceElevated,
     borderLeftWidth: 4,
-    borderLeftColor: "#06cf9c",
+    borderLeftColor: COLORS.accentHover,
     borderRadius: 4,
     marginHorizontal: 8,
     marginTop: 8,
@@ -710,7 +711,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   replyBannerLabel: {
-    color: "#06cf9c",
+    color: COLORS.accentHover,
     fontSize: 12,
     fontWeight: "500",
   },
@@ -718,7 +719,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "flex-end",
-    backgroundColor: "#202c33",
+    backgroundColor: COLORS.surface,
     borderRadius: 24,
     minHeight: 52, // Increased from 48 to make it larger
     paddingHorizontal: 6,
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     maxHeight: 120,
     minHeight: 40,
     paddingTop: 10,
@@ -744,7 +745,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#00a884",
+    backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
     elevation: 2,
@@ -768,7 +769,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   recordingText: {
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: "500",
   },

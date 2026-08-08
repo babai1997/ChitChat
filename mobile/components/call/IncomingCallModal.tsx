@@ -11,6 +11,7 @@ import {
 import { PhoneOff, Video, Phone, User } from 'lucide-react-native';
 import { useCall } from '../../src/contexts/CallContext';
 import { useRouter } from 'expo-router';
+import { COLORS } from '../../src/theme/colors';
 
 export default function IncomingCallModal() {
   const { incomingCall, answerCall, rejectCall } = useCall();
@@ -67,7 +68,7 @@ export default function IncomingCallModal() {
                 <Image source={{ uri: incomingCall.callerAvatar }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <User size={52} color="#8696a0" />
+                  <User size={52} color={COLORS.textSecondary} />
                 </View>
               )}
             </View>
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#1f2c33',
+    backgroundColor: COLORS.surfaceElevated,
     borderRadius: 28,
     padding: 36,
     alignItems: 'center',
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: 65,
     borderWidth: 3,
-    borderColor: 'rgba(0, 168, 132, 0.3)',
+    borderColor: 'rgba(108, 93, 216, 0.3)',
   },
   avatarWrapper: {
   },
@@ -135,26 +136,26 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 55,
     borderWidth: 3,
-    borderColor: '#00a884',
+    borderColor: COLORS.accent,
   },
   avatarPlaceholder: {
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#00a884',
+    borderColor: COLORS.accent,
   },
   callerName: {
     fontSize: 26,
     fontWeight: '600',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   callTypeText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 15,
     marginBottom: 40,
   },
@@ -179,13 +180,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   rejectBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: COLORS.danger,
   },
   acceptBtn: {
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
   },
   actionLabel: {
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: '500',
   },

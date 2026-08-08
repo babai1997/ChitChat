@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, MessageCircle } from 'lucide-react-native';
+import { COLORS } from '../../src/theme/colors';
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
@@ -67,9 +68,9 @@ export default function TermsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color="#e9edef" />
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <MessageCircle size={18} color="#25d366" />
+        <MessageCircle size={18} color={COLORS.accentSecondary} />
         <Text style={styles.headerTitle}>Terms of Service</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
@@ -88,17 +89,17 @@ export default function TermsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0b141a' },
+  container: { flex: 1, backgroundColor: COLORS.bgDeepest },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#202c33', borderBottomWidth: 1, borderBottomColor: '#2a3942',
+    backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   backBtn: {},
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#e9edef' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: COLORS.textPrimary },
   content: { padding: 20, paddingBottom: 48 },
-  updated: { color: '#8696a0', fontSize: 12.5, marginBottom: 24 },
+  updated: { color: COLORS.textSecondary, fontSize: 12.5, marginBottom: 24 },
   section: { marginBottom: 22 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#25d366', marginBottom: 6 },
-  paragraph: { fontSize: 14, lineHeight: 21, color: '#d1d7db', marginBottom: 8 },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: COLORS.accentSecondary, marginBottom: 6 },
+  paragraph: { fontSize: 14, lineHeight: 21, color: COLORS.textPrimary, marginBottom: 8 },
 });

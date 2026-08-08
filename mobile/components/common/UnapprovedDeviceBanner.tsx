@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react-native';
 import { useDeviceLinkStore } from '../../src/stores/useDeviceLinkStore';
 import { restoreBackup } from '../../src/services/backupSync';
 import BackupPassphraseModal from './BackupPassphraseModal';
+import { COLORS } from '../../src/theme/colors';
 
 /**
  * Proactive notice for a brand-new, not-yet-approved device. Unlike
@@ -25,7 +26,7 @@ export default function UnapprovedDeviceBanner() {
   return (
     <>
       <View style={styles.container}>
-        <Lock size={18} color="#00a884" />
+        <Lock size={18} color={COLORS.accent} />
         <View style={styles.textContainer}>
           <TouchableOpacity onPress={() => router.push('/linked-devices')}>
             <Text style={styles.title}>This device needs approval</Text>
@@ -63,16 +64,16 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#1f2c34',
+    backgroundColor: COLORS.surfaceElevated,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#202c33',
+    borderBottomColor: COLORS.surface,
   },
   textContainer: { flex: 1 },
-  title: { fontSize: 14, color: '#e9edef', fontWeight: '500' },
-  subtitle: { fontSize: 12.5, color: '#8696a0', marginTop: 2 },
+  title: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '500' },
+  subtitle: { fontSize: 12.5, color: COLORS.textSecondary, marginTop: 2 },
   restoreLink: {
     fontSize: 12.5,
-    color: '#00a884',
+    color: COLORS.accent,
     fontWeight: '500',
     marginTop: 6,
     textDecorationLine: 'underline',

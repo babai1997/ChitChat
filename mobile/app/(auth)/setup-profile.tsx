@@ -18,6 +18,7 @@ import { User, Camera, Check } from 'lucide-react-native';
 import { useAuthStore } from '../../src/stores/authStore';
 import { profileApi } from '../../src/api';
 import * as ImagePicker from 'expo-image-picker';
+import { COLORS } from '../../src/theme/colors';
 
 export default function SetupProfileScreen() {
   const router = useRouter();
@@ -114,7 +115,7 @@ export default function SetupProfileScreen() {
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatar} />
               ) : (
-                <User size={56} color="#8696a0" />
+                <User size={56} color={COLORS.textSecondary} />
               )}
             </View>
             <View style={styles.cameraButton}>
@@ -133,7 +134,7 @@ export default function SetupProfileScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Enter your name"
-                placeholderTextColor="#8696a0"
+                placeholderTextColor={COLORS.textSecondary}
                 value={displayName}
                 onChangeText={setDisplayName}
                 maxLength={25}
@@ -150,7 +151,7 @@ export default function SetupProfileScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="About (optional)"
-                placeholderTextColor="#8696a0"
+                placeholderTextColor={COLORS.textSecondary}
                 value={about}
                 onChangeText={setAbout}
                 maxLength={139}
@@ -188,7 +189,7 @@ export default function SetupProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
   },
   keyboardView: {
     flex: 1,
@@ -207,12 +208,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 15,
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -224,12 +225,12 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#2a3942',
+    borderColor: COLORS.border,
   },
   avatar: {
     width: 130,
@@ -240,21 +241,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 2,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#111b21',
+    borderColor: COLORS.bg,
   },
   inputGroup: {
     width: '100%',
     marginBottom: 28,
   },
   inputLabel: {
-    color: '#00a884',
+    color: COLORS.accent,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
@@ -264,17 +265,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1.5,
-    borderBottomColor: '#00a884',
+    borderBottomColor: COLORS.accent,
     paddingBottom: 8,
   },
   input: {
     flex: 1,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 16,
     paddingVertical: 4,
   },
   charCount: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 12,
     marginLeft: 8,
   },
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flexDirection: 'row',
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 28,
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
     gap: 10,
     minWidth: 140,
     elevation: 3,
-    shadowColor: '#00a884',
+    shadowColor: COLORS.accent,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,

@@ -21,6 +21,8 @@ interface NewChatModalProps {
   onClose: () => void;
   onChatCreated: (chat: Chat) => void;
   currentUserId: string;
+  /** Opens straight into the "select contacts for a group" hint, as if the user had clicked the in-modal "New Group" entry — used by the header's "New group" menu item. */
+  startInGroupMode?: boolean;
 }
 
 type ModalView = 'list' | 'new-group-details';
@@ -29,7 +31,7 @@ type ListItem =
   | { kind: 'header'; label: string }
   | { kind: 'user'; user: SearchResultUser; isSelected: boolean };
 
-export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: NewChatModalProps) => {
+export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId, startInGroupMode }: NewChatModalProps) => {
   const [view, setView] = useState<ModalView>('list');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResultUser[]>([]);
@@ -63,8 +65,9 @@ export const NewChatModal = ({ isOpen, onClose, onChatCreated, currentUserId }: 
       setSearchResults([]);
       setSelectedUsers([]);
       setGroupName('');
+      setShowGroupHint(!!startInGroupMode);
     }
-  }, [isOpen]);
+  }, [isOpen, startInGroupMode]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {

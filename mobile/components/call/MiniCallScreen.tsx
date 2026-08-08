@@ -4,6 +4,7 @@ import { useCall } from '../../src/contexts/CallContext';
 import { useRouter, useSegments } from 'expo-router';
 import { Phone, Video, MicOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '../../src/theme/colors';
 
 let RTCView: any = View;
 try {
@@ -83,11 +84,11 @@ export default function MiniCallScreen() {
           />
         </View>
       ) : (
-        <View style={[styles.audioWrapper, isVideo && { backgroundColor: '#111b21' }]}>
+        <View style={[styles.audioWrapper, isVideo && { backgroundColor: COLORS.bg }]}>
           {isVideo ? (
-            <Video size={24} color="#00a884" />
+            <Video size={24} color={COLORS.accent} />
           ) : (
-            <Phone size={24} color="#00a884" />
+            <Phone size={24} color={COLORS.accent} />
           )}
         </View>
       )}
@@ -99,7 +100,7 @@ export default function MiniCallScreen() {
 
       {isMuted && (
         <View style={styles.muteIcon}>
-          <MicOff size={14} color="#ef4444" />
+          <MicOff size={14} color={COLORS.danger} />
         </View>
       )}
       </TouchableOpacity>
@@ -113,10 +114,10 @@ const styles = StyleSheet.create({
     right: 16,
     width: 160,
     height: 90,
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2a3942',
+    borderColor: COLORS.border,
     flexDirection: 'row',
     overflow: 'hidden',
     shadowColor: '#000',
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
   audioWrapper: {
     width: 60,
     height: '100%',
-    backgroundColor: 'rgba(0,168,132,0.1)',
+    backgroundColor: 'rgba(108, 93, 216,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,13 +145,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
   },
   status: {
-    color: '#00a884',
+    color: COLORS.accent,
     fontSize: 12,
   },
   muteIcon: {

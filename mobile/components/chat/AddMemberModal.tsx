@@ -9,6 +9,7 @@ import { usersApi, chatApi } from '../../src/api';
 import { useChatStore } from '../../src/stores/chatStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import type { Chat, Profile, UserWithProfile } from '../../src/types';
+import { COLORS } from '../../src/theme/colors';
 
 type ListItem =
   | { kind: 'header'; label: string }
@@ -159,7 +160,7 @@ export default function AddMemberModal({ visible, onClose, chat }: AddMemberModa
         <View style={styles.avatar}>
           {u.profile?.avatarUrl
             ? <Image source={{ uri: u.profile.avatarUrl }} style={styles.avatarImg} />
-            : <View style={styles.avatarPlaceholder}><User size={20} color="#8696a0" /></View>
+            : <View style={styles.avatarPlaceholder}><User size={20} color={COLORS.textSecondary} /></View>
           }
         </View>
         <View style={styles.userInfo}>
@@ -182,7 +183,7 @@ export default function AddMemberModal({ visible, onClose, chat }: AddMemberModa
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <X size={24} color="#e9edef" />
+            <X size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Add Member</Text>
@@ -194,20 +195,20 @@ export default function AddMemberModal({ visible, onClose, chat }: AddMemberModa
 
         {/* Search */}
         <View style={styles.searchContainer}>
-          <Search size={18} color="#8696a0" style={{ marginRight: 8 }} />
+          <Search size={18} color={COLORS.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search name or phone"
-            placeholderTextColor="#8696a0"
+            placeholderTextColor={COLORS.textSecondary}
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
             autoCorrect={false}
           />
           {isSearching
-            ? <ActivityIndicator size="small" color="#8696a0" />
+            ? <ActivityIndicator size="small" color={COLORS.textSecondary} />
             : query.length > 0
-              ? <TouchableOpacity onPress={() => setQuery('')}><X size={16} color="#8696a0" /></TouchableOpacity>
+              ? <TouchableOpacity onPress={() => setQuery('')}><X size={16} color={COLORS.textSecondary} /></TouchableOpacity>
               : null
           }
         </View>
@@ -221,7 +222,7 @@ export default function AddMemberModal({ visible, onClose, chat }: AddMemberModa
           ListEmptyComponent={
             contacts.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Users size={48} color="#2a3942" />
+                <Users size={48} color={COLORS.border} />
                 <Text style={styles.emptyText}>No contacts to add</Text>
                 <Text style={styles.emptySubtext}>All contacts are already in this group</Text>
               </View>
@@ -254,40 +255,40 @@ export default function AddMemberModal({ visible, onClose, chat }: AddMemberModa
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111b21' },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#202c33',
-    borderBottomWidth: 1, borderBottomColor: '#2a3942',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   closeBtn: { marginRight: 16 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#e9edef' },
-  headerSubtitle: { fontSize: 12, color: '#8696a0', marginTop: 2 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.textPrimary },
+  headerSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#202c33', margin: 12,
+    backgroundColor: COLORS.surface, margin: 12,
     borderRadius: 8, paddingHorizontal: 12,
   },
-  searchInput: { flex: 1, paddingVertical: 10, color: '#e9edef', fontSize: 15 },
-  sectionHeader: { backgroundColor: '#1f2c34', paddingHorizontal: 16, paddingVertical: 5 },
-  sectionHeaderText: { color: '#8696a0', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  searchInput: { flex: 1, paddingVertical: 10, color: COLORS.textPrimary, fontSize: 15 },
+  sectionHeader: { backgroundColor: COLORS.surfaceElevated, paddingHorizontal: 16, paddingVertical: 5 },
+  sectionHeaderText: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
   listContent: { paddingBottom: 16 },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-  userRowSelected: { backgroundColor: '#182229' },
+  userRowSelected: { backgroundColor: COLORS.bgDeepest },
   avatar: { marginRight: 14 },
   avatarImg: { width: 46, height: 46, borderRadius: 23 },
-  avatarPlaceholder: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center' },
+  avatarPlaceholder: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 15, color: '#e9edef', marginBottom: 2 },
-  userAbout: { fontSize: 13, color: '#8696a0' },
-  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#3b4a54', alignItems: 'center', justifyContent: 'center' },
-  checkboxSelected: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#00a884', alignItems: 'center', justifyContent: 'center' },
+  userName: { fontSize: 15, color: COLORS.textPrimary, marginBottom: 2 },
+  userAbout: { fontSize: 13, color: COLORS.textSecondary },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: COLORS.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  checkboxSelected: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.accent, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyText: { color: '#8696a0', fontSize: 16, marginTop: 16 },
-  emptySubtext: { color: '#8696a0', fontSize: 13, marginTop: 4, textAlign: 'center' },
-  actionBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: '#202c33', borderTopWidth: 1, borderTopColor: '#2a3942' },
-  addBtn: { backgroundColor: '#00a884', borderRadius: 24, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  addBtnDisabled: { backgroundColor: '#2a3942' },
+  emptyText: { color: COLORS.textSecondary, fontSize: 16, marginTop: 16 },
+  emptySubtext: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4, textAlign: 'center' },
+  actionBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: COLORS.surface, borderTopWidth: 1, borderTopColor: COLORS.border },
+  addBtn: { backgroundColor: COLORS.accent, borderRadius: 24, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  addBtnDisabled: { backgroundColor: COLORS.border },
   addBtnText: { color: 'white', fontSize: 15, fontWeight: '600' },
 });

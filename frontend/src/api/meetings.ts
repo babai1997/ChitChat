@@ -55,6 +55,10 @@ export const meetingsApi = {
     return data;
   },
 
+  rename: async (slug: string, name: string): Promise<void> => {
+    await api.patch(`/meetings/${slug}`, { name });
+  },
+
   revoke: async (slug: string): Promise<void> => {
     await api.delete(`/meetings/${slug}`);
   },

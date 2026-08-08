@@ -38,6 +38,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { COLORS } from '../../src/theme/colors';
 
 let RTCView: any = View;
 try {
@@ -119,7 +120,7 @@ function RemoteParticipantTile({
                 { width: avatarSize, height: avatarSize, borderRadius: avatarRadius },
               ]}
             >
-              <User size={iconSize} color="#8696a0" />
+              <User size={iconSize} color={COLORS.textSecondary} />
             </View>
           )}
           {!videoEnabled && isSingleParticipant && (
@@ -136,14 +137,14 @@ function RemoteParticipantTile({
       {/* Mic-off badge (top-right) */}
       {isRemoteMuted && (
         <View style={styles.muteBadge} pointerEvents="none">
-          <MicOff size={14} color="#fff" />
+          <MicOff size={14} color={COLORS.white} />
         </View>
       )}
 
       {/* Name label at bottom of tile */}
       <View style={styles.nameLabelContainer} pointerEvents="none">
         {isRemoteMuted ? (
-          <MicOff size={12} color="#ea4335" />
+          <MicOff size={12} color={COLORS.danger} />
         ) : isSpeaking ? (
           <View style={styles.speakingDot} />
         ) : null}
@@ -197,7 +198,7 @@ function LocalParticipantTile({
             />
           ) : (
             <View style={[styles.remoteTileAvatarPlaceholder, { width: 72, height: 72, borderRadius: 36 }]}>
-              <User size={36} color="#8696a0" />
+              <User size={36} color={COLORS.textSecondary} />
             </View>
           )}
         </View>
@@ -539,7 +540,7 @@ export default function ActiveCallScreen({
               const tileStyle = {
                 flex: row.length === 1 ? colsPerRow : 1,
                 borderWidth: StyleSheet.hairlineWidth,
-                borderColor: "#0b141a",
+                borderColor: COLORS.bgDeepest,
               };
               if (uid === LOCAL_KEY) {
                 return (
@@ -634,7 +635,7 @@ export default function ActiveCallScreen({
         {/* ── Top bar ── */}
         <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) }]}>
           <TouchableOpacity style={styles.topIconBtn} onPress={() => router.back()}>
-            <Minimize2 size={24} color="#fff" />
+            <Minimize2 size={24} color={COLORS.white} />
           </TouchableOpacity>
 
           <View style={styles.headerTitles}>
@@ -654,13 +655,13 @@ export default function ActiveCallScreen({
               style={styles.topIconBtn}
               onPress={() => setShowAddMemberPicker(true)}
             >
-              <UserPlus size={24} color="#fff" />
+              <UserPlus size={24} color={COLORS.white} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.topIconBtn, { marginTop: 12 }]}
               onPress={() => router.back()}
             >
-              <MessageSquare size={24} color="#fff" />
+              <MessageSquare size={24} color={COLORS.white} />
             </TouchableOpacity>
           </View>
         </View>
@@ -696,7 +697,7 @@ export default function ActiveCallScreen({
                 <Image source={{ uri: chatAvatar }} style={styles.largeAvatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <User size={80} color="#8696a0" />
+                  <User size={80} color={COLORS.textSecondary} />
                 </View>
               )}
               {/* Name shown below center avatar in connected audio 1:1 */}
@@ -741,7 +742,7 @@ export default function ActiveCallScreen({
                         {avatar ? (
                           <Image source={{ uri: avatar }} style={styles.localAvatarPip} />
                         ) : (
-                          <User size={40} color="#8696a0" />
+                          <User size={40} color={COLORS.textSecondary} />
                         )}
                       </View>
                     )}
@@ -770,7 +771,7 @@ export default function ActiveCallScreen({
                     {localUserAvatar ? (
                       <Image source={{ uri: localUserAvatar }} style={styles.localAvatarPip} />
                     ) : (
-                      <User size={40} color="#8696a0" />
+                      <User size={40} color={COLORS.textSecondary} />
                     )}
                   </View>
                 )}
@@ -796,41 +797,41 @@ export default function ActiveCallScreen({
                   activeOpacity={canShare ? 0.7 : 1}
                 >
                   {isScreenSharing
-                    ? <ScreenShareOff size={22} color="#00a884" />
-                    : <ScreenShare size={22} color="#fff" />}
+                    ? <ScreenShareOff size={22} color={COLORS.accent} />
+                    : <ScreenShare size={22} color={COLORS.white} />}
                 </TouchableOpacity>
               );
             })()}
             <TouchableOpacity style={styles.pillIconBtn} onPress={toggleVideo}>
               {isVideoEnabled ? (
-                <Video size={24} color="#fff" />
+                <Video size={24} color={COLORS.white} />
               ) : (
-                <VideoOff size={24} color="#fff" />
+                <VideoOff size={24} color={COLORS.white} />
               )}
             </TouchableOpacity>
             {isVideo && isVideoEnabled && (
               <TouchableOpacity style={styles.pillIconBtn} onPress={switchCamera}>
-                <SwitchCamera size={24} color="#fff" />
+                <SwitchCamera size={24} color={COLORS.white} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[styles.pillIconBtn, isSpeaker && styles.pillBtnActive]}
               onPress={toggleSpeaker}
             >
-              <Volume2 size={24} color={isSpeaker ? "#00a884" : "#fff"} />
+              <Volume2 size={24} color={isSpeaker ? COLORS.accent : COLORS.white} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pillIconBtn, isMuted && styles.pillBtnActive]}
               onPress={toggleMute}
             >
               {isMuted ? (
-                <MicOff size={24} color="#fff" />
+                <MicOff size={24} color={COLORS.white} />
               ) : (
-                <Mic size={24} color="#fff" />
+                <Mic size={24} color={COLORS.white} />
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
-              <PhoneOff size={22} color="#fff" />
+              <PhoneOff size={22} color={COLORS.white} />
             </TouchableOpacity>
           </View>
         </View>
@@ -872,11 +873,11 @@ export default function ActiveCallScreen({
                       {avatar ? (
                         <Image source={{ uri: avatar }} style={styles.pickerAvatarImg} />
                       ) : (
-                        <User size={24} color="#8696a0" />
+                        <User size={24} color={COLORS.textSecondary} />
                       )}
                     </View>
                     <Text style={styles.pickerName}>{name}</Text>
-                    <UserPlus size={18} color="#00a884" />
+                    <UserPlus size={18} color={COLORS.accent} />
                   </TouchableOpacity>
                 );
               }}
@@ -898,7 +899,7 @@ export default function ActiveCallScreen({
         >
           <Pressable style={styles.confirmSheet} onPress={() => {}}>
             <View style={styles.confirmIconCircle}>
-              <ScreenShare size={28} color="#00a884" />
+              <ScreenShare size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.confirmTitle}>Share your screen?</Text>
             <Text style={styles.confirmBody}>
@@ -934,17 +935,17 @@ const styles = StyleSheet.create({
   },
   audioBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#0f171b",
+    backgroundColor: COLORS.bgDeepest,
   },
   // ── Remote tile ─────────────────────────────────────────────────────────────
   remoteTile: {
     overflow: "hidden",
-    backgroundColor: "#0f171b",
+    backgroundColor: COLORS.bgDeepest,
   },
   remoteTileSpeaking: {
     // Green border indicates active speaker
     borderWidth: 2,
-    borderColor: "#00a884",
+    borderColor: COLORS.accent,
   },
   remoteTileAvatarBg: {
     ...StyleSheet.absoluteFillObject,
@@ -952,14 +953,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   remoteTileAvatarPlaceholder: {
-    backgroundColor: "#1f2c33",
+    backgroundColor: COLORS.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
   },
   speakingRing: {
     ...StyleSheet.absoluteFillObject,
     borderWidth: 3,
-    borderColor: "#00a884",
+    borderColor: COLORS.accent,
     borderRadius: 0,
     pointerEvents: "none",
   },
@@ -976,10 +977,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#00a884",
+    backgroundColor: COLORS.accent,
   },
   nameLabel: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 13,
     fontWeight: "600",
     textShadowColor: "rgba(0,0,0,0.8)",
@@ -999,7 +1000,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(234,67,53,0.85)",
+    backgroundColor: "rgba(239, 68, 68,0.85)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1036,7 +1037,7 @@ const styles = StyleSheet.create({
   callerName: {
     fontSize: 22,
     fontWeight: "500",
-    color: "#fff",
+    color: COLORS.white,
     marginBottom: 4,
   },
   statusText: {
@@ -1067,7 +1068,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "#1f2c33",
+    backgroundColor: COLORS.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
@@ -1083,7 +1084,7 @@ const styles = StyleSheet.create({
   },
   connectedName: {
     marginTop: 16,
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: "500",
   },
@@ -1103,7 +1104,7 @@ const styles = StyleSheet.create({
   },
   localVideoOff: {
     flex: 1,
-    backgroundColor: "#1f2c33",
+    backgroundColor: COLORS.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1123,7 +1124,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   localPipLabelText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 10,
     fontWeight: "600",
   },
@@ -1134,7 +1135,7 @@ const styles = StyleSheet.create({
   },
   bottomPill: {
     flexDirection: "row",
-    backgroundColor: "#1c2227",
+    backgroundColor: COLORS.surface,
     borderRadius: 40,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1156,7 +1157,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#ff253a",
+    backgroundColor: COLORS.danger,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1182,30 +1183,30 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   screenShareBannerText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 13,
     fontWeight: "500",
   },
   stopShareInlinBtn: {
-    backgroundColor: "#ea4335",
+    backgroundColor: COLORS.danger,
     borderRadius: 14,
     paddingVertical: 4,
     paddingHorizontal: 12,
   },
   stopShareInlinBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 12,
     fontWeight: "700",
   },
   stopShareBtn: {
-    backgroundColor: "#ea4335",
+    backgroundColor: COLORS.danger,
     borderRadius: 12,
     paddingVertical: 3,
     paddingHorizontal: 10,
     marginLeft: 4,
   },
   stopShareBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1215,7 +1216,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   pickerSheet: {
-    backgroundColor: "#202c33",
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 32,
@@ -1225,7 +1226,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#8696a0",
+    backgroundColor: COLORS.textSecondary,
     alignSelf: "center",
     marginTop: 10,
     marginBottom: 4,
@@ -1233,14 +1234,14 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     textAlign: "center",
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#2a3942",
+    borderBottomColor: COLORS.border,
   },
   pickerEmpty: {
-    color: "#8696a0",
+    color: COLORS.textSecondary,
     fontSize: 14,
     textAlign: "center",
     padding: 24,
@@ -1256,7 +1257,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#2a3942",
+    backgroundColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -1269,7 +1270,7 @@ const styles = StyleSheet.create({
   pickerName: {
     flex: 1,
     fontSize: 16,
-    color: "#e9edef",
+    color: COLORS.textPrimary,
   },
   confirmBackdrop: {
     flex: 1,
@@ -1279,7 +1280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   confirmSheet: {
-    backgroundColor: "#1e2a30",
+    backgroundColor: COLORS.surface,
     borderRadius: 20,
     padding: 28,
     width: "100%",
@@ -1289,27 +1290,27 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "rgba(0,168,132,0.15)",
+    backgroundColor: "rgba(108, 93, 216,0.15)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
   },
   confirmTitle: {
-    color: "#e9edef",
+    color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 10,
     textAlign: "center",
   },
   confirmBody: {
-    color: "#8696a0",
+    color: COLORS.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
     marginBottom: 24,
   },
   confirmShareBtn: {
-    backgroundColor: "#00a884",
+    backgroundColor: COLORS.accent,
     borderRadius: 12,
     paddingVertical: 13,
     width: "100%",
@@ -1317,7 +1318,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   confirmShareBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1327,7 +1328,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   confirmCancelBtnText: {
-    color: "#8696a0",
+    color: COLORS.textSecondary,
     fontSize: 15,
   },
 });

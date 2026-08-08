@@ -161,6 +161,10 @@ model ChatMember {
   role       ChatMemberRole @default(member)
   joinedAt   DateTime       @default(now()) @map("joined_at")
   lastReadAt DateTime?      @map("last_read_at")
+  // "Delete chat" (WhatsApp-style, delete-for-me): hides the chat from this
+  // member's own list only. Cleared automatically when any new message is
+  // sent/received in the chat, so it reappears like WhatsApp does.
+  deletedAt  DateTime?      @map("deleted_at")
 
   // Relations
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)

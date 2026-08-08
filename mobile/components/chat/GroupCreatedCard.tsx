@@ -1,6 +1,7 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Users, UserPlus, Lock } from 'lucide-react-native';
 import type { Chat } from '../../src/types';
+import { COLORS } from '../../src/theme/colors';
 
 interface GroupCreatedCardProps {
   chat: Chat;
@@ -30,7 +31,7 @@ export default function GroupCreatedCard({ chat, currentUserId, onAddMember }: G
             <Image source={{ uri: chat.avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Users size={36} color="#8696a0" />
+              <Users size={36} color={COLORS.textSecondary} />
             </View>
           )}
         </View>
@@ -47,14 +48,14 @@ export default function GroupCreatedCard({ chat, currentUserId, onAddMember }: G
         {/* Add members (admin only) */}
         {isCurrentUserAdmin && (
           <TouchableOpacity style={styles.addBtn} onPress={onAddMember} activeOpacity={0.7}>
-            <UserPlus size={14} color="#00a884" />
+            <UserPlus size={14} color={COLORS.accent} />
             <Text style={styles.addBtnText}>Add Members</Text>
           </TouchableOpacity>
         )}
 
         {/* End-to-end note */}
         <View style={styles.encryptedRow}>
-          <Lock size={11} color="#8696a0" />
+          <Lock size={11} color={COLORS.textSecondary} />
           <Text style={styles.encryptedText}>Messages are end-to-end encrypted</Text>
         </View>
       </View>
@@ -65,17 +66,17 @@ export default function GroupCreatedCard({ chat, currentUserId, onAddMember }: G
 const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8, paddingTop: 24 },
   card: {
-    backgroundColor: '#1f2c34', borderRadius: 12, borderWidth: 1, borderColor: '#2a3942',
+    backgroundColor: COLORS.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
     padding: 20, maxWidth: 300, width: '100%', alignItems: 'center', gap: 10,
   },
   avatarContainer: { marginBottom: 4 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
-  avatarPlaceholder: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center' },
-  groupName: { fontSize: 17, fontWeight: '600', color: '#e9edef', textAlign: 'center' },
-  memberCount: { fontSize: 13, color: '#8696a0' },
-  createdBy: { fontSize: 13, color: '#8696a0', textAlign: 'center' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#00a884', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6 },
-  addBtnText: { color: '#00a884', fontSize: 13, fontWeight: '500' },
-  encryptedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, borderTopWidth: 1, borderTopColor: '#2a3942', paddingTop: 10, width: '100%', justifyContent: 'center' },
-  encryptedText: { fontSize: 12, color: '#8696a0' },
+  avatarPlaceholder: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  groupName: { fontSize: 17, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+  memberCount: { fontSize: 13, color: COLORS.textSecondary },
+  createdBy: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: COLORS.accent, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6 },
+  addBtnText: { color: COLORS.accent, fontSize: 13, fontWeight: '500' },
+  encryptedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, width: '100%', justifyContent: 'center' },
+  encryptedText: { fontSize: 12, color: COLORS.textSecondary },
 });

@@ -25,6 +25,7 @@ import { chatApi } from '../../../src/api';
 import { useChatStore } from '../../../src/stores/chatStore';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useCall } from '../../../src/contexts/CallContext';
+import { COLORS } from '../../../src/theme/colors';
 
 export default function CallInfoScreen() {
   const { id: chatId } = useLocalSearchParams<{ id: string }>();
@@ -118,12 +119,12 @@ export default function CallInfoScreen() {
 
   const getCallIcon = (direction: string) => {
     if (direction === 'missed') {
-      return <PhoneMissed size={20} color="#ef4444" />;
+      return <PhoneMissed size={20} color={COLORS.danger} />;
     }
     if (direction === 'outgoing') {
-      return <PhoneOutgoing size={20} color="#00a884" />;
+      return <PhoneOutgoing size={20} color={COLORS.accent} />;
     }
-    return <PhoneIncoming size={20} color="#53bdeb" />;
+    return <PhoneIncoming size={20} color={COLORS.info} />;
   };
 
   const formatDuration = (seconds: number) => {
@@ -158,12 +159,12 @@ export default function CallInfoScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-            <ArrowLeft size={24} color="#fff" />
+            <ArrowLeft size={24} color={COLORS.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Call info</Text>
         </View>
         <TouchableOpacity style={styles.headerBtn}>
-          <MoreVertical size={24} color="#fff" />
+          <MoreVertical size={24} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -174,7 +175,7 @@ export default function CallInfoScreen() {
             <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <User size={50} color="#8696a0" />
+              <User size={50} color={COLORS.textSecondary} />
             </View>
           )}
         </View>
@@ -188,7 +189,7 @@ export default function CallInfoScreen() {
             onPress={() => router.push(`/chat/${chatId}` as any)}
             activeOpacity={0.7}
           >
-            <MessageSquare size={24} color="#00a884" />
+            <MessageSquare size={24} color={COLORS.accent} />
             <Text style={styles.actionLabel}>Message</Text>
           </TouchableOpacity>
 
@@ -200,7 +201,7 @@ export default function CallInfoScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Phone size={24} color="#00a884" />
+            <Phone size={24} color={COLORS.accent} />
             <Text style={styles.actionLabel}>Audio</Text>
           </TouchableOpacity>
 
@@ -212,7 +213,7 @@ export default function CallInfoScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Video size={24} color="#00a884" />
+            <Video size={24} color={COLORS.accent} />
             <Text style={styles.actionLabel}>Video</Text>
           </TouchableOpacity>
         </View>
@@ -224,7 +225,7 @@ export default function CallInfoScreen() {
 
       {/* Call History List */}
       {isLoading ? (
-        <ActivityIndicator size="large" color="#00a884" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={callRecords}
@@ -240,7 +241,7 @@ export default function CallInfoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b141a', // WhatsApp dark bg
+    backgroundColor: COLORS.bgDeepest, // WhatsApp dark bg
   },
   header: {
     flexDirection: 'row',
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   headerTitle: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 22,
     fontWeight: '500',
     marginLeft: 8,
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#202c33',
+    borderBottomColor: COLORS.surface,
   },
   avatarWrapper: {
     marginBottom: 16,
@@ -280,18 +281,18 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#1f2c33',
+    backgroundColor: COLORS.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nameText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 26,
     fontWeight: '500',
     marginBottom: 4,
   },
   phoneText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 16,
     marginBottom: 24,
   },
@@ -302,9 +303,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   actionBtn: {
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
-    borderColor: '#202c33',
+    borderColor: COLORS.surface,
     borderRadius: 16,
     width: 90,
     height: 80,
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionLabel: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   historyHeaderText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -342,20 +343,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recordTitle: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 17,
     fontWeight: '500',
     marginBottom: 2,
   },
   recordTime: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 14,
   },
   recordRight: {
     justifyContent: 'center',
   },
   recordDuration: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 14,
   },
 });

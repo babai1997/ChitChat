@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { ShieldAlert } from 'lucide-react-native';
+import { COLORS } from '../../src/theme/colors';
 
 interface BackupPassphraseModalProps {
   mode: 'create' | 'restore';
@@ -51,7 +52,7 @@ export default function BackupPassphraseModal({ mode, onSubmit, onClose }: Backu
           <Text style={styles.title}>{isCreate ? 'Create Chat Backup' : 'Restore from Backup'}</Text>
 
           <View style={styles.warning}>
-            <ShieldAlert size={16} color="#d9a5a5" style={{ marginTop: 1 }} />
+            <ShieldAlert size={16} color={COLORS.danger} style={{ marginTop: 1 }} />
             <Text style={styles.warningText}>
               {isCreate
                 ? "If you forget this passphrase, this backup can never be recovered — we never see it and can't reset it for you."
@@ -66,7 +67,7 @@ export default function BackupPassphraseModal({ mode, onSubmit, onClose }: Backu
             value={passphrase}
             onChangeText={setPassphrase}
             placeholder={`Passphrase (min ${MIN_PASSPHRASE_LENGTH} characters)`}
-            placeholderTextColor="#8696a0"
+            placeholderTextColor={COLORS.textSecondary}
             editable={!isBusy}
           />
 
@@ -77,7 +78,7 @@ export default function BackupPassphraseModal({ mode, onSubmit, onClose }: Backu
               value={confirmPassphrase}
               onChangeText={setConfirmPassphrase}
               placeholder="Confirm passphrase"
-              placeholderTextColor="#8696a0"
+              placeholderTextColor={COLORS.textSecondary}
               editable={!isBusy}
             />
           )}
@@ -94,7 +95,7 @@ export default function BackupPassphraseModal({ mode, onSubmit, onClose }: Backu
               style={[styles.submitBtn, (!canSubmit || isBusy) && { opacity: 0.5 }]}
             >
               {isBusy ? (
-                <ActivityIndicator size="small" color="#0b141a" />
+                <ActivityIndicator size="small" color={COLORS.bgDeepest} />
               ) : (
                 <Text style={styles.submitBtnText}>{isCreate ? 'Create Backup' : 'Restore'}</Text>
               )}
@@ -116,14 +117,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#202c33',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 24,
     width: '100%',
     maxWidth: 360,
     gap: 12,
   },
-  title: { fontSize: 18, fontWeight: '500', color: '#e9edef' },
+  title: { fontSize: 18, fontWeight: '500', color: COLORS.textPrimary },
   warning: {
     flexDirection: 'row',
     gap: 8,
@@ -131,33 +132,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a1f1f',
     borderRadius: 8,
   },
-  warningText: { flex: 1, fontSize: 12.5, color: '#d9a5a5' },
+  warningText: { flex: 1, fontSize: 12.5, color: COLORS.danger },
   input: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#e9edef',
+    color: COLORS.textPrimary,
     fontSize: 15,
   },
-  error: { color: '#ff5252', fontSize: 13 },
+  error: { color: COLORS.danger, fontSize: 13 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 4 },
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#8696a0',
+    borderColor: COLORS.textSecondary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  cancelBtnText: { color: '#e9edef', fontSize: 15 },
+  cancelBtnText: { color: COLORS.textPrimary, fontSize: 15 },
   submitBtn: {
     flex: 1,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  submitBtnText: { color: '#0b141a', fontSize: 15, fontWeight: '600' },
-  note: { fontSize: 12.5, color: '#8696a0', textAlign: 'center' },
+  submitBtnText: { color: COLORS.bgDeepest, fontSize: 15, fontWeight: '600' },
+  note: { fontSize: 12.5, color: COLORS.textSecondary, textAlign: 'center' },
 });

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert, Share } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, User, Users, Phone, Video, ArrowLeft, Trash2, UserPlus, Camera, ShieldCheck, ShieldOff, Check, Copy, Image as ImageIcon, ChevronRight } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { chatApi, meetingsApi, type ChatMeetingLink } from '../../src/api';
 import { useChatStore } from '../../src/stores/chatStore';
 import type { Chat, ChatMember } from '../../src/types';
+import { COLORS } from '../../src/theme/colors';
 
 const WEB_APP_URL =
   process.env.EXPO_PUBLIC_WEB_URL ?? (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/api\/?$/, '');
@@ -20,6 +22,7 @@ interface ChatInfoModalProps {
 }
 
 export default function ChatInfoModal({ visible, onClose, chat, currentUserId, onAddMember, onOpenGallery }: ChatInfoModalProps) {
+  const router = useRouter();
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
@@ -184,7 +187,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setSelectedMember(null)} style={styles.backBtn}>
-              <ArrowLeft size={24} color="#e9edef" />
+              <ArrowLeft size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Member Info</Text>
           </View>
@@ -196,7 +199,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   <Image source={{ uri: selectedMember.user.profile.avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <User size={60} color="#8696a0" />
+                    <User size={60} color={COLORS.textSecondary} />
                   </View>
                 )}
               </View>
@@ -227,10 +230,10 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   activeOpacity={0.7}
                 >
                   {isChangingRole
-                    ? <ActivityIndicator size="small" color="#e9edef" />
+                    ? <ActivityIndicator size="small" color={COLORS.textPrimary} />
                     : selectedMember.role === 'admin'
-                      ? <ShieldOff size={20} color="#e9edef" />
-                      : <ShieldCheck size={20} color="#e9edef" />
+                      ? <ShieldOff size={20} color={COLORS.textPrimary} />
+                      : <ShieldCheck size={20} color={COLORS.textPrimary} />
                   }
                   <Text style={styles.roleActionButtonText}>
                     {selectedMember.role === 'admin' ? 'Dismiss as admin' : 'Make group admin'}
@@ -248,8 +251,8 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   activeOpacity={0.7}
                 >
                   {isRemoving
-                    ? <ActivityIndicator size="small" color="#ef4444" />
-                    : <Trash2 size={20} color="#ef4444" />
+                    ? <ActivityIndicator size="small" color={COLORS.danger} />
+                    : <Trash2 size={20} color={COLORS.danger} />
                   }
                   <Text style={styles.dangerButtonText}>Remove from group</Text>
                 </TouchableOpacity>
@@ -267,7 +270,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-            <X size={24} color="#e9edef" />
+            <X size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{isMeeting ? 'Meeting Info' : isGroup ? 'Group Info' : 'Contact Info'}</Text>
         </View>
@@ -292,7 +295,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   <Image source={{ uri: avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <Users size={60} color="#8696a0" />
+                    <Users size={60} color={COLORS.textSecondary} />
                   </View>
                 )}
                 <View style={styles.cameraOverlay}>
@@ -308,7 +311,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   <Image source={{ uri: avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    {isMeeting ? <Video size={60} color="#8696a0" /> : isGroup ? <Users size={60} color="#8696a0" /> : <User size={60} color="#8696a0" />}
+                    {isMeeting ? <Video size={60} color={COLORS.textSecondary} /> : isGroup ? <Users size={60} color={COLORS.textSecondary} /> : <User size={60} color={COLORS.textSecondary} />}
                   </View>
                 )}
               </View>
@@ -326,11 +329,11 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             {!isGroup && (
               <View style={styles.actionButtonsContainer}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Phone size={24} color="#00a884" />
+                  <Phone size={24} color={COLORS.accent} />
                   <Text style={styles.actionButtonText}>Audio</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Video size={24} color="#00a884" />
+                  <Video size={24} color={COLORS.accent} />
                   <Text style={styles.actionButtonText}>Video</Text>
                 </TouchableOpacity>
               </View>
@@ -342,7 +345,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Meeting link</Text>
               {isLoadingMeetingLink ? (
-                <ActivityIndicator size="small" color="#8696a0" />
+                <ActivityIndicator size="small" color={COLORS.textSecondary} />
               ) : meetingLink?.revoked ? (
                 <Text style={styles.aboutText}>This meeting link has been revoked.</Text>
               ) : meetingLink ? (
@@ -350,8 +353,16 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                   <Text style={styles.meetingLinkText} numberOfLines={1}>
                     {`${WEB_APP_URL}/meet/${meetingLink.slug}`}
                   </Text>
+                  <TouchableOpacity
+                    style={styles.joinMeetingBtn}
+                    onPress={() => { onClose(); router.push(`/meet/${meetingLink.slug}` as any); }}
+                    activeOpacity={0.7}
+                  >
+                    <Video size={16} color={COLORS.white} />
+                    <Text style={styles.joinMeetingBtnText}>Join meeting</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={styles.shareLinkBtn} onPress={handleShareMeetingLink} activeOpacity={0.7}>
-                    {linkShared ? <Check size={16} color="#00a884" /> : <Copy size={16} color="#00a884" />}
+                    {linkShared ? <Check size={16} color={COLORS.accent} /> : <Copy size={16} color={COLORS.accent} />}
                     <Text style={styles.shareLinkBtnText}>{linkShared ? 'Shared' : 'Share link'}</Text>
                   </TouchableOpacity>
                   {meetingLink.isHost && (
@@ -362,8 +373,8 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                       activeOpacity={0.7}
                     >
                       {isRevokingLink
-                        ? <ActivityIndicator size="small" color="#ef4444" />
-                        : <Trash2 size={16} color="#ef4444" />}
+                        ? <ActivityIndicator size="small" color={COLORS.danger} />
+                        : <Trash2 size={16} color={COLORS.danger} />}
                       <Text style={styles.revokeLinkBtnText}>Revoke link</Text>
                     </TouchableOpacity>
                   )}
@@ -385,9 +396,9 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
 
           {onOpenGallery && (
             <TouchableOpacity style={styles.galleryRow} onPress={onOpenGallery} activeOpacity={0.7}>
-              <ImageIcon size={18} color="#8696a0" />
+              <ImageIcon size={18} color={COLORS.textSecondary} />
               <Text style={styles.galleryRowText}>Media, links and docs</Text>
-              <ChevronRight size={16} color="#8696a0" />
+              <ChevronRight size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
           )}
 
@@ -402,7 +413,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                     onPress={() => { onClose(); onAddMember(); }}
                     activeOpacity={0.7}
                   >
-                    <UserPlus size={16} color="#00a884" />
+                    <UserPlus size={16} color={COLORS.accent} />
                     <Text style={styles.addMemberBtnText}>Add Member</Text>
                   </TouchableOpacity>
                 )}
@@ -426,7 +437,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
                         <Image source={{ uri: member.user.profile.avatarUrl }} style={styles.memberAvatar} />
                       ) : (
                         <View style={styles.memberAvatarPlaceholder}>
-                          <User size={20} color="#8696a0" />
+                          <User size={20} color={COLORS.textSecondary} />
                         </View>
                       )}
                     </View>
@@ -453,7 +464,7 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
           {!isGroup && (
             <View style={styles.dangerSection}>
               <TouchableOpacity style={[styles.dangerButton, { borderBottomWidth: 0 }]}>
-                <X size={20} color="#ef4444" />
+                <X size={20} color={COLORS.danger} />
                 <Text style={styles.dangerButtonText}>Block {displayName}</Text>
               </TouchableOpacity>
             </View>
@@ -465,18 +476,18 @@ export default function ChatInfoModal({ visible, onClose, chat, currentUserId, o
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0b141a' },
+  container: { flex: 1, backgroundColor: COLORS.bgDeepest },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, backgroundColor: '#202c33',
-    borderBottomWidth: 1, borderBottomColor: '#2a3942',
+    padding: 16, backgroundColor: COLORS.surface,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   backBtn: { marginRight: 16 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#e9edef' },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.textPrimary },
   scrollView: { flex: 1 },
   mainInfoCard: {
     alignItems: 'center', paddingVertical: 24,
-    backgroundColor: '#111b21', marginBottom: 8,
+    backgroundColor: COLORS.bg, marginBottom: 8,
   },
   avatarWrap: {
     width: 140, height: 140,
@@ -486,86 +497,92 @@ const styles = StyleSheet.create({
   avatar: { width: 140, height: 140, borderRadius: 70 },
   avatarPlaceholder: {
     width: 140, height: 140, borderRadius: 70,
-    backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center',
   },
   cameraOverlay: {
     position: 'absolute', bottom: 0, right: 0,
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#00a884',
+    backgroundColor: COLORS.accent,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#111b21',
+    borderWidth: 2, borderColor: COLORS.bg,
   },
   changePhotoRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111b21',
+    backgroundColor: COLORS.bg,
     paddingVertical: 14, paddingHorizontal: 20,
     marginBottom: 8, gap: 14,
   },
   changePhotoIcon: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  changePhotoText: { fontSize: 16, color: '#00a884', fontWeight: '500' },
-  nameText: { fontSize: 24, fontWeight: '500', color: '#e9edef', marginBottom: 4 },
-  phoneText: { fontSize: 15, color: '#8696a0', marginBottom: 8 },
+  changePhotoText: { fontSize: 16, color: COLORS.accent, fontWeight: '500' },
+  nameText: { fontSize: 24, fontWeight: '500', color: COLORS.textPrimary, marginBottom: 4 },
+  phoneText: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 8 },
   actionButtonsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 40, marginTop: 16 },
   actionButton: { alignItems: 'center', gap: 8 },
-  actionButtonText: { color: '#00a884', fontSize: 14 },
-  section: { backgroundColor: '#111b21', padding: 16, marginBottom: 8 },
-  sectionTitle: { fontSize: 13, color: '#8696a0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
-  aboutText: { fontSize: 16, color: '#e9edef' },
+  actionButtonText: { color: COLORS.accent, fontSize: 14 },
+  section: { backgroundColor: COLORS.bg, padding: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
+  aboutText: { fontSize: 16, color: COLORS.textPrimary },
   participantsHeader: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 8,
   },
   addMemberBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: '#00a884', borderRadius: 16,
+    borderWidth: 1, borderColor: COLORS.accent, borderRadius: 16,
     paddingHorizontal: 12, paddingVertical: 4,
   },
-  addMemberBtnText: { color: '#00a884', fontSize: 13, fontWeight: '500' },
+  addMemberBtnText: { color: COLORS.accent, fontSize: 13, fontWeight: '500' },
   memberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   memberAvatarContainer: { marginRight: 12 },
   memberAvatar: { width: 46, height: 46, borderRadius: 23 },
   memberAvatarPlaceholder: {
     width: 46, height: 46, borderRadius: 23,
-    backgroundColor: '#2a3942', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center',
   },
   memberInfo: { flex: 1 },
   memberNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
-  memberNameText: { fontSize: 16, color: '#e9edef' },
-  adminBadge: { borderWidth: 1, borderColor: '#00a884', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  adminBadgeText: { color: '#00a884', fontSize: 10 },
-  memberAboutText: { fontSize: 14, color: '#8696a0' },
-  dangerSection: { backgroundColor: '#111b21', marginTop: 8, marginBottom: 32 },
+  memberNameText: { fontSize: 16, color: COLORS.textPrimary },
+  adminBadge: { borderWidth: 1, borderColor: COLORS.accent, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  adminBadgeText: { color: COLORS.accent, fontSize: 10 },
+  memberAboutText: { fontSize: 14, color: COLORS.textSecondary },
+  dangerSection: { backgroundColor: COLORS.bg, marginTop: 8, marginBottom: 32 },
   dangerButton: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a3942', gap: 16,
+    padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 16,
   },
-  dangerButtonText: { color: '#ef4444', fontSize: 16 },
-  roleActionSection: { backgroundColor: '#111b21', marginTop: 8 },
+  dangerButtonText: { color: COLORS.danger, fontSize: 16 },
+  roleActionSection: { backgroundColor: COLORS.bg, marginTop: 8 },
   roleActionButton: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a3942', gap: 16,
+    padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 16,
   },
-  roleActionButtonText: { color: '#e9edef', fontSize: 16 },
-  meetingLinkText: { fontSize: 15, color: '#8696a0', marginBottom: 12 },
+  roleActionButtonText: { color: COLORS.textPrimary, fontSize: 16 },
+  meetingLinkText: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 12 },
+  joinMeetingBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: COLORS.accent, borderRadius: 8,
+    paddingVertical: 12, marginBottom: 10,
+  },
+  joinMeetingBtnText: { color: COLORS.white, fontSize: 15, fontWeight: '600' },
   shareLinkBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderWidth: 1, borderColor: '#00a884', borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.accent, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 10, alignSelf: 'flex-start',
   },
-  shareLinkBtnText: { color: '#00a884', fontSize: 14, fontWeight: '500' },
+  shareLinkBtnText: { color: COLORS.accent, fontSize: 14, fontWeight: '500' },
   revokeLinkBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginTop: 12, alignSelf: 'flex-start',
   },
-  revokeLinkBtnText: { color: '#ef4444', fontSize: 14, fontWeight: '500' },
+  revokeLinkBtnText: { color: COLORS.danger, fontSize: 14, fontWeight: '500' },
   galleryRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111b21', paddingHorizontal: 16, paddingVertical: 14,
+    backgroundColor: COLORS.bg, paddingHorizontal: 16, paddingVertical: 14,
     marginBottom: 8,
   },
-  galleryRowText: { flex: 1, fontSize: 14, color: '#e9edef' },
+  galleryRowText: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
 });

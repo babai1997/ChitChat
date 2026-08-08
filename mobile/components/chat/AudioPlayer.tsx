@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Play, Pause } from 'lucide-react-native';
 import { Audio } from 'expo-av';
+import { COLORS } from '../../src/theme/colors';
 
 export default function AudioPlayer({ uri, isOwn }: { uri: string; isOwn: boolean }) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -114,17 +115,17 @@ export default function AudioPlayer({ uri, isOwn }: { uri: string; isOwn: boolea
     8, 14, 20, 26, 22, 16, 10, 6, 4, 8, 14, 22, 28, 30, 24, 16, 10, 6, 4, 3
   ];
 
-  const playedColor = isOwn ? '#7edcf5' : '#00a884';
-  const unplayedColor = isOwn ? 'rgba(233,248,245,0.3)' : 'rgba(134,150,160,0.3)';
+  const playedColor = isOwn ? COLORS.info : COLORS.accent;
+  const unplayedColor = isOwn ? 'rgba(240, 238, 247,0.3)' : 'rgba(156, 147, 179,0.3)';
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
         <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
           {isPlaying ? (
-            <Pause size={28} fill="#8696a0" color="#8696a0" />
+            <Pause size={28} fill={COLORS.textSecondary} color={COLORS.textSecondary} />
           ) : (
-            <Play size={28} fill="#8696a0" color="#8696a0" style={{ marginLeft: 3 }} />
+            <Play size={28} fill={COLORS.textSecondary} color={COLORS.textSecondary} style={{ marginLeft: 3 }} />
           )}
         </TouchableOpacity>
 
@@ -154,7 +155,7 @@ export default function AudioPlayer({ uri, isOwn }: { uri: string; isOwn: boolea
       </View>
 
       <View style={styles.bottomRow}>
-        <Text style={[styles.timeText, { color: '#8696a0' }]}>
+        <Text style={[styles.timeText, { color: COLORS.textSecondary }]}>
           {displayTime}
         </Text>
       </View>
@@ -214,14 +215,14 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   speedButton: {
-    backgroundColor: '#2a3942',
+    backgroundColor: COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
     marginLeft: 2,
   },
   speedText: {
-    color: '#8696a0',
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },

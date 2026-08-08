@@ -106,10 +106,20 @@ export async function displayMessageNotification(
       timestamp: Date.now(),
     });
 
+    // The collapsed/summary view (lock screen, notification shade before
+    // expanding) reads `body`, not the MessagingStyle `messages[]` — this is
+    // the "New message from {senderName}" / "{N} new messages" distinction
+    // from the E2EE plan. Individual per-line text (below) stays generic
+    // since each line is already attributed via its own `person.name`.
+    const summaryText =
+      history.length > 1
+        ? `${history.length} new messages`
+        : `New message from ${data.senderName}`;
+
     await notifee.displayNotification({
       id: `chat-${data.chatId}`,
       title: data.chatName,
-      body: data.content,
+      body: summaryText,
       data: { kind: 'message', chatId: data.chatId },
       android: {
         channelId: CHANNEL_ID,
@@ -123,7 +133,12 @@ export async function displayMessageNotification(
         style: {
           type: AndroidStyle.MESSAGING,
           person: { name: 'You' },
-          group: history.length > 1,
+          // `group` here means "is this a group CONVERSATION" (Notifee's
+          // MessagingStyle semantics), not "should these stack" — stacking
+          // is already achieved by the shared notification `id` above plus
+          // multiple entries in `messages`. Approximated from whether more
+          // than one distinct sender shows up in the accumulated history.
+          group: new Set(history.map((m) => m.senderName)).size > 1,
           messages: history.map((m) => ({
             text: m.content,
             timestamp: m.timestamp,
