@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Laptop, Loader2, Smartphone } from 'lucide-react';
+import { Laptop, Loader2, Smartphone, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDeviceLinkStore } from '../../stores/useDeviceLinkStore';
 import { approveDeviceLink, declineDeviceLink } from '../../services/deviceLinkSync';
@@ -66,6 +66,7 @@ export const DeviceLinkApprovalModal = () => {
     >
       <div
         style={{
+          position: 'relative',
           backgroundColor: 'var(--color-surface)',
           borderRadius: '12px',
           padding: '24px',
@@ -79,6 +80,27 @@ export const DeviceLinkApprovalModal = () => {
           textAlign: 'center',
         }}
       >
+        {/* Escape hatch if approve/decline keeps failing (e.g. no network) —
+            this only clears local UI state; the request itself is untouched
+            and can still be handled later from Settings > Linked Devices. */}
+        <button
+          onClick={clearPendingLinkRequest}
+          disabled={isBusy}
+          title="Dismiss"
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-text-secondary)',
+            cursor: isBusy ? 'default' : 'pointer',
+            opacity: isBusy ? 0.4 : 1,
+            padding: '4px',
+          }}
+        >
+          <X size={18} />
+        </button>
         <Icon size={40} color="var(--color-accent)" />
         <h2 style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>New device wants to link</h2>
         <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', margin: 0 }}>

@@ -282,14 +282,31 @@ async function decryptFromSenderUncached(
   const envelope: Envelope = JSON.parse(cipherJson);
   const identity = await getOrCreateIdentity();
 
-  let session = await loadSession(senderUserId, senderDeviceId);
-  if (!session) {
-    if (!envelope.isPrekeyMessage) {
-      throw new Error('E2EE: no session exists and message carries no X3DH header — cannot decrypt');
+  const existingSession = await loadSession(senderUserId, senderDeviceId);
+
+  if (existingSession) {
+    try {
+      const plaintextBytes = existingSession.decrypt(envelope);
+      await saveSession(senderUserId, senderDeviceId, existingSession);
+      return bytesToUtf8(plaintextBytes);
+    } catch (err) {
+      // Only recoverable if this envelope carries its own X3DH header — see
+      // below. Otherwise there's no way to rebuild the right session, so the
+      // original error is the real one.
+      if (!envelope.isPrekeyMessage) throw err;
     }
-    session = Session.createInbound(identity, envelope.x3dhHeader);
+  } else if (!envelope.isPrekeyMessage) {
+    throw new Error('E2EE: no session exists and message carries no X3DH header — cannot decrypt');
   }
 
+  // Either we had no session yet, or the one we had failed to decrypt a
+  // prekey message — the X3DH "glare" case: this device independently
+  // self-initiated its own outbound session toward the peer at the same
+  // time the peer initiated one toward us (e.g. syncing a message to your
+  // own other device), so the session we had on file was ours, not theirs.
+  // The header lets us deterministically rebuild the exact session the
+  // sender actually used, regardless of what we already had saved.
+  const session = Session.createInbound(identity, envelope.x3dhHeader);
   const plaintextBytes = session.decrypt(envelope);
   await saveSession(senderUserId, senderDeviceId, session);
   return bytesToUtf8(plaintextBytes);
