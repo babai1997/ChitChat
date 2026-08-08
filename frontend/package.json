@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "qa": "vite --mode qa",
+    "local": "vite --mode localdev",
     "postinstall": "npm install --prefix ../packages/e2ee",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
