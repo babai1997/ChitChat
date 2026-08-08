@@ -46,6 +46,10 @@ export const chatApi = {
     await api.delete(`/chats/${chatId}/members/${userId}`);
   },
 
+  updateMemberRole: async (chatId: string, userId: string, role: 'admin' | 'member'): Promise<void> => {
+    await api.put(`/chats/${chatId}/members/${userId}/role`, { role });
+  },
+
   leaveChat: async (chatId: string): Promise<void> => {
     await api.post(`/chats/${chatId}/leave`);
   },
@@ -68,18 +72,43 @@ export const chatApi = {
     return response.data;
   },
 
+  /** Every message of the given type(s) across the WHOLE chat — powers the "All Media"/"Docs" tabs (see ChatGalleryModal). */
+  getGallery: async (
+    chatId: string,
+    types: ('image' | 'video' | 'audio' | 'file')[],
+    cursor?: string,
+    limit?: number,
+  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> => {
+    const params = new URLSearchParams();
+    types.forEach((t) => params.append('types', t));
+    if (cursor) params.append('cursor', cursor);
+    if (limit) params.append('limit', limit.toString());
+
+    const response = await api.get(`/chats/${chatId}/messages/gallery?${params}`);
+    return response.data;
+  },
+
   sendMessage: async (
     chatId: string,
-    content: string,
+    content: string | undefined,
     type: string = 'text',
     replyToId?: string,
-    attachments?: { filename: string; url: string; mimeType: string; size: number }[]
+    attachments?: { filename: string; url: string; mimeType: string; size: number }[],
+    // Encrypted attachments (Phase 3) reuse this REST send path — the
+    // "content" they carry is an already-encrypted JSON descriptor, either
+    // per-recipient-device (direct) or a single shared ciphertext (group).
+    encryption?: {
+      isEncrypted: true;
+      ciphers?: { userId: string; deviceId: string; ciphertext: string }[];
+      groupCiphertext?: string;
+    },
   ): Promise<Message> => {
     const response = await api.post(`/chats/${chatId}/messages`, {
       content,
       type,
       replyToId,
       attachments,
+      ...encryption,
     });
     return response.data;
   },

@@ -3,7 +3,6 @@ import {
   Get,
   Put,
   Body,
-  UseGuards,
   HttpCode,
   HttpStatus,
   UseInterceptors,
@@ -23,14 +22,13 @@ import {
 } from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service';
 import { UpdateProfileDto } from './dto';
-import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import type { User } from '@prisma/client';
 
+// JwtAuthGuard is already applied globally (see app.module.ts's APP_GUARD).
 @ApiTags('Profile')
 @ApiBearerAuth('access-token')
 @Controller('profile')
-@UseGuards(JwtAuthGuard)
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 

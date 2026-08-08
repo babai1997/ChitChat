@@ -75,7 +75,7 @@ export const useSocket = () => {
             lastMessage: prev
               ? {
                   id: prev.id,
-                  content: prev.content,
+                  content: prev.content ?? '',
                   type: prev.type,
                   createdAt: prev.createdAt,
                   senderId: prev.senderId,

@@ -1,4 +1,4 @@
-import { X, User, Phone, Video, Info } from 'lucide-react';
+import { X, User, Phone, Video, Info, Image as ImageIcon, ChevronRight } from 'lucide-react';
 
 interface ContactInfoModalProps {
   isOpen: boolean;
@@ -11,9 +11,10 @@ interface ContactInfoModalProps {
     phone?: string | null;
     email?: string | null;
   };
+  onOpenGallery?: () => void;
 }
 
-export const ContactInfoModal = ({ isOpen, onClose, user }: ContactInfoModalProps) => {
+export const ContactInfoModal = ({ isOpen, onClose, user, onOpenGallery }: ContactInfoModalProps) => {
   if (!isOpen) return null;
 
   return (
@@ -114,6 +115,29 @@ export const ContactInfoModal = ({ isOpen, onClose, user }: ContactInfoModalProp
               {user.about || 'Hey there! I am using ChitChat'}
             </p>
           </div>
+
+          {onOpenGallery && (
+            <button
+              onClick={onOpenGallery}
+              style={{
+                width: '100%',
+                marginTop: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                backgroundColor: '#111b21',
+                borderRadius: '12px',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <ImageIcon size={18} color="#8696a0" />
+              <span style={{ flex: 1, fontSize: '14px', color: '#e9edef' }}>Media, links and docs</span>
+              <ChevronRight size={16} color="#8696a0" />
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Post,
-  UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
 import {
@@ -15,7 +14,6 @@ import {
 import { CallHandler } from './handlers/call.handler';
 import { TurnCredentialsService } from './services/turn-credentials.service';
 import { ChatsService } from '../chats/chats.service';
-import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { RejectCallDto } from './dto';
 import type { User, Profile } from '@prisma/client';
@@ -25,11 +23,12 @@ import type { User, Profile } from '@prisma/client';
  * needs to work from a headless background context with no live socket
  * connection (e.g. tapping "Decline" on the incoming-call notification while
  * the app is backgrounded/killed). See docs/CALL_NOTIFICATIONS_PLAN.md.
+ *
+ * JwtAuthGuard is already applied globally (see app.module.ts's APP_GUARD).
  */
 @ApiTags('Calls')
 @ApiBearerAuth('access-token')
 @Controller('calls')
-@UseGuards(JwtAuthGuard)
 export class CallHttpController {
   constructor(
     private readonly callHandler: CallHandler,

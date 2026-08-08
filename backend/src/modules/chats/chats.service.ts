@@ -26,7 +26,7 @@ export class ChatsService {
   // Get Chats
   // ============================================
 
-  async getUserChats(userId: string) {
+  async getUserChats(userId: string, requesterDeviceId?: string) {
     // Query 1: load all chat data with members + last message in one round-trip.
     const chatMembers = await this.prisma.chatMember.findMany({
       where: { userId },
@@ -47,6 +47,11 @@ export class ChatsService {
                 sender: {
                   include: { profile: true },
                 },
+                // Needed to resolve this preview's cipher for the requester's
+                // device when the last message is encrypted — see
+                // chats.mapper.ts's toDto (this endpoint previously exposed
+                // the raw null content column to everyone regardless).
+                ciphers: { include: { device: true } },
               },
             },
           },
@@ -80,11 +85,16 @@ export class ChatsService {
     );
 
     return chatMembers.map((cm) =>
-      ChatsMapper.toDto(cm.chat, userId, unreadMap.get(cm.chatId) ?? 0),
+      ChatsMapper.toDto(
+        cm.chat,
+        userId,
+        unreadMap.get(cm.chatId) ?? 0,
+        requesterDeviceId,
+      ),
     );
   }
 
-  async getChatById(chatId: string, userId: string) {
+  async getChatById(chatId: string, userId: string, requesterDeviceId?: string) {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
       include: {
@@ -98,6 +108,10 @@ export class ChatsService {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
+          include: {
+            sender: { include: { profile: true } },
+            ciphers: { include: { device: true } },
+          },
         },
       },
     });
@@ -125,7 +139,7 @@ export class ChatsService {
       },
     });
 
-    return ChatsMapper.toDto(chat, userId, unreadCount);
+    return ChatsMapper.toDto(chat, userId, unreadCount, requesterDeviceId);
   }
 
   async getUserChatIds(userId: string): Promise<string[]> {
@@ -149,6 +163,26 @@ export class ChatsService {
       select: { userId: true },
     });
 
+    return members.map((m) => m.userId);
+  }
+
+  /**
+   * Every OTHER user who shares at least one chat with `userId` — the
+   * audience for a profile-change broadcast (see profiles.service.ts's
+   * updateProfile/uploadAvatar). A user's displayName/avatarUrl is only
+   * ever seen by others as a snapshot embedded in shared chat data, so
+   * this is the correct (and only) set of people who need to be told it
+   * changed.
+   */
+  async getSharedContactUserIds(userId: string): Promise<string[]> {
+    const chatIds = await this.getUserChatIds(userId);
+    if (chatIds.length === 0) return [];
+
+    const members = await this.prisma.chatMember.findMany({
+      where: { chatId: { in: chatIds }, userId: { not: userId } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
     return members.map((m) => m.userId);
   }
 
@@ -325,6 +359,18 @@ export class ChatsService {
       },
     });
 
+    // Without this, only the caller's own client saw the new name/avatar —
+    // every OTHER member's chatStore has no mechanism to learn about it at
+    // all, and would keep showing the stale group name/avatar until their
+    // next full refetch (e.g. a page reload). name/avatarUrl are already
+    // visible to every member via any chat fetch, so broadcasting them
+    // raw (unlike message content) isn't a new exposure.
+    this.eventEmitter.emit('chat.updated', {
+      chatId,
+      name: updated.name,
+      avatarUrl: updated.avatarUrl,
+    });
+
     return ChatsMapper.toDto(updated, userId, unreadCount);
   }
 
@@ -333,7 +379,7 @@ export class ChatsService {
   // ============================================
 
   async addMember(chatId: string, userId: string, dto: AddMemberDto) {
-    const chat = await this.getChatWithMemberCheck(chatId, userId, true);
+    await this.getChatWithMemberCheck(chatId, userId, true);
 
     // Check if user to add exists
     const userToAdd = await this.prisma.user.findUnique({
@@ -344,28 +390,45 @@ export class ChatsService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if already a member
-    const existingMember = await this.prisma.chatMember.findUnique({
-      where: { chatId_userId: { chatId, userId: dto.userId } },
-    });
+    return this.createMemberAndNotify(chatId, dto.userId, dto.role || ChatMemberRole.member);
+  }
 
+  /**
+   * Self-service membership grant for meeting links (see
+   * MeetingsService.join) — authorization here is "you supplied the
+   * correct meeting slug," checked one layer up, NOT "an admin added
+   * you," so this deliberately skips addMember's admin-check and
+   * user-exists check (the caller is already an authenticated platform
+   * user by construction). Idempotent: returns the existing membership
+   * without creating a duplicate row or re-emitting events if the caller
+   * is already a member (true for the meeting host immediately after
+   * creating the room).
+   */
+  async addSelfAsMember(chatId: string, userId: string) {
+    const existingMember = await this.prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId } },
+      include: { user: { include: { profile: true } } },
+    });
     if (existingMember) {
-      throw new BadRequestException('User is already a member');
+      return this.formatMember(existingMember);
     }
 
-    // Add member
-    const member = await this.prisma.chatMember.create({
-      data: {
-        chatId,
-        userId: dto.userId,
-        role: dto.role || ChatMemberRole.member,
-      },
-      include: {
-        user: { include: { profile: true } },
-      },
-    });
+    return this.createMemberAndNotify(chatId, userId, ChatMemberRole.member);
+  }
 
-    const formattedMember = {
+  private formatMember(member: {
+    id: string;
+    userId: string;
+    role: ChatMemberRole;
+    joinedAt: Date;
+    user: {
+      id: string;
+      phone: string | null;
+      email: string | null;
+      profile: { displayName: string | null; avatarUrl: string | null } | null;
+    };
+  }) {
+    return {
       id: member.id,
       userId: member.userId,
       role: member.role,
@@ -382,13 +445,43 @@ export class ChatsService {
           : null,
       },
     };
+  }
+
+  private async createMemberAndNotify(chatId: string, userId: string, role: ChatMemberRole) {
+    // Check if already a member
+    const existingMember = await this.prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId } },
+    });
+
+    if (existingMember) {
+      throw new BadRequestException('User is already a member');
+    }
+
+    // Add member
+    const member = await this.prisma.chatMember.create({
+      data: { chatId, userId, role },
+      include: {
+        user: { include: { profile: true } },
+      },
+    });
+
+    const formattedMember = this.formatMember(member);
 
     // Emit event to the new member to add the chat to their list
     // Ensure we fetch the updated chat state for the notification
-    const updatedChat = await this.getChatById(chatId, dto.userId);
+    const updatedChat = await this.getChatById(chatId, userId);
     this.eventEmitter.emit('chat.created', {
       chat: updatedChat,
-      userIds: [dto.userId],
+      userIds: [userId],
+    });
+
+    // Separate from 'chat.created' above (which only reaches the NEW
+    // member) — this notifies the EXISTING members so their clients can
+    // distribute their current Sender Key chain to the new member's
+    // devices (see chat.gateway.ts's handleChatMemberAdded).
+    this.eventEmitter.emit('chat.member-added', {
+      chatId,
+      newUserId: userId,
     });
 
     return formattedMember;
@@ -422,11 +515,79 @@ export class ChatsService {
       where: { id: member.id },
     });
 
+    // Triggers two things client-side (see chat.gateway.ts's
+    // handleChatMemberRemoved): the removed user's socket gets evicted from
+    // the chat room, and every remaining Sender Key owner rekeys (fresh
+    // chain, redistributed to the new member set only) so the removed
+    // member can't decrypt anything sent from now on.
+    const remainingMemberIds = chat.members
+      .map((m) => m.userId)
+      .filter((id) => id !== memberUserId);
+    this.eventEmitter.emit('chat.member-removed', {
+      chatId,
+      removedUserId: memberUserId,
+      remainingMemberIds,
+    });
+
     return { success: true };
   }
 
   async leaveGroup(chatId: string, userId: string) {
     return this.removeMember(chatId, userId, userId);
+  }
+
+  /**
+   * Promotes a member to admin, or demotes an admin back to member — the
+   * "Promote another member first" gap referenced in removeMember's error
+   * above (there was previously no way to actually do that).
+   */
+  async updateMemberRole(
+    chatId: string,
+    requesterId: string,
+    targetUserId: string,
+    role: ChatMemberRole,
+  ) {
+    const chat = await this.getChatWithMemberCheck(chatId, requesterId, true);
+
+    const targetMember = chat.members.find((m) => m.userId === targetUserId);
+    if (!targetMember) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // Demoting the only admin would leave the group with none at all —
+    // same guard as removeMember's "cannot leave as the only admin", since
+    // demoting yourself (or the last other admin) is functionally
+    // equivalent to that.
+    if (
+      targetMember.role === ChatMemberRole.admin &&
+      role === ChatMemberRole.member
+    ) {
+      const adminCount = chat.members.filter(
+        (m) => m.role === ChatMemberRole.admin,
+      ).length;
+      if (adminCount === 1) {
+        throw new BadRequestException(
+          'Cannot demote the only admin. Promote another member first.',
+        );
+      }
+    }
+
+    await this.prisma.chatMember.update({
+      where: { chatId_userId: { chatId, userId: targetUserId } },
+      data: { role },
+    });
+
+    // Without this, only the admin who made the change ever learns about
+    // it — every other member's client has no way to pick up the new role
+    // short of a full refetch (same class of gap as chat.updated/
+    // profile.updated above).
+    this.eventEmitter.emit('chat.member-role-updated', {
+      chatId,
+      userId: targetUserId,
+      role,
+    });
+
+    return { success: true, userId: targetUserId, role };
   }
 
   async updateLastRead(chatId: string, userId: string) {

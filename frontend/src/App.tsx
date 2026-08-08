@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { resolvePostLoginRedirect } from './utils/postLoginRedirect';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
-import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage, DocsPage } from './pages';
-import { ProtectedRoute } from './components/common';
+import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage, LinkedDevicesPage, MeetingJoinPage, DocsPage } from './pages';
+import { ProtectedRoute, DeviceLinkApprovalModal } from './components/common';
 import { useAuthStore } from './stores';
 import { SocketProvider } from './contexts/SocketContext';
 import './index.css';
@@ -40,13 +41,20 @@ function useHasHydrated() {
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const hydrated = useHasHydrated();
   const { isAuthenticated } = useAuthStore();
+  const location = useLocation();
 
   // Don't render anything until the store has rehydrated from localStorage.
   // This prevents a flash where the user is sent to /login then immediately back.
   if (!hydrated) return null;
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    // isAuthenticated flips true the instant login() runs, which can win the
+    // race against LoginPage/VerifyOtpPage's OWN post-login navigate() call —
+    // this component re-renders and unmounts the login page before that call
+    // ever takes effect. Resolving the same redirect target here (instead of
+    // hardcoding '/') means whichever one "wins" lands in the same place, so
+    // a shared meeting link isn't lost regardless of execution order.
+    return <Navigate to={resolvePostLoginRedirect(location.state)} replace />;
   }
 
   return <>{children}</>;
@@ -85,23 +93,39 @@ const AppContent = () => {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/settings" 
+          <Route
+            path="/settings"
             element={
               <ProtectedRoute>
                 <SettingsPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/" 
+          <Route
+            path="/settings/linked-devices"
+            element={
+              <ProtectedRoute>
+                <LinkedDevicesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meet/:slug"
+            element={
+              <ProtectedRoute>
+                <MeetingJoinPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/"
             element={
               <ProtectedRoute>
                 <HomePage />
               </ProtectedRoute>
-            } 
+            }
           />
-          
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -138,6 +162,7 @@ function App() {
           <AppContent />
           <CallModal />
           <ScreenShareOverlay />
+          <DeviceLinkApprovalModal />
           {/* Toast notifications */}
           <Toaster
               position="top-center"

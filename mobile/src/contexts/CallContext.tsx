@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Audio } from 'expo-av';
 import { socketManager } from '../shared/socket/SocketManager';
 import { SOCKET_EVENTS } from '../shared/constants/socket-events';
@@ -173,6 +173,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const callStartTimeRef = useRef<number | null>(null);
   const isInitiatorRef = useRef<boolean>(false);
+  /**
+   * True only once CALL_START has actually been emitted to the server —
+   * distinct from callStatus/isInitiator, which are both set optimistically
+   * BEFORE getUserMedia resolves. Without this, a getUserMedia rejection
+   * (no mic permission, no audio device at all) still logged a "missed
+   * call" chat entry even though the other party was never rung at all.
+   */
+  const callSignaledRef = useRef<boolean>(false);
   const callStatusRef = useRef<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
   const callTypeRef = useRef<'audio' | 'video'>('audio');
   const sendMessageRef = useRef(sendMessage);
@@ -300,8 +308,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     peerConnectionsRef.current.forEach((pc) => { try { pc.close(); } catch {} });
     peerConnectionsRef.current.clear();
 
-    // Dispatch call log if initiator
-    if (isInitiatorRef.current && activeChatIdRef.current && callStatusRef.current !== 'idle' && callStatusRef.current !== 'incoming') {
+    // Dispatch call log if initiator — only if CALL_START actually reached
+    // the server (callSignaledRef); otherwise the other party was never
+    // rung at all (e.g. getUserMedia rejected before the emit), and logging
+    // "missed call" would be actively misleading.
+    if (isInitiatorRef.current && callSignaledRef.current && activeChatIdRef.current && callStatusRef.current !== 'idle' && callStatusRef.current !== 'incoming') {
       let duration = 0;
       let status = 'missed';
 
@@ -360,6 +371,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pendingCandidatesRef.current.clear();
     callStartTimeRef.current = null;
     isInitiatorRef.current = false;
+    callSignaledRef.current = false;
     pendingRecipientCountRef.current = 0;
     rejectedCountRef.current = 0;
   }, []);
@@ -755,6 +767,27 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Call actions ──────────────────────────────────────────────────────────────
 
+  // Only reached when the MICROPHONE itself couldn't be acquired — camera
+  // failures are already absorbed by the audio-only fallback above.
+  function getMediaErrorMessage(err: unknown): string {
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('Microphone permission')) {
+      return 'ChitChat needs microphone access to make or join calls. Please allow it in your device settings.';
+    }
+    return 'Could not access your microphone. Please check your device settings and try again.';
+  }
+
+  function promptMediaRetry(retry: () => void, err: unknown) {
+    Alert.alert('Microphone needed', getMediaErrorMessage(err), [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Try Again', onPress: retry },
+    ]);
+  }
+
+  // Only the microphone is mandatory — the camera is requested too (so the
+  // OS prompt appears up front rather than mid-call), but a denied/missing
+  // camera must NOT block the call: every getUserMedia call below already
+  // falls back to audio-only when video is unavailable.
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -762,11 +795,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ]);
-        if (
-          grants[PermissionsAndroid.PERMISSIONS.CAMERA] !== PermissionsAndroid.RESULTS.GRANTED ||
-          grants[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          throw new Error('Camera/Microphone permissions required');
+        if (grants[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== PermissionsAndroid.RESULTS.GRANTED) {
+          throw new Error('Microphone permission is required to make or join a call.');
         }
       } catch (err) {
         console.warn('[Call] Permission check failed:', err);
@@ -839,6 +869,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         chatId: activeChatIdRef.current,
         type: callTypeRef.current,
       });
+      callSignaledRef.current = true;
       try { outgoingSoundRef.current?.playAsync().catch(() => {}); } catch {}
 
       // Auto-cancel after 45 seconds
@@ -850,6 +881,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('[Call] Failed to start:', err);
       cleanupCall();
+      promptMediaRetry(() => void startCall(chatId, type), err);
     }
   };
 
@@ -938,6 +970,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('[Call] Failed to answer:', err);
       cleanupCall();
+      // incomingCall is cleared by cleanupCall(), so retrying can't re-run
+      // answerCall() itself — joinOngoingCall does the same CALL_JOIN
+      // handshake, so it's the correct retry action here.
+      promptMediaRetry(() => void joinOngoingCall(call.chatId, call.type), err);
     }
   };
 
@@ -1215,6 +1251,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('[Call] Failed to join ongoing call:', err);
       cleanupCall();
+      promptMediaRetry(() => void joinOngoingCall(chatId, type), err);
     }
   };
 

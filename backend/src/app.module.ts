@@ -23,6 +23,11 @@ import { MessagesModule } from './modules/messages';
 import { GatewayModule } from './modules/gateway';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { PushModule } from './modules/push';
+import { KeysModule } from './modules/keys';
+import { SenderKeysModule } from './modules/sender-keys';
+import { DeviceLinkModule } from './modules/device-link';
+import { BackupModule } from './modules/backup';
+import { MeetingsModule } from './modules/meetings';
 
 @Module({
   imports: [
@@ -54,6 +59,11 @@ import { PushModule } from './modules/push';
     GatewayModule,
     CloudinaryModule,
     PushModule,
+    KeysModule,
+    SenderKeysModule,
+    DeviceLinkModule,
+    BackupModule,
+    MeetingsModule,
   ],
   providers: [
     // Global JWT Auth Guard

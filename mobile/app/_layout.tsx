@@ -11,6 +11,7 @@ import { SocketProvider, useSocketContext } from '../src/contexts/SocketProvider
 import { CallProvider } from '../src/contexts/CallContext';
 import IncomingCallModal from '../components/call/IncomingCallModal';
 import ScreenShareIndicator from '../components/call/ScreenShareIndicator';
+import DeviceLinkApprovalModal from '../components/common/DeviceLinkApprovalModal';
 
 function ReconnectBanner() {
   const { isReconnecting } = useSocketContext();
@@ -93,6 +94,8 @@ export default function RootLayout() {
           <IncomingCallModal />
           {/* Global screen share bar + red border overlay */}
           <ScreenShareIndicator />
+          {/* Device-linking history sync approval prompt (Phase 4a) */}
+          <DeviceLinkApprovalModal />
         </CallProvider>
       </SocketProvider>
     </SafeAreaProvider>

@@ -326,6 +326,9 @@ export const CallModal = () => {
     sharingUserId,
     startScreenShare,
     stopScreenShare,
+    mediaError,
+    retryMedia,
+    dismissMediaError,
   } = useCall();
 
   // Speaker — controls remote audio volume on web
@@ -459,6 +462,57 @@ export const CallModal = () => {
   // Desktop 1-on-1 video: show local + remote as equal 50/50 tiles (no PiP)
   const showDesktop50x50 = !isMobile && remoteEntries.length === 1 && isVideo && !!localStream && callStatus === 'connected';
 
+  // ── Microphone access failed ─────────────────────────────────────────────
+  // Rendered ABOVE the idle early-return below, since cleanupCall() already
+  // reset isCallActive/callStatus to idle by the time this fires — a toast
+  // alone disappears with the rest of the call UI and explains nothing.
+  if (mediaError) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)',
+        zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          backgroundColor: '#1f2c34', borderRadius: 16, padding: '32px 28px',
+          maxWidth: 360, width: '90%', textAlign: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+        }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <MicOff size={28} color="#ef4444" />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: '#e9edef' }}>Microphone needed</div>
+          <div style={{ fontSize: 14, color: '#8696a0', lineHeight: 1.5 }}>{mediaError}</div>
+          <div style={{ fontSize: 12.5, color: '#667781', lineHeight: 1.5 }}>
+            Look for a camera/mic icon in your browser's address bar, allow access, then try again.
+          </div>
+          <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 8 }}>
+            <button
+              onClick={dismissMediaError}
+              style={{
+                flex: 1, background: 'none', border: '1px solid #3b4a54', color: '#e9edef',
+                borderRadius: 8, padding: '10px', cursor: 'pointer', fontSize: 14,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={retryMedia}
+              style={{
+                flex: 1, background: '#00a884', border: 'none', color: '#0b141a',
+                borderRadius: 8, padding: '10px', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isCallActive && callStatus === 'idle') return null;
 
   // ── Incoming call ──────────────────────────────────────────────────────────
@@ -467,6 +521,7 @@ export const CallModal = () => {
       <div style={{
         position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)',
         zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        animation: 'fadeInCall 160ms ease',
       }}>
         <div style={{
           backgroundColor: '#202c33', padding: '32px', borderRadius: '16px',
@@ -497,7 +552,7 @@ export const CallModal = () => {
             </button>
           </div>
         </div>
-        <style>{`@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,168,83,.7)}70%{box-shadow:0 0 0 10px rgba(52,168,83,0)}100%{box-shadow:0 0 0 0 rgba(52,168,83,0)}}@keyframes callingPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.15}}@keyframes callingFade{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+        <style>{`@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,168,83,.7)}70%{box-shadow:0 0 0 10px rgba(52,168,83,0)}100%{box-shadow:0 0 0 0 rgba(52,168,83,0)}}@keyframes callingPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.15}}@keyframes callingFade{0%,100%{opacity:1}50%{opacity:.4}}@keyframes fadeInCall{from{opacity:0}to{opacity:1}}`}</style>
       </div>
     );
   }
@@ -587,7 +642,15 @@ export const CallModal = () => {
     <div style={{
       position: 'fixed', inset: 0, backgroundColor: '#0b141a',
       zIndex: 9999, display: 'flex', flexDirection: 'column',
+      animation: 'fadeInCall 160ms ease',
     }}>
+      {/* This branch previously had no @keyframes of its own — callingPulse/
+          callingFade below silently no-op'd for the CALLER (they were only
+          ever defined inside the separate incoming-call return branch, which
+          never renders for whoever initiated the call). fadeInCall here also
+          softens the otherwise-instant full-viewport color change when this
+          overlay mounts, which read as a flicker. */}
+      <style>{`@keyframes callingPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.15}}@keyframes callingFade{0%,100%{opacity:1}50%{opacity:.4}}@keyframes fadeInCall{from{opacity:0}to{opacity:1}}`}</style>
       {/* Minimize button */}
       <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
         <button onClick={toggleMinimize} style={iconBtn}>

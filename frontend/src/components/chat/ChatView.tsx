@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   MoreVertical,
@@ -12,14 +13,19 @@ import {
   Video,
 } from "lucide-react";
 import { chatApi } from "../../api";
+import { decryptMessagesInPlace } from "../../services/e2eeSessions";
+import { encryptFileForUpload, type AttachmentDescriptor } from "../../services/e2eeAttachments";
 import { useChatStore } from "../../stores";
-import { useSocket } from "../../hooks";
+import { useSocket, useHasCamera } from "../../hooks";
 import { MessageBubble } from "./MessageBubble";
+import { ReplyPreviewLine } from "./ReplyPreviewLine";
 import { ChatViewSkeleton } from "./ChatViewSkeleton";
 import { ContactInfoModal } from "./ContactInfoModal";
+import { Tooltip } from "../common/Tooltip";
 import { GroupInfoModal } from "./GroupInfoModal";
 import { AddMemberModal } from "./AddMemberModal";
 import { GroupCreatedCard } from "./GroupCreatedCard";
+import { ChatGalleryModal } from "./ChatGalleryModal";
 import { useCall } from "../../contexts/CallContext";
 import EmojiPicker, { type EmojiClickData, Theme } from "emoji-picker-react";
 import {
@@ -29,6 +35,8 @@ import {
   Trash2,
   CheckCheck,
   X,
+  Pause,
+  Play,
 } from "lucide-react";
 import type { Chat, Message } from "../../types";
 
@@ -43,11 +51,13 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
     null,
@@ -58,6 +68,34 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+
+  // "Jump to" a quoted message (see MessageBubble's onJumpToReply) — scroll
+  // it into view and flash it briefly, WhatsApp-style. Only works for a
+  // message currently rendered in the DOM; a quote pointing further back
+  // than what's loaded is a silent no-op rather than auto-paginating to find
+  // it (matches this app's existing "Load more messages" being a manual,
+  // explicit action, not something a click elsewhere should trigger).
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleJumpToReply = (messageId: string) => {
+    const el = document.getElementById(`chat-message-${messageId}`);
+    if (!el) {
+      // Genuinely not loaded (e.g. an older item surfaced by ChatGalleryModal,
+      // which fetches full history separately from what's paginated into the
+      // open chat) — say so rather than silently doing nothing.
+      toast("Scroll up to load that part of the conversation first");
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    setHighlightedMessageId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 1500);
+  };
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
+  }, []);
 
   const [editingMessage, setEditingMessage] = useState<{
     id: string;
@@ -88,6 +126,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
     editMessage,
   } = useSocket();
   const { startCall, ongoingCallsByChatId, joinOngoingCall, callStatus } = useCall();
+  const hasCamera = useHasCamera();
 
   const chatMessages = messages[chat.id] || [];
   const typingUserIds = typingUsers[chat.id] || [];
@@ -106,7 +145,10 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
 
   // Update store with fetched messages
   useEffect(() => {
-    if (data?.pages) {
+    if (!data?.pages) return;
+    let cancelled = false;
+
+    (async () => {
       const fetchedMessages = [...data.pages]
         .reverse()
         .flatMap((page) => page.messages);
@@ -115,6 +157,14 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
       const missingMessages = fetchedMessages.filter(
         (m) => !currentIds.has(m.id),
       );
+
+      // Only decrypt messages we haven't already seen — a Double Ratchet
+      // message key is single-use, so re-decrypting one already resolved by
+      // the real-time socket handler would throw, not just redundantly succeed.
+      if (missingMessages.length > 0) {
+        await decryptMessagesInPlace(missingMessages, chat.type === 'group' || chat.type === 'meeting');
+      }
+      if (cancelled) return;
 
       if (missingMessages.length > 0) {
         const mergedMessages = [...missingMessages, ...currentMessages].sort(
@@ -125,7 +175,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
       } else if (currentMessages.length === 0 && fetchedMessages.length > 0) {
         setMessages(chat.id, fetchedMessages);
       }
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [data, chat.id, setMessages]);
 
   const { updateChat } = useChatStore();
@@ -262,16 +316,17 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Recording timer
+  // Recording timer — pauses along with the recorder itself, matching
+  // WhatsApp's behavior of freezing the displayed duration while paused.
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (isRecording) {
+    if (isRecording && !isRecordingPaused) {
       interval = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isRecording]);
+  }, [isRecording, isRecordingPaused]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setMessage((prev) => prev + emojiData.emoji);
@@ -282,72 +337,82 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
     type: "image" | "video" | "audio" | "file",
     caption?: string,
   ) => {
-    const tempId = `temp-${Date.now()}`;
-    
-    const displayContent = caption && caption.trim().length > 0 
-      ? caption 
-      : type === "image" 
-        ? "Image" 
-        : type === "audio"
-          ? "Voice Message"
-          : file.name;
+    // `caption` is accepted but not yet wired to render anywhere — see
+    // MessageBubble.tsx, which only shows `content` for `type === "text"`.
+    // Pre-existing gap (not introduced by this change); flagging rather than
+    // silently building full caption support here.
+    void caption;
 
-    const tempMessage = {
-      id: tempId,
-      chatId: chat.id,
-      content: displayContent,
-      type,
-      senderId: currentUserId,
-      status: "sending",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      attachments: [
-        {
-          id: crypto.randomUUID(),
-          filename: file.name,
-          mimeType: file.type,
-          size: file.size,
-          url: URL.createObjectURL(file),
-        },
-      ],
-      sender: {
-        id: currentUserId,
-        displayName: "You",
-        avatarUrl: null,
+    const localAttachments = [
+      {
+        id: crypto.randomUUID(),
+        filename: file.name,
+        mimeType: file.type,
+        size: file.size,
+        url: URL.createObjectURL(file),
       },
-      replyTo: null,
-    };
-    useChatStore.getState().addMessage(chat.id, tempMessage as any);
+    ];
 
-    try {
-      setIsSending(true);
-      const attachment = await chatApi.uploadAttachment(chat.id, file);
-      const newMessage = await chatApi.sendMessage(
-        chat.id,
-        displayContent,
-        type,
-        undefined,
-        [attachment],
-      );
+    if (chat.type === "direct" || chat.type === "group" || chat.type === "meeting") {
+      // Real-time delivery for an encrypted message ONLY happens via the
+      // socket path (message.handler.ts's per-device fan-out) — the REST
+      // endpoint (chatApi.sendMessage) explicitly skips broadcasting
+      // encrypted sends at all (see messages.service.ts's create(): the
+      // 'message.created' event is gated on `!data.isEncrypted`, since
+      // Phase 1 assumed every encrypted send goes through the socket,
+      // which does its own explicit fan-out instead of relying on that
+      // event). Sending an encrypted attachment via REST silently "worked"
+      // — it just left the receiver with nothing until their next REST
+      // refetch (a reload). Routing through `sendMessage()` (the same
+      // socket call text messages use) fixes that: it already knows how
+      // to encrypt+emit for both direct and group chats, so this file's
+      // only job is to build the descriptor and hand it over as `content`,
+      // exactly like a text message's plaintext.
+      try {
+        setIsSending(true);
+        const { uploadFile, key, nonce } = await encryptFileForUpload(file);
+        const uploaded = await chatApi.uploadAttachment(chat.id, uploadFile);
+        const descriptor: AttachmentDescriptor = {
+          attachmentUrl: uploaded.url,
+          attachmentKey: key,
+          attachmentNonce: nonce,
+          mimeType: file.type,
+          fileName: file.name,
+          size: file.size,
+        };
+        const descriptorJson = JSON.stringify(descriptor);
 
-      // Preserve the local blob URL to prevent the image/audio from flickering (src change)
-      if (newMessage.attachments?.[0] && tempMessage.attachments[0]) {
-        newMessage.attachments[0].url = tempMessage.attachments[0].url;
+        const tempId = sendMessage(chat.id, descriptorJson, type, undefined);
+        if (tempId && currentUserId) {
+          useChatStore.getState().addMessage(chat.id, {
+            id: tempId,
+            tempId,
+            chatId: chat.id,
+            // Matches what handleMessageSent looks up as `optimistic.content`
+            // to cache under the real message id once the ack arrives.
+            content: descriptorJson,
+            type,
+            senderId: currentUserId,
+            status: "sending",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isEncrypted: true,
+            attachments: localAttachments,
+            sender: { id: currentUserId, displayName: "You", avatarUrl: null },
+            replyTo: null,
+          } as any);
+        }
+        setShowAttachMenu(false);
+      } catch (error) {
+        console.error("Failed to send encrypted attachment:", error);
+      } finally {
+        setIsSending(false);
       }
-
-      useChatStore.getState().replaceMessage(chat.id, tempId, newMessage);
-      setShowAttachMenu(false);
-    } catch (error) {
-      console.error("Failed to send attachment:", error);
-      // Remove temp message if upload fails
-      const store = useChatStore.getState();
-      store.setMessages(
-        chat.id,
-        (store.messages[chat.id] || []).filter((m) => m.id !== tempId),
-      );
-    } finally {
-      setIsSending(false);
     }
+    // `ChatType` is exactly 'direct' | 'group' | 'meeting' — every chat this
+    // component can ever render matches the branch above, so there is no
+    // plaintext attachment fallback here (there used to be a ~50-line dead
+    // branch for it; removed rather than left to imply a real code path).
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -395,9 +460,16 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
 
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const file = new File([blob], "voice-message.webm", {
-          type: "audio/webm",
+        // Use whatever MediaRecorder actually negotiated, not a hardcoded
+        // guess — browsers that don't support webm (e.g. Safari) record in
+        // a different container (typically mp4/aac), and declaring the
+        // wrong type here would mislabel the file without changing what's
+        // actually inside it.
+        const actualMimeType = recorder.mimeType || "audio/webm";
+        const extension = actualMimeType.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(chunks, { type: actualMimeType });
+        const file = new File([blob], `voice-message.${extension}`, {
+          type: actualMimeType,
         });
         handleUploadAndSend(file, "audio");
         stream.getTracks().forEach((track) => track.stop());
@@ -406,6 +478,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+      setIsRecordingPaused(false);
       setRecordingDuration(0);
     } catch (err) {
       console.error("Error accessing microphone:", err);
@@ -421,11 +494,26 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
         mediaRecorder.stop();
         mediaRecorder.stream.getTracks().forEach((track) => track.stop());
       } else {
+        // A "sent while paused" recording must still flush the chunks
+        // MediaRecorder already captured — stop() alone triggers onstop
+        // and does that regardless of the paused state.
         mediaRecorder.stop();
       }
       setIsRecording(false);
+      setIsRecordingPaused(false);
       setMediaRecorder(null);
       setRecordingDuration(0);
+    }
+  };
+
+  const togglePauseRecording = () => {
+    if (!mediaRecorder) return;
+    if (mediaRecorder.state === "recording") {
+      mediaRecorder.pause();
+      setIsRecordingPaused(true);
+    } else if (mediaRecorder.state === "paused") {
+      mediaRecorder.resume();
+      setIsRecordingPaused(false);
     }
   };
 
@@ -511,6 +599,9 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
   };
 
   const getOnlineStatus = () => {
+    if (chat.type === "meeting") {
+      return `Meeting · ${chat.members.length} participants`;
+    }
     if (chat.type === "group") {
       return `Group · ${chat.members.length} participants`;
     }
@@ -689,12 +780,15 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button
-            style={buttonStyle}
-            onClick={() => startCall(chat.id, "video")}
-          >
-            <Video size={20} />
-          </button>
+          <Tooltip text="No camera detected" disabled={hasCamera}>
+            <button
+              style={hasCamera ? buttonStyle : { ...buttonStyle, cursor: "not-allowed", opacity: 0.4 }}
+              onClick={() => hasCamera && startCall(chat.id, "video")}
+              aria-disabled={!hasCamera}
+            >
+              <Video size={20} />
+            </button>
+          </Tooltip>
           <button
             style={buttonStyle}
             onClick={() => startCall(chat.id, "audio")}
@@ -718,17 +812,17 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
                   minWidth: '180px', overflow: 'hidden',
                 }}>
-                  {chat.type === 'group' && (
+                  {(chat.type === 'group' || chat.type === 'meeting') && (
                     <button
                       onClick={() => { setIsContactInfoOpen(true); setShowChatMenu(false); }}
                       style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
                       onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      Group Info
+                      {chat.type === 'meeting' ? 'Meeting Info' : 'Group Info'}
                     </button>
                   )}
-                  {chat.type === 'group' && isCurrentUserAdmin && (
+                  {(chat.type === 'group' || chat.type === 'meeting') && isCurrentUserAdmin && (
                     <button
                       onClick={() => { setShowAddMember(true); setShowChatMenu(false); }}
                       style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
@@ -865,7 +959,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 {group.messages.map((msg, index) => {
                   const prevMsg = index > 0 ? group.messages[index - 1] : null;
                   const showSender =
-                    chat.type === "group" &&
+                    (chat.type === "group" || chat.type === "meeting") &&
                     msg.senderId !== currentUserId &&
                     (!prevMsg || prevMsg.senderId !== msg.senderId);
 
@@ -878,6 +972,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
                       onReply={handleReplyToMessage}
+                      isHighlighted={msg.id === highlightedMessageId}
+                      onJumpToReply={handleJumpToReply}
                     />
                   );
                 })}
@@ -980,22 +1076,17 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               >
                 Replying to {replyingTo.senderId === currentUserId ? "yourself" : replyingTo.sender?.displayName || "Unknown"}
               </p>
-              <p
-                style={{
-                  color: "#8696a0",
-                  fontSize: "12px",
-                  margin: 0,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  maxWidth: "300px",
-                  fontStyle: replyingTo.isDeleted ? "italic" : "normal",
+              <ReplyPreviewLine
+                chatId={chat.id}
+                replyTo={{
+                  id: replyingTo.id,
+                  content: replyingTo.content,
+                  type: replyingTo.type,
+                  isDeleted: replyingTo.isDeleted ?? false,
+                  senderName: replyingTo.sender?.displayName || "Unknown",
                 }}
-              >
-                {replyingTo.isDeleted
-                  ? "This message was deleted"
-                  : replyingTo.content || "Media"}
-              </p>
+                maxWidth={300}
+              />
             </div>
             <button
               onClick={handleCancelReply}
@@ -1114,13 +1205,14 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                     height: "10px",
                     borderRadius: "50%",
                     backgroundColor: "#ff5252",
-                    animation: "pulse 1s infinite",
+                    animation: isRecordingPaused ? "none" : "pulse 1s infinite",
+                    opacity: isRecordingPaused ? 0.5 : 1,
                   }}
                 />
                 {formatDuration(recordingDuration)}
               </span>
               <span style={{ flex: 1, color: "#8696a0", fontSize: "14px" }}>
-                Recording...
+                {isRecordingPaused ? "Paused" : "Recording..."}
               </span>
               <button
                 onClick={() => stopRecording(true)}
@@ -1132,6 +1224,17 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 }}
               >
                 <Trash2 size={24} />
+              </button>
+              <button
+                onClick={togglePauseRecording}
+                style={{
+                  color: "#8696a0",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {isRecordingPaused ? <Play size={24} /> : <Pause size={24} />}
               </button>
               <button
                 onClick={() => stopRecording(false)}
@@ -1340,22 +1443,24 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             phone: getOtherMember()!.user.phone,
             email: getOtherMember()!.user.email,
           }}
+          onOpenGallery={() => { setIsContactInfoOpen(false); setIsGalleryOpen(true); }}
         />
       )}
 
-      {/* Group Info Modal */}
-      {chat.type === "group" && (
+      {/* Group/Meeting Info Modal */}
+      {(chat.type === "group" || chat.type === "meeting") && (
         <GroupInfoModal
           isOpen={isContactInfoOpen}
           onClose={() => setIsContactInfoOpen(false)}
           chat={chat}
           currentUserId={currentUserId}
           onAddMember={() => { setIsContactInfoOpen(false); setShowAddMember(true); }}
+          onOpenGallery={() => { setIsContactInfoOpen(false); setIsGalleryOpen(true); }}
         />
       )}
 
       {/* Add Member Modal */}
-      {chat.type === "group" && (
+      {(chat.type === "group" || chat.type === "meeting") && (
         <AddMemberModal
           isOpen={showAddMember}
           onClose={() => setShowAddMember(false)}
@@ -1363,6 +1468,19 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
           currentUserId={currentUserId}
         />
       )}
+
+      {/* Media, links and docs */}
+      <ChatGalleryModal
+        chat={chat}
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        onJumpToMessage={(messageId) => {
+          setIsGalleryOpen(false);
+          // Let the modal's own close transition/unmount finish before the
+          // target bubble's DOM node needs to exist for scrollIntoView.
+          setTimeout(() => handleJumpToReply(messageId), 50);
+        }}
+      />
     </div>
   );
 };

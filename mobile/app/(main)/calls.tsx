@@ -17,14 +17,13 @@ import {
   PhoneOutgoing,
   Video,
   User,
-  MessageSquarePlus,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useChatStore } from '../../src/stores/chatStore';
 import { useCall } from '../../src/contexts/CallContext';
 import { chatApi } from '../../src/api';
 import { useRouter, useFocusEffect } from 'expo-router';
-import type { Message, Chat } from '../../src/types';
+import MeetingsPanel from '../../components/call/MeetingsPanel';
 
 interface CallRecord {
   id: string;
@@ -39,7 +38,6 @@ interface CallRecord {
 
 export default function CallsScreen() {
   const { user } = useAuthStore();
-  const { chats } = useChatStore();
   const { startCall } = useCall();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -241,6 +239,7 @@ export default function CallsScreen() {
           data={callRecords}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          ListHeaderComponent={MeetingsPanel}
           contentContainerStyle={{ paddingBottom: 24 }}
           refreshControl={
             <RefreshControl
@@ -252,14 +251,17 @@ export default function CallsScreen() {
           }
         />
       ) : (
-        <View style={styles.centerContainer}>
-          <View style={styles.emptyIconWrapper}>
-            <Phone size={48} color="#8696a0" />
+        <View style={styles.emptyScroll}>
+          <MeetingsPanel />
+          <View style={styles.centerContainer}>
+            <View style={styles.emptyIconWrapper}>
+              <Phone size={48} color="#8696a0" />
+            </View>
+            <Text style={styles.emptyTitle}>No recent calls</Text>
+            <Text style={styles.emptySubtext}>
+              Start a new call from a chat conversation
+            </Text>
           </View>
-          <Text style={styles.emptyTitle}>No recent calls</Text>
-          <Text style={styles.emptySubtext}>
-            Start a new call from a chat conversation
-          </Text>
         </View>
       )}
     </View>
@@ -278,6 +280,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 14,
     backgroundColor: '#202c33',
@@ -288,6 +293,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: '#e9edef',
+  },
+  emptyScroll: {
+    flex: 1,
   },
   callItem: {
     flexDirection: 'row',

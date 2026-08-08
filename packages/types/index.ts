@@ -55,7 +55,7 @@ export interface TokenPair {
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
-export type ChatType = 'direct' | 'group';
+export type ChatType = 'direct' | 'group' | 'meeting';
 
 export interface ChatMember {
   id: string;
@@ -78,12 +78,18 @@ export interface ChatMember {
 
 export interface LastMessage {
   id: string;
-  content: string;
+  // null for an encrypted last message until the client decrypts `cipher`
+  // into it — see decryptMessagesInPlace, which treats LastMessage the same
+  // as a Message for this purpose.
+  content: string | null;
   type: MessageType;
   createdAt: string;
   senderId: string;
   senderName: string | null;
   status: MessageStatus;
+  isEncrypted?: boolean;
+  cipher?: string | null;
+  senderDeviceId?: string;
 }
 
 export interface Chat {
@@ -131,6 +137,8 @@ export interface MessageSender {
 export interface MessageReplyPreview {
   id: string;
   content: string | null;
+  /** The quoted message's type — always present, even when `content` is null for an encrypted quote, so the client can show "Photo"/"Video" etc. instead of a bare fallback. */
+  type: MessageType;
   isDeleted: boolean;
   senderName: string;
 }
@@ -139,7 +147,11 @@ export interface Message {
   id: string;
   chatId: string;
   senderId: string;
-  content: string;
+  // null for an encrypted message — see isEncrypted/cipher. The socket
+  // handlers on both clients decrypt `cipher` into plaintext and overwrite
+  // this field locally before the message ever reaches the UI layer, so
+  // components (MessageBubble, etc.) always just read `content` normally.
+  content: string | null;
   type: MessageType;
   status: MessageStatus;
   createdAt: string;
@@ -149,6 +161,13 @@ export interface Message {
   attachments: MessageAttachment[];
   isDeleted?: boolean;
   isEdited?: boolean;
+  isEncrypted?: boolean;
+  // Opaque JSON-serialized E2EE envelope addressed to this device — only
+  // present on encrypted messages, and only until the client decrypts it.
+  cipher?: string | null;
+  // Which of the sender's devices encrypted this message — a Double Ratchet
+  // session is keyed per sender DEVICE, not per sender user.
+  senderDeviceId?: string;
 }
 
 export interface MessagesResponse {

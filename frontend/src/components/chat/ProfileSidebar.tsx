@@ -3,6 +3,7 @@ import { ArrowLeft, User, Edit2, Check, Camera } from 'lucide-react';
 import { useAuthStore } from '../../stores';
 import { profileApi } from '../../api';
 import toast from 'react-hot-toast';
+import { ImageCropModal } from '../common/ImageCropModal';
 
 interface ProfileSidebarProps {
   onBack: () => void;
@@ -15,6 +16,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
   const [name, setName] = useState(user?.profile?.displayName || '');
   const [about, setAbout] = useState(user?.profile?.about || 'Hey there! I am using ChitChat');
   const [isLoading, setIsLoading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const handleNameSave = async () => {
     if (!name.trim()) return;
@@ -45,7 +47,18 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
     }
   };
 
-  const handleAvatarUpload = async (file: File) => {
+  const handleAvatarFileSelected = (file: File) => {
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  const handleCroppedAvatarUpload = async (file: File) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
     setIsLoading(true);
     try {
       const updatedProfile = await profileApi.uploadAvatar(file);
@@ -130,7 +143,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                             accept="image/*" 
                             style={{ display: 'none' }} 
                             onChange={(e) => {
-                                if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0]);
+                                if (e.target.files?.[0]) handleAvatarFileSelected(e.target.files[0]);
                             }}
                         />
                     </label>
@@ -216,6 +229,16 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
             </div>
         </div>
       </div>
+
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          cropShape="round"
+          fileName="avatar.jpg"
+          onCropped={handleCroppedAvatarUpload}
+          onClose={handleCropCancel}
+        />
+      )}
     </div>
   );
 };

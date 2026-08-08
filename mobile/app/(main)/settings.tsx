@@ -34,6 +34,7 @@ import {
   User,
   Edit3,
   Camera,
+  Laptop,
 } from 'lucide-react-native';
 
 export default function SettingsScreen() {
@@ -49,6 +50,7 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     { icon: Key, label: 'Account', subLabel: 'Security notifications, change number' },
+    { icon: Laptop, label: 'Linked Devices', subLabel: 'Approve or revoke devices linked to this account', onPress: () => router.push('/linked-devices') },
     { icon: Lock, label: 'Privacy', subLabel: 'Block contacts, disappearing messages' },
     { icon: Smile, label: 'Avatar', subLabel: 'Create, edit, profile photo' },
     { icon: List, label: 'Lists', subLabel: 'Manage people and groups' },
@@ -179,7 +181,7 @@ export default function SettingsScreen() {
         {/* Settings Items */}
         <View style={styles.settingsList}>
           {settingsItems.map((item, index) => (
-            <TouchableOpacity key={index} style={styles.settingsItem} activeOpacity={0.7}>
+            <TouchableOpacity key={index} style={styles.settingsItem} activeOpacity={0.7} onPress={item.onPress}>
               <View style={styles.iconContainer}>
                 <item.icon size={22} color="#8696a0" />
               </View>

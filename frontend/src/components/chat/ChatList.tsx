@@ -1,5 +1,6 @@
 import { User, Check, CheckCheck, Clock } from 'lucide-react';
 import type { Chat } from '../../types';
+import { isE2eePlaceholder } from '../../services/e2eeSessions';
 
 interface ChatListProps {
   chats: Chat[];
@@ -30,7 +31,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
   };
 
   const isOnline = (chat: Chat) => {
-    if (chat.type === 'group') return false;
+    if (chat.type === 'group' || chat.type === 'meeting') return false;
     const otherMember = chat.members.find((m) => m.userId !== currentUserId);
     return otherMember ? onlineUsers.has(otherMember.userId) : false;
   };
@@ -89,6 +90,12 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
     if (message.type === 'file' || (message.attachments && message.attachments.length > 0)) {
       return '📄 Document';
     }
+
+    // The full sentinel sentence ("Approve this device from another
+    // device...") is meant to be read once, in context, inside a chat —
+    // not as a chat-list preview line, where it would look like the other
+    // person is repeatedly sending you the same odd message.
+    if (isE2eePlaceholder(message.content)) return '🔒 Encrypted message';
 
     return message.content;
   };
@@ -161,7 +168,7 @@ export const ChatList = ({ chats, activeChat, onChatSelect, currentUserId }: Cha
                            </span>
                         )}
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                           {chat.lastMessage.senderId === currentUserId ? '' : (chat.type === 'group' ? (chat.lastMessage.senderName ? `${chat.lastMessage.senderName}: ` : '') : '')}
+                           {chat.lastMessage.senderId === currentUserId ? '' : ((chat.type === 'group' || chat.type === 'meeting') ? (chat.lastMessage.senderName ? `${chat.lastMessage.senderName}: ` : '') : '')}
                            {getLastMessageText(chat.lastMessage)}
                         </span>
                     </>

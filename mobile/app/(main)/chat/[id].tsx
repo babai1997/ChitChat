@@ -21,12 +21,14 @@ import { useIsFocused } from '@react-navigation/native';
 import { useChatStore } from '../../../src/stores/chatStore';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { chatApi } from '../../../src/api';
+import { decryptMessagesInPlace } from '../../../src/services/e2eeSessions';
 import { useSocketContext } from '../../../src/contexts/SocketProvider';
 import { useCall } from '../../../src/contexts/CallContext';
 import type { Message, Chat } from '../../../src/types';
 import MessageBubble from '../../../components/chat/MessageBubble';
 import ChatInput from '../../../components/chat/ChatInput';
 import ChatInfoModal from '../../../components/chat/ChatInfoModal';
+import ChatGalleryModal from '../../../components/chat/ChatGalleryModal';
 import AddMemberModal from '../../../components/chat/AddMemberModal';
 import GroupCreatedCard from '../../../components/chat/GroupCreatedCard';
 import TypingIndicator from '../../../components/common/TypingIndicator';
@@ -35,6 +37,34 @@ import ActiveCallScreen from '../../../components/call/ActiveCallScreen';
 import { MessageListSkeleton } from '../../../components/common/SkeletonLoader';
 
 const PAGE_SIZE = 50;
+
+/**
+ * Mutates `fetched` in place: for any message we already have locally
+ * decrypted plaintext for, reuse it instead of re-decrypting — a Double
+ * Ratchet message key is single-use, so re-decrypting an already-consumed
+ * cipher (e.g. this same screen re-fetching page 1 on every focus) throws a
+ * "nonce mismatch" error instead of just redundantly succeeding. Only
+ * genuinely new-to-this-device messages get decrypted.
+ */
+async function resolveFetchedMessages(chatId: string, fetched: Message[]): Promise<void> {
+  const existingById = new Map(
+    (useChatStore.getState().messages[chatId] || []).map((m) => [m.id, m]),
+  );
+  const toDecrypt: Message[] = [];
+  fetched.forEach((m) => {
+    if (!m.isEncrypted) return; // plaintext content from the server is always the source of truth (e.g. edits)
+    const prev = existingById.get(m.id);
+    if (prev && prev.content !== null) {
+      m.content = prev.content;
+    } else if (m.cipher) {
+      toDecrypt.push(m);
+    }
+  });
+  if (toDecrypt.length > 0) {
+    const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
+    await decryptMessagesInPlace(toDecrypt, chat?.type === 'group' || chat?.type === 'meeting');
+  }
+}
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
@@ -49,6 +79,7 @@ export default function ChatRoomScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+  const [isGalleryVisible, setIsGalleryVisible] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
@@ -71,6 +102,19 @@ export default function ChatRoomScreen() {
   const flatListRef = useRef<FlatList>(null);
   const nextCursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
+
+  // "Jump to" a quoted message (see MessageBubble's onJumpToReply) — scroll
+  // it into view and flash it briefly, WhatsApp-style. Only works for a
+  // message currently loaded (matches "Load more messages" being a manual,
+  // explicit action elsewhere in this screen, not something a tap should
+  // silently trigger).
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
+  }, []);
 
   const chat = chats.find((c) => c.id === chatId);
   const chatMessages = messages[chatId] || [];
@@ -104,6 +148,7 @@ export default function ChatRoomScreen() {
       const loadMessages = async () => {
         try {
           const data = await chatApi.getMessages(chatId, undefined, PAGE_SIZE);
+          await resolveFetchedMessages(chatId, data.messages);
           setMessages(chatId, data.messages);
           nextCursorRef.current = data.nextCursor;
           hasMoreRef.current = data.hasMore;
@@ -147,6 +192,7 @@ export default function ChatRoomScreen() {
     setIsLoadingMore(true);
     try {
       const data = await chatApi.getMessages(chatId, nextCursorRef.current, PAGE_SIZE);
+      await resolveFetchedMessages(chatId, data.messages);
       prependMessages(chatId, data.messages);
       nextCursorRef.current = data.nextCursor;
       hasMoreRef.current = data.hasMore;
@@ -234,6 +280,24 @@ export default function ChatRoomScreen() {
     return grouped.reverse();
   };
 
+  const handleJumpToReply = (messageId: string) => {
+    const index = getGroupedMessages().findIndex((item) => item.id === messageId);
+    if (index === -1) return;
+    flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    setHighlightedMessageId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 1500);
+  };
+
+  // FlatList can't scroll to an index it hasn't measured yet (common with
+  // variable-height items) — retry once after a short delay, by which point
+  // the list has usually rendered enough to have a real measurement for it.
+  const handleScrollToIndexFailed = (info: { index: number }) => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+    }, 100);
+  };
+
   const renderMessageItem = ({ item }: { item: any }) => {
     if (item.type === 'date_separator') {
       return (
@@ -250,10 +314,12 @@ export default function ChatRoomScreen() {
       <MessageBubble
         message={item}
         isOwn={isMine}
-        showSender={!isMine && chat?.type === 'group'}
+        showSender={!isMine && (chat?.type === 'group' || chat?.type === 'meeting')}
         onEdit={isMine ? handleEdit : undefined}
         onDelete={handleDelete}
         onReply={handleReply}
+        isHighlighted={item.id === highlightedMessageId}
+        onJumpToReply={handleJumpToReply}
       />
     );
   };
@@ -316,9 +382,9 @@ export default function ChatRoomScreen() {
               {otherMember && (
                 <OnlineStatus userId={otherMember.userId} />
               )}
-              {chat.type === 'group' && (
+              {(chat.type === 'group' || chat.type === 'meeting') && (
                 <Text style={styles.headerSubtitle}>
-                  {chat.members.length} members
+                  {chat.type === 'meeting' ? 'Meeting · ' : ''}{chat.members.length} {chat.type === 'meeting' ? 'participants' : 'members'}
                 </Text>
               )}
             </View>
@@ -388,6 +454,7 @@ export default function ChatRoomScreen() {
               contentContainerStyle={styles.messagesList}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.3}
+              onScrollToIndexFailed={handleScrollToIndexFailed}
               ListFooterComponent={
                 isLoadingMore ? (
                   <ActivityIndicator size="small" color="#8696a0" style={{ padding: 16 }} />
@@ -430,10 +497,10 @@ export default function ChatRoomScreen() {
               onPress={() => { setShowActionSheet(false); setIsInfoModalVisible(true); }}
             >
               <Text style={styles.actionSheetItemText}>
-                {chat?.type === 'group' ? 'Group Info' : 'Contact Info'}
+                {chat?.type === 'meeting' ? 'Meeting Info' : chat?.type === 'group' ? 'Group Info' : 'Contact Info'}
               </Text>
             </TouchableOpacity>
-            {chat?.type === 'group' && isCurrentUserAdmin && (
+            {(chat?.type === 'group' || chat?.type === 'meeting') && isCurrentUserAdmin && (
               <TouchableOpacity
                 style={styles.actionSheetItem}
                 onPress={() => { setShowActionSheet(false); setShowAddMember(true); }}
@@ -458,10 +525,24 @@ export default function ChatRoomScreen() {
         chat={chat || null}
         currentUserId={user?.id}
         onAddMember={isCurrentUserAdmin ? () => { setIsInfoModalVisible(false); setShowAddMember(true); } : undefined}
+        onOpenGallery={() => { setIsInfoModalVisible(false); setIsGalleryVisible(true); }}
       />
 
+      {/* Media, links and docs */}
+      {chat && (
+        <ChatGalleryModal
+          chat={chat}
+          visible={isGalleryVisible}
+          onClose={() => setIsGalleryVisible(false)}
+          onJumpToMessage={(messageId) => {
+            setIsGalleryVisible(false);
+            setTimeout(() => handleJumpToReply(messageId), 300);
+          }}
+        />
+      )}
+
       {/* Add Member Modal */}
-      {chat?.type === 'group' && chat && (
+      {(chat?.type === 'group' || chat?.type === 'meeting') && chat && (
         <AddMemberModal
           visible={showAddMember}
           onClose={() => setShowAddMember(false)}

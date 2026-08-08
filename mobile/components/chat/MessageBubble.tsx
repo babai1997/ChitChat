@@ -33,9 +33,13 @@ import {
   Reply,
 } from "lucide-react-native";
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Message } from "../../src/types";
 import AudioPlayer from "./AudioPlayer";
+import { EncryptedAttachment } from "./EncryptedAttachment";
+import { ReplyPreviewLine } from "./ReplyPreviewLine";
+import { isE2eePlaceholder, PLACEHOLDER_APPROVE_DEVICE } from "../../src/services/e2eeSessions";
 
 interface MessageBubbleProps {
   message: Message;
@@ -44,6 +48,10 @@ interface MessageBubbleProps {
   onEdit?: (messageId: string, currentContent: string) => void;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
   onReply?: (message: Message) => void;
+  /** Briefly flashed when this message is the target of a "jump to" (see onJumpToReply). */
+  isHighlighted?: boolean;
+  /** Tapping this message's own reply-quote asks the parent to scroll to and highlight the quoted message. */
+  onJumpToReply?: (messageId: string) => void;
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -61,6 +69,8 @@ export default function MessageBubble({
   onEdit,
   onDelete,
   onReply,
+  isHighlighted,
+  onJumpToReply,
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -68,6 +78,7 @@ export default function MessageBubble({
   const { chats } = useChatStore();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const handleDownload = async () => {
     if (!selectedImage) return;
@@ -102,7 +113,7 @@ export default function MessageBubble({
 
       await chatApi.sendMessage(
         chatId,
-        message.content,
+        message.content ?? '',
         message.type,
         undefined,
         [
@@ -160,6 +171,42 @@ export default function MessageBubble({
       )}
     </View>
   );
+
+  // ── E2EE device-side notice ──────────────────────────────────────────────────
+  // A device-side limitation, not something anyone actually typed and sent —
+  // rendering it inside the normal left/right Wrapper (with tick marks/
+  // timestamp) reads as a real chat message, which is actively misleading.
+  // Render as a centered, muted system-style notice instead.
+  if (message.isEncrypted && isE2eePlaceholder(message.content)) {
+    const isApprovalPrompt = message.content === PLACEHOLDER_APPROVE_DEVICE;
+    const Container = isApprovalPrompt ? TouchableOpacity : View;
+    return (
+      <View style={{ alignItems: "center", marginVertical: 6 }}>
+        <Container
+          style={{
+            maxWidth: "80%",
+            paddingHorizontal: 14,
+            paddingVertical: 6,
+            backgroundColor: "#182229",
+            borderRadius: 8,
+          }}
+          {...(isApprovalPrompt ? { onPress: () => router.push("/linked-devices") } : {})}
+        >
+          <Text
+            style={{
+              fontSize: 12.5,
+              fontStyle: "italic",
+              color: "#8696a0",
+              textAlign: "center",
+              textDecorationLine: isApprovalPrompt ? "underline" : "none",
+            }}
+          >
+            {message.content}
+          </Text>
+        </Container>
+      </View>
+    );
+  }
 
   // ── Deleted ─────────────────────────────────────────────────────────────────
   if (message.isDeleted) {
@@ -271,6 +318,13 @@ export default function MessageBubble({
   // ── Normal message ───────────────────────────────────────────────────────────
   const hasAttachments = !!message.attachments?.length;
   const hasText = !!message.content && message.type === "text";
+  // No plaintext Attachment row exists for these (see ChatInput.tsx's
+  // uploadFile) — the real file lives only inside the encrypted descriptor
+  // in `content`.
+  const isEncryptedAttachment =
+    !!message.isEncrypted &&
+    !hasAttachments &&
+    ["image", "video", "audio", "file"].includes(message.type);
 
   return (
     <Wrapper isOwn={isOwn}>
@@ -278,9 +332,10 @@ export default function MessageBubble({
         activeOpacity={0.82}
         onLongPress={() => setShowMenu(true)}
         style={[
-          styles.bubble, 
+          styles.bubble,
           isOwn ? styles.bubbleOwn : styles.bubbleTheirs,
-          !hasText && { paddingBottom: 8 }
+          !hasText && { paddingBottom: 8 },
+          isHighlighted && styles.bubbleHighlighted,
         ]}
       >
         {/* Group sender name */}
@@ -290,23 +345,29 @@ export default function MessageBubble({
           </Text>
         )}
 
-        {/* Quoted preview of the message being replied to */}
+        {/* Quoted preview of the message being replied to — tap jumps to it, like WhatsApp */}
         {message.replyTo && (
-          <View style={styles.replyQuote}>
+          <TouchableOpacity
+            activeOpacity={message.replyTo.isDeleted ? 1 : 0.6}
+            disabled={message.replyTo.isDeleted}
+            onPress={() => onJumpToReply?.(message.replyTo!.id)}
+            style={styles.replyQuote}
+          >
             <Text style={styles.replyQuoteSender}>
               {message.replyTo.senderName}
             </Text>
-            <Text
-              style={[
-                styles.replyQuoteText,
-                message.replyTo.isDeleted && styles.replyQuoteDeleted,
-              ]}
-              numberOfLines={1}
-            >
-              {message.replyTo.isDeleted
-                ? "This message was deleted"
-                : message.replyTo.content || "Media"}
-            </Text>
+            <ReplyPreviewLine chatId={message.chatId} replyTo={message.replyTo} />
+          </TouchableOpacity>
+        )}
+
+        {/* Encrypted attachment */}
+        {isEncryptedAttachment && (
+          <View style={{ marginBottom: hasText ? 4 : 0 }}>
+            <EncryptedAttachment
+              message={message}
+              isOwn={isOwn}
+              onImagePress={(uri) => setSelectedImage(uri)}
+            />
           </View>
         )}
 
@@ -377,7 +438,7 @@ export default function MessageBubble({
                 style={styles.menuRow}
                 onPress={() => {
                   setShowMenu(false);
-                  onEdit?.(message.id, message.content);
+                  onEdit?.(message.id, message.content ?? "");
                 }}
               >
                 <Edit2 size={18} color="#e9edef" />
@@ -592,6 +653,11 @@ const styles = StyleSheet.create({
     backgroundColor: THEIR_BG,
     borderTopLeftRadius: 0, // perfectly flat top-left corner where tail meets
   },
+  // Overrides bubbleOwn/bubbleTheirs's backgroundColor while a "jump to
+  // reply" target is briefly flashed (see ChatInput's onJumpToReply).
+  bubbleHighlighted: {
+    backgroundColor: "rgba(6,207,156,0.35)",
+  },
 
   // ── Message text
   msgText: {
@@ -650,15 +716,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "600",
     color: "#06cf9c",
-  },
-  replyQuoteText: {
-    fontSize: 12.5,
-    color: "rgba(233,237,239,0.75)",
-    marginTop: 1,
-  },
-  replyQuoteDeleted: {
-    color: "#8696a0",
-    fontStyle: "italic",
   },
 
   // ── Attachments

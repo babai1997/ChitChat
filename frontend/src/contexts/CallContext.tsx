@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { Instance } from 'simple-peer';
 import SimplePeer from 'simple-peer';
 import { socketManager } from '../shared/socket/SocketManager';
@@ -64,6 +64,17 @@ export interface OngoingCallInfo {
   participantCount: number;
 }
 
+/** A media stream acquired ahead of time (e.g. by a pre-join lobby preview) — passed in so startCall/joinOngoingCall skip their own getUserMedia call. */
+export interface PreAcquiredMedia {
+  stream: MediaStream;
+  /** Whether `stream` actually has a usable video track — independent of whether it should start enabled. */
+  gotVideo: boolean;
+  /** Whether the video track (if any) should start enabled. Defaults to `gotVideo`. Lets a lobby's camera-off toggle carry through without stripping the track — same as toggleVideo mid-call, re-enabling needs no new getUserMedia call. */
+  videoEnabled?: boolean;
+  /** Whether the mic toggle in the lobby was off at the moment of joining. */
+  startMuted?: boolean;
+}
+
 interface CallContextType {
   isCallActive: boolean;
   callStatus: 'idle' | 'calling' | 'incoming' | 'connected';
@@ -89,7 +100,7 @@ interface CallContextType {
   sharingUserId: string | null;
   /** Document Picture-in-Picture window for the share control bar. null if not supported or not open. */
   pipWindow: Window | null;
-  startCall: (chatId: string, type: 'audio' | 'video') => void;
+  startCall: (chatId: string, type: 'audio' | 'video', preAcquired?: PreAcquiredMedia) => void;
   answerCall: () => void;
   rejectCall: () => void;
   endCall: () => void;
@@ -97,9 +108,14 @@ interface CallContextType {
   toggleVideo: () => void;
   toggleMinimize: () => void;
   addToCall: (targetUserId: string) => void;
-  joinOngoingCall: (chatId: string, type: 'audio' | 'video') => Promise<void>;
+  joinOngoingCall: (chatId: string, type: 'audio' | 'video', preAcquired?: PreAcquiredMedia) => Promise<void>;
   startScreenShare: () => Promise<void>;
   stopScreenShare: () => void;
+  /** Set only when media acquisition fails outright (no mic at all) — drives a blocking in-app prompt. */
+  mediaError: string | null;
+  /** Re-attempts whatever call action last failed on media acquisition. */
+  retryMedia: () => void;
+  dismissMediaError: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -126,6 +142,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sharingUserId, setSharingUserId] = useState<string | null>(null);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const pipWindowRef = useRef<Window | null>(null);
+  /** Set only when media acquisition fails outright (no mic at all) — drives a blocking in-app prompt instead of a toast that vanishes with the call UI. */
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  /** What to re-run if the user hits "Try Again" in the media-error prompt. */
+  const pendingMediaRetryRef = useRef<(() => void) | null>(null);
 
   // ── Refs (stable across renders, safe in closures) ─────────────────────────
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -146,6 +166,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /** Auto-dismiss timer on the recipient side — safety net in case CALL_MISSED never arrives. */
   const incomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitiatorRef = useRef(false);
+  /**
+   * True only once CALL_START has actually been emitted to the server —
+   * distinct from callStatus/isInitiator, which are both set optimistically
+   * BEFORE getUserMedia resolves. Without this, a getUserMedia rejection
+   * (no camera, permission denied, device busy) still logged a "missed
+   * call" chat entry even though the other party was never rung at all.
+   */
+  const callSignaledRef = useRef(false);
   const callStartTimeRef = useRef<number | null>(null);
   const callStatusRef = useRef<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
   const callTypeRef = useRef<'audio' | 'video'>('audio');
@@ -177,9 +205,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       incomingTimeoutRef.current = null;
     }
 
-    // Send call history message — only the initiator writes the log to avoid duplicates
+    // Send call history message — only the initiator writes the log to avoid
+    // duplicates, and only if CALL_START actually reached the server
+    // (callSignaledRef) — otherwise the other party was never rung at all
+    // (e.g. getUserMedia rejected: no camera, permission denied, device
+    // busy), and logging "missed call" would be actively misleading.
     if (
       isInitiatorRef.current &&
+      callSignaledRef.current &&
       activeChatIdRef.current &&
       callStatusRef.current !== 'idle' &&
       callStatusRef.current !== 'incoming'
@@ -242,6 +275,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isCallActiveRef.current = false;
     activeChatIdRef.current = null;
     isInitiatorRef.current = false;
+    callSignaledRef.current = false;
     callStartTimeRef.current = null;
     wasRejectedRef.current = false;
     pendingRecipientCountRef.current = 0;
@@ -555,7 +589,32 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   };
 
-  const startCall = async (chatId: string, type: 'audio' | 'video') => {
+  /**
+   * The camera is best-effort, never required — if the mic is available but
+   * the camera isn't (denied, no device, already in use by another app), the
+   * call still starts audio-only instead of failing outright. Only a mic
+   * failure is fatal, since a call with no audio at all isn't useful. This
+   * matters most for meeting links (see MeetingJoinPage), which always
+   * request 'video' regardless of whether the joiner actually has/wants a
+   * working camera.
+   */
+  const acquireCallMedia = async (wantVideo: boolean): Promise<{ stream: MediaStream; gotVideo: boolean }> => {
+    if (!wantVideo) {
+      return { stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: false }), gotVideo: false };
+    }
+    try {
+      return { stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: true }), gotVideo: true };
+    } catch (err) {
+      console.warn('[Call] Camera unavailable, falling back to audio-only:', err);
+      return { stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: false }), gotVideo: false };
+    }
+  };
+
+  const startCall = async (
+    chatId: string,
+    type: 'audio' | 'video',
+    preAcquired?: PreAcquiredMedia,
+  ) => {
     try {
       refreshIceServers();
       activeChatIdRef.current = chatId;
@@ -571,31 +630,44 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Instantly bump chat to the top of the chat list
       useChatStore.getState().updateChat(chatId, { updatedAt: new Date().toISOString() });
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: type === 'video',
-        audio: true,
-      });
+      // A meeting lobby (see MeetingLobbyPage) already acquired + previewed
+      // media before the user hit "Join" — reuse that stream instead of
+      // triggering a second getUserMedia call (which would also mean a
+      // second permission prompt on some browsers).
+      const { stream, gotVideo } = preAcquired ?? (await acquireCallMedia(type === 'video'));
+      const effectiveType: 'audio' | 'video' = gotVideo ? type : 'audio';
+      if (effectiveType !== type) {
+        setCallType(effectiveType);
+        callTypeRef.current = effectiveType;
+        toast('Camera unavailable — continuing with audio only');
+      }
 
+      const videoEnabled = preAcquired?.videoEnabled ?? gotVideo;
+      stream.getVideoTracks().forEach((t) => { t.enabled = videoEnabled; });
       localStreamRef.current = stream;
       setLocalStream(stream);
-      setIsVideoEnabled(type === 'video');
-      setIsMuted(false);
+      setIsVideoEnabled(videoEnabled);
+      const startMuted = preAcquired?.startMuted ?? false;
+      setIsMuted(startMuted);
+      stream.getAudioTracks().forEach((t) => { t.enabled = !startMuted; });
 
       ringtoneManager.playCallingTone();
 
-      socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type });
+      socketManager.emit(SOCKET_EVENTS.CALL_START, { chatId, offer: null, type: effectiveType });
+      callSignaledRef.current = true;
 
       // ── Auto-cancel after 45 seconds if no one answers ──────────────────
       callTimeoutRef.current = setTimeout(() => {
         console.log('[Call] No answer after 45s — cancelling');
         ringtoneManager.stopCallingTone();
-        socketManager.emit(SOCKET_EVENTS.CALL_MISSED, { chatId, type });
+        socketManager.emit(SOCKET_EVENTS.CALL_MISSED, { chatId, type: effectiveType });
         cleanupCall();
         toast('No answer');
       }, 45_000);
     } catch (err: unknown) {
       console.error('[Call] Failed to start:', err);
-      toast.error(getMediaErrorMessage(err));
+      setMediaError(getMediaErrorMessage(err));
+      pendingMediaRetryRef.current = () => startCall(chatId, type);
       cleanupCall();
     }
   };
@@ -629,14 +701,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeChatIdRef.current = call.chatId;
       setActiveChatId(call.chatId);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: call.type === 'video',
-        audio: true,
-      });
+      const { stream, gotVideo } = await acquireCallMedia(call.type === 'video');
+      const effectiveType: 'audio' | 'video' = gotVideo ? call.type : 'audio';
+      if (effectiveType !== call.type) {
+        callTypeRef.current = effectiveType;
+        toast('Camera unavailable — continuing with audio only');
+      }
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-      setIsVideoEnabled(call.type === 'video');
+      setIsVideoEnabled(gotVideo);
       setIsMuted(false);
 
       // Announce join — caller will receive CALL_USER_JOINED and send the offer
@@ -645,9 +719,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingCall(null);
     } catch (err: unknown) {
       console.error('[Call] Failed to answer:', err);
-      toast.error(getMediaErrorMessage(err));
+      setMediaError(getMediaErrorMessage(err));
+      // incomingCall is cleared by cleanupCall() below, so retrying can't
+      // re-run answerCall() itself (it early-returns with nothing to answer)
+      // — joinOngoingCall does the exact same CALL_JOIN handshake, so it's
+      // the correct retry action here.
+      pendingMediaRetryRef.current = () => joinOngoingCall(call.chatId, call.type);
       cleanupCall();
     }
+  };
+
+  const retryMedia = () => {
+    const retry = pendingMediaRetryRef.current;
+    setMediaError(null);
+    pendingMediaRetryRef.current = null;
+    retry?.();
+  };
+
+  const dismissMediaError = () => {
+    setMediaError(null);
+    pendingMediaRetryRef.current = null;
   };
 
   const rejectCall = () => {
@@ -869,7 +960,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [stopScreenShare]);
 
-  const joinOngoingCall = async (chatId: string, type: 'audio' | 'video') => {
+  const joinOngoingCall = async (
+    chatId: string,
+    type: 'audio' | 'video',
+    preAcquired?: PreAcquiredMedia,
+  ) => {
     try {
       refreshIceServers();
       activeChatIdRef.current = chatId;
@@ -889,58 +984,168 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return next;
       });
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: type === 'video',
-        audio: true,
-      });
+      const { stream, gotVideo } = preAcquired ?? (await acquireCallMedia(type === 'video'));
+      const effectiveType: 'audio' | 'video' = gotVideo ? type : 'audio';
+      if (effectiveType !== type) {
+        setCallType(effectiveType);
+        callTypeRef.current = effectiveType;
+        toast('Camera unavailable — continuing with audio only');
+      }
+      const videoEnabled = preAcquired?.videoEnabled ?? gotVideo;
+      stream.getVideoTracks().forEach((t) => { t.enabled = videoEnabled; });
       localStreamRef.current = stream;
       setLocalStream(stream);
-      setIsVideoEnabled(type === 'video');
-      setIsMuted(false);
+      setIsVideoEnabled(videoEnabled);
+      const startMuted = preAcquired?.startMuted ?? false;
+      setIsMuted(startMuted);
+      stream.getAudioTracks().forEach((t) => { t.enabled = !startMuted; });
 
       socketManager.emit(SOCKET_EVENTS.CALL_JOIN, { chatId });
     } catch (err: unknown) {
       console.error('[Call] Failed to join ongoing call:', err);
-      toast.error(getMediaErrorMessage(err));
+      setMediaError(getMediaErrorMessage(err));
+      pendingMediaRetryRef.current = () => joinOngoingCall(chatId, type);
       cleanupCall();
     }
   };
 
+  // ── Stable action handles ─────────────────────────────────────────────────
+  //
+  // Several of these (toggleVideo, addToCall, ...) close over reactive state
+  // directly (isVideoEnabled, callStatus, callType), not just refs — so they
+  // can't simply be wrapped in useCallback(fn, []) without going stale.
+  // Instead, `actionsRef` is reassigned to the latest closures on every
+  // render, and the handles actually exposed through context are created
+  // ONCE (via useRef) and just forward to whatever's currently in the ref.
+  // That gives every function a permanently stable identity without having
+  // to touch any of their internals, which is what lets the useMemo below
+  // actually skip recomputing the context value on unrelated state changes.
+  const actionsRef = useRef({
+    startCall,
+    answerCall,
+    rejectCall,
+    endCall,
+    toggleMute,
+    toggleVideo,
+    toggleMinimize,
+    addToCall,
+    joinOngoingCall,
+    startScreenShare,
+    stopScreenShare,
+    retryMedia,
+    dismissMediaError,
+  });
+  actionsRef.current = {
+    startCall,
+    answerCall,
+    rejectCall,
+    endCall,
+    toggleMute,
+    toggleVideo,
+    toggleMinimize,
+    addToCall,
+    joinOngoingCall,
+    startScreenShare,
+    stopScreenShare,
+    retryMedia,
+    dismissMediaError,
+  };
+
+  const stableStartCall = useRef((chatId: string, type: 'audio' | 'video', preAcquired?: PreAcquiredMedia) => actionsRef.current.startCall(chatId, type, preAcquired)).current;
+  const stableAnswerCall = useRef(() => actionsRef.current.answerCall()).current;
+  const stableRejectCall = useRef(() => actionsRef.current.rejectCall()).current;
+  const stableEndCall = useRef(() => actionsRef.current.endCall()).current;
+  const stableToggleMute = useRef(() => actionsRef.current.toggleMute()).current;
+  const stableToggleVideo = useRef(() => actionsRef.current.toggleVideo()).current;
+  const stableToggleMinimize = useRef(() => actionsRef.current.toggleMinimize()).current;
+  const stableAddToCall = useRef((targetUserId: string) => actionsRef.current.addToCall(targetUserId)).current;
+  const stableJoinOngoingCall = useRef((chatId: string, type: 'audio' | 'video', preAcquired?: PreAcquiredMedia) => actionsRef.current.joinOngoingCall(chatId, type, preAcquired)).current;
+  const stableStartScreenShare = useRef(() => actionsRef.current.startScreenShare()).current;
+  const stableStopScreenShare = useRef(() => actionsRef.current.stopScreenShare()).current;
+  const stableRetryMedia = useRef(() => actionsRef.current.retryMedia()).current;
+  const stableDismissMediaError = useRef(() => actionsRef.current.dismissMediaError()).current;
+
   // ── Render ─────────────────────────────────────────────────────────────────
+  //
+  // Memoized so consumers (notably ChatView, which wraps the entire chat
+  // screen) only re-render when a field they actually READ changes — without
+  // this, a fresh object literal here on every render meant ANY call-state
+  // change (even ones unrelated to what a given consumer cares about)
+  // cascaded a full re-render of every context consumer, twice in quick
+  // succession for a single startCall() (once synchronously on click, once
+  // again when the awaited getUserMedia resolves) — the actual cause of the
+  // full-screen flicker when pressing the video-call button.
+  const contextValue = useMemo(
+    () => ({
+      isCallActive,
+      callStatus,
+      callType,
+      incomingCall,
+      localStream,
+      remoteStreams,
+      remoteVideoStates,
+      remoteMuteStates,
+      activeChatId,
+      isMinimized,
+      isMuted,
+      isVideoEnabled,
+      ongoingCallsByChatId,
+      isScreenSharing,
+      screenStream,
+      sharingUserId,
+      pipWindow,
+      startCall: stableStartCall,
+      answerCall: stableAnswerCall,
+      rejectCall: stableRejectCall,
+      endCall: stableEndCall,
+      toggleMute: stableToggleMute,
+      toggleVideo: stableToggleVideo,
+      toggleMinimize: stableToggleMinimize,
+      addToCall: stableAddToCall,
+      joinOngoingCall: stableJoinOngoingCall,
+      startScreenShare: stableStartScreenShare,
+      stopScreenShare: stableStopScreenShare,
+      mediaError,
+      retryMedia: stableRetryMedia,
+      dismissMediaError: stableDismissMediaError,
+    }),
+    [
+      isCallActive,
+      callStatus,
+      callType,
+      incomingCall,
+      localStream,
+      remoteStreams,
+      remoteVideoStates,
+      remoteMuteStates,
+      activeChatId,
+      isMinimized,
+      isMuted,
+      isVideoEnabled,
+      ongoingCallsByChatId,
+      isScreenSharing,
+      screenStream,
+      sharingUserId,
+      pipWindow,
+      stableStartCall,
+      stableAnswerCall,
+      stableRejectCall,
+      stableEndCall,
+      stableToggleMute,
+      stableToggleVideo,
+      stableToggleMinimize,
+      stableAddToCall,
+      stableJoinOngoingCall,
+      stableStartScreenShare,
+      stableStopScreenShare,
+      mediaError,
+      stableRetryMedia,
+      stableDismissMediaError,
+    ],
+  );
 
   return (
-    <CallContext.Provider
-      value={{
-        isCallActive,
-        callStatus,
-        callType,
-        incomingCall,
-        localStream,
-        remoteStreams,
-        remoteVideoStates,
-        remoteMuteStates,
-        activeChatId,
-        isMinimized,
-        isMuted,
-        isVideoEnabled,
-        ongoingCallsByChatId,
-        isScreenSharing,
-        screenStream,
-        sharingUserId,
-        pipWindow,
-        startCall,
-        answerCall,
-        rejectCall,
-        endCall,
-        toggleMute,
-        toggleVideo,
-        toggleMinimize,
-        addToCall,
-        joinOngoingCall,
-        startScreenShare,
-        stopScreenShare,
-      }}
-    >
+    <CallContext.Provider value={contextValue}>
       {children}
     </CallContext.Provider>
   );
@@ -956,21 +1161,24 @@ export const useCall = () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Camera failures never reach here — acquireCallMedia() falls back to
+// audio-only for those. Only a microphone failure lands here, so every
+// message below talks about the mic specifically, not "camera/microphone".
 function getMediaErrorMessage(err: unknown): string {
-  if (!(err instanceof Error)) return 'Could not access camera/microphone';
+  if (!(err instanceof Error)) return 'Could not access your microphone.';
   switch (err.name) {
     case 'NotAllowedError':
     case 'PermissionDeniedError':
-      return 'Camera/microphone permission denied. Allow access in browser settings.';
+      return "ChitChat needs microphone access to start a call. Please allow it and try again.";
     case 'NotFoundError':
     case 'DevicesNotFoundError':
-      return 'No camera or microphone found.';
+      return 'No microphone found on this device.';
     case 'NotReadableError':
     case 'TrackStartError':
-      return 'Camera/microphone is already in use by another app.';
+      return 'Your microphone is already in use by another app.';
     case 'OverconstrainedError':
-      return 'Camera/microphone settings are not supported.';
+      return "Your microphone's settings aren't supported.";
     default:
-      return `Could not access media: ${err.message}`;
+      return `Could not access your microphone: ${err.message}`;
   }
 }

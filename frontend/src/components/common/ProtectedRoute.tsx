@@ -40,6 +40,18 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     // where `isAuthenticated` may still be true but `user` is already null —
     // without it, the profile-completeness check below fires and redirects to
     // /setup-profile instead of /login.
+    //
+    // ALSO stash it in sessionStorage: Google's OAuth sign-in can involve a
+    // full-page redirect/reload on some browsers, which wipes React Router's
+    // in-memory `location.state` — sessionStorage survives that reload, so
+    // LoginPage/VerifyOtpPage/SetupProfilePage fall back to it when state.from
+    // is gone. Session-scoped (not localStorage) so it can't outlive the tab
+    // and redirect a later, unrelated login.
+    try {
+      sessionStorage.setItem('chitchat_post_login_redirect', location.pathname + location.search);
+    } catch {
+      // Private-browsing/storage-disabled — state.from is still the primary path.
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

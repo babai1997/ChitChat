@@ -15,7 +15,7 @@ class SocketManager {
   // Persists handlers across reconnects so they survive disconnect/reconnect cycles
   private readonly handlers = new Map<string, Set<Handler>>();
 
-  connect(url: string, token: string) {
+  connect(url: string, token: string, deviceId?: string) {
     if (this.socket?.connected) {
       console.log("[SocketManager] Already connected, skipping");
       return;
@@ -31,7 +31,7 @@ class SocketManager {
     console.log("[SocketManager] Connecting to:", namespaceUrl);
 
     this.socket = io(namespaceUrl, {
-      auth: { token },
+      auth: { token, deviceId },
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,

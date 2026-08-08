@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useChatStore } from "../../src/stores/chatStore";
 import { chatApi } from "../../src/api";
+import { decryptMessagesInPlace, isE2eePlaceholder } from "../../src/services/e2eeSessions";
 import {
   User,
   Check,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react-native";
 import type { Chat } from "../../src/types";
 import { ChatListSkeleton } from "../../components/common/SkeletonLoader";
+import UnapprovedDeviceBanner from "../../components/common/UnapprovedDeviceBanner";
 import { useCall } from "../../src/contexts/CallContext";
 
 export default function ChatsScreen() {
@@ -45,6 +47,21 @@ export default function ChatsScreen() {
     if (!silent) setIsLoading(true);
     try {
       const data = await chatApi.getChats();
+      // decryptMessagesInPlace checks the persistent plaintext cache first,
+      // so this is a no-op for messages already resolved (including your
+      // own, seeded at send time) — see e2eeSessions.ts. LastMessage carries
+      // no chatId of its own, and this batch spans every chat (mixed
+      // direct/group) in one pass — tag each IN PLACE (not a copy) with its
+      // chatId, since setChats(data) below needs the SAME object that just
+      // got decrypted, not an untouched clone.
+      const groupChatIds = new Set(data.filter((c) => c.type === 'group' || c.type === 'meeting').map((c) => c.id));
+      const lastMessages = data
+        .filter((c) => !!c.lastMessage)
+        .map((c) => {
+          (c.lastMessage as unknown as { chatId: string }).chatId = c.id;
+          return c.lastMessage!;
+        });
+      await decryptMessagesInPlace(lastMessages, (chatId) => groupChatIds.has(chatId));
       setChats(data);
     } catch (error) {
       console.error("Failed to load chats:", error);
@@ -134,7 +151,7 @@ export default function ChatsScreen() {
     .filter((chat) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-      if (chat.type === "group") {
+      if (chat.type === "group" || chat.type === "meeting") {
         return chat.name?.toLowerCase().includes(q);
       }
       const otherMember = chat.members.find((m) => m.userId !== user?.id);
@@ -153,7 +170,7 @@ export default function ChatsScreen() {
       if (otherMember) isOnline = onlineUsers.has(otherMember.userId);
     }
     const avatar = getChatAvatar(chat);
-    const ongoing = chat.type === "group" && callStatus === "idle"
+    const ongoing = (chat.type === "group" || chat.type === "meeting") && callStatus === "idle"
       ? ongoingCallsByChatId.get(chat.id)
       : undefined;
 
@@ -224,7 +241,7 @@ export default function ChatsScreen() {
                   )}
                   <Text style={styles.lastMessageText} numberOfLines={1}>
                     {chat.lastMessage.senderId !== user?.id &&
-                    chat.type === "group" &&
+                    (chat.type === "group" || chat.type === "meeting") &&
                     chat.lastMessage.senderName
                       ? `${chat.lastMessage.senderName}: `
                       : ""}
@@ -264,7 +281,9 @@ export default function ChatsScreen() {
                         ? `🎤 Voice message`
                       : chat.lastMessage.type === "file"
                         ? `📎 ${chat.lastMessage.content || "Document"}`
-                        : chat.lastMessage.content || ""}
+                        : isE2eePlaceholder(chat.lastMessage.content)
+                          ? "🔒 Encrypted message"
+                          : chat.lastMessage.content || ""}
                   </Text>
                 </>
               ) : (
@@ -340,6 +359,8 @@ export default function ChatsScreen() {
             />
           </View>
         </View>
+
+        <UnapprovedDeviceBanner />
 
         {/* Chat List */}
         {isLoading ? (

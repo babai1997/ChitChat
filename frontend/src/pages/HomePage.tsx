@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  MessageCircle, 
-  Search, 
-  MoreVertical, 
+import {
+  MessageCircle,
+  Search,
+  MoreVertical,
   MessageSquarePlus,
   CircleDashed,
   Users,
@@ -11,20 +11,23 @@ import {
   Camera,
   ArrowLeft,
   Settings,
-  LogOut
+  LogOut,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { chatApi } from '../api';
+import { decryptMessagesInPlace } from '../services/e2eeSessions';
 import { useAuthStore, useChatStore } from '../stores';
 import { useSocket } from '../hooks';
 import { ChatList } from '../components/chat/ChatList';
 import { CallList } from '../components/call/CallList';
+import { MeetingsPanel } from '../components/call/MeetingsPanel';
 import { CallInfoView } from '../components/call/CallInfoView';
 import { ChatView } from '../components/chat/ChatView';
 import { NewChatModal } from '../components/chat/NewChatModal';
 import { SettingsSidebar } from '../components/chat/SettingsSidebar';
 import { EmptyState } from '../components/common/EmptyState';
 import { Sidebar } from '../components/common/Sidebar';
+import { UnapprovedDeviceBanner } from '../components/common/UnapprovedDeviceBanner';
 import type { Chat } from '../types';
 import { ChatListSkeleton } from '../components/chat/ChatListSkeleton';
 
@@ -134,7 +137,34 @@ export const HomePage = () => {
   // Merge carefully: if the user already cleared a badge locally (unreadCount=0),
   // don't let a racing server refetch resurrect it before lastReadAt has committed.
   useEffect(() => {
-    if (chatsData) {
+    if (!chatsData) return;
+    let cancelled = false;
+
+    (async () => {
+      // This query refetches on every window focus — including every time
+      // you alt-tab between two test sessions — so an encrypted chat's
+      // lastMessage.cipher has to be decrypted every time it comes back,
+      // not just on first load. decryptMessagesInPlace checks the
+      // persistent plaintext cache first, so this is a no-op for messages
+      // already resolved (including the sender's own, seeded at send time).
+      // LastMessage carries no chatId of its own, and this batch spans every
+      // chat (mixed direct/group) in one pass — tag each IN PLACE (not a
+      // copy) with its chatId, since decryptMessagesInPlace's whole
+      // contract is mutating the same object that `merged`/setChats below
+      // ends up using; a spread copy here would decrypt a throwaway clone
+      // and leave chatsData's actual lastMessage undecrypted.
+      const groupChatIds = new Set(
+        chatsData.filter((c) => c.type === 'group' || c.type === 'meeting').map((c) => c.id),
+      );
+      const lastMessages = chatsData
+        .filter((c) => !!c.lastMessage)
+        .map((c) => {
+          (c.lastMessage as unknown as { chatId: string }).chatId = c.id;
+          return c.lastMessage!;
+        });
+      await decryptMessagesInPlace(lastMessages, (chatId) => groupChatIds.has(chatId));
+      if (cancelled) return;
+
       const currentChats = useChatStore.getState().chats;
       const merged = chatsData.map((serverChat) => {
         const local = currentChats.find((c) => c.id === serverChat.id);
@@ -144,7 +174,11 @@ export const HomePage = () => {
         };
       });
       setChats(merged);
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [chatsData, setChats]);
 
   const handleChatSelect = (chat: Chat) => {
@@ -449,6 +483,8 @@ export const HomePage = () => {
               </button>
             )}
 
+            <UnapprovedDeviceBanner />
+
             {/* Chat List — paddingBottom on mobile so BottomNav doesn't cover last item */}
             <div style={{ flex: 1, overflowY: 'auto', paddingBottom: isMobile ? '60px' : 0 }}>
               {isLoading ? (
@@ -498,17 +534,18 @@ export const HomePage = () => {
         {!settingsOpen && activeTab === 'calls' && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
              {/* Header */}
-             <div style={{ 
-               padding: '10px 16px', 
-               backgroundColor: '#111b21', 
-               display: 'flex', 
-               alignItems: 'center', 
-               justifyContent: 'space-between', 
-               height: '60px' 
+             <div style={{
+               padding: '10px 16px',
+               backgroundColor: '#111b21',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'space-between',
+               height: '60px'
              }}>
                <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#e9edef' }}>Calls</h1>
              </div>
              <div style={{ flex: 1, overflowY: 'auto', paddingBottom: isMobile ? '60px' : 0 }}>
+               <MeetingsPanel />
                <CallList onChatSelect={handleCallChatSelect} />
              </div>
              {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}

@@ -1,5 +1,7 @@
 node_modules
-# Keep environment variables out of version control
-.env
+# Keep environment variables out of version control — .env* covers
+# .env.production too (added for the prod DB), not just the bare .env.
+.env*
+!.env.example
 
 /generated/prisma

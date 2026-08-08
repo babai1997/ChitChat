@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   X,
   User,
@@ -8,10 +8,24 @@ import {
   Trash2,
   Loader2,
   Camera,
+  ShieldCheck,
+  ShieldOff,
+  Video,
+  Check,
+  Copy,
+  Image as ImageIcon,
+  ChevronRight,
 } from "lucide-react";
-import { chatApi } from "../../api";
+import toast from "react-hot-toast";
+import { chatApi, meetingsApi, type ChatMeetingLink } from "../../api";
 import { useChatStore } from "../../stores";
+import { ImageCropModal } from "../common/ImageCropModal";
 import type { Chat, ChatMember } from "../../types";
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  return typeof message === "string" ? message : fallback;
+}
 
 interface GroupInfoModalProps {
   isOpen: boolean;
@@ -19,6 +33,7 @@ interface GroupInfoModalProps {
   chat: Chat;
   currentUserId: string;
   onAddMember: () => void;
+  onOpenGallery?: () => void;
 }
 
 export const GroupInfoModal = ({
@@ -27,11 +42,57 @@ export const GroupInfoModal = ({
   chat,
   currentUserId,
   onAddMember,
+  onOpenGallery,
 }: GroupInfoModalProps) => {
   const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isChangingRole, setIsChangingRole] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const isMeeting = chat.type === "meeting";
+  const [meetingLink, setMeetingLink] = useState<ChatMeetingLink | null>(null);
+  const [isLoadingMeetingLink, setIsLoadingMeetingLink] = useState(isMeeting);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [isRevokingLink, setIsRevokingLink] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !isMeeting) return;
+    setIsLoadingMeetingLink(true);
+    meetingsApi
+      .getByChatId(chat.id)
+      .then(setMeetingLink)
+      .catch((err) => console.error("Failed to load meeting link:", err))
+      .finally(() => setIsLoadingMeetingLink(false));
+  }, [isOpen, isMeeting, chat.id]);
+
+  const handleCopyMeetingLink = async () => {
+    if (!meetingLink) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/meet/${meetingLink.slug}`);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy meeting link:", err);
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleRevokeMeetingLink = async () => {
+    if (!meetingLink || !window.confirm("Revoke this meeting link? It will stop working immediately.")) return;
+    setIsRevokingLink(true);
+    try {
+      await meetingsApi.revoke(meetingLink.slug);
+      setMeetingLink({ ...meetingLink, revoked: true });
+      toast.success("Meeting link revoked");
+    } catch (err) {
+      console.error("Failed to revoke meeting link:", err);
+      toast.error("Failed to revoke meeting link");
+    } finally {
+      setIsRevokingLink(false);
+    }
+  };
 
   const isCurrentUserAdmin =
     chat.members.find((m) => m.userId === currentUserId)?.role === "admin";
@@ -46,9 +107,24 @@ export const GroupInfoModal = ({
     return nameA.localeCompare(nameB);
   });
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File picked from the OS dialog — open the crop step rather than
+  // uploading it as-is (mobile already gets this via expo-image-picker's
+  // native `allowsEditing` crop screen; web never had an equivalent step).
+  const handleAvatarFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || isUploading) return;
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+
+  const handleCroppedAvatarUpload = async (file: File) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
     setIsUploading(true);
     try {
       const { url } = await chatApi.uploadAttachment(chat.id, file);
@@ -56,8 +132,10 @@ export const GroupInfoModal = ({
       const { chats, setChats, activeChat, setActiveChat } = useChatStore.getState();
       setChats(chats.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
       if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
+      toast.success("Group photo updated");
     } catch (error) {
       console.error("Failed to upload group avatar:", error);
+      toast.error(extractErrorMessage(error, "Failed to update group photo"));
     } finally {
       setIsUploading(false);
       if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -75,10 +153,34 @@ export const GroupInfoModal = ({
       setChats(chats.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
       if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
       setSelectedMember(null);
+      toast.success("Member removed");
     } catch (error) {
       console.error("Failed to remove member:", error);
+      toast.error(extractErrorMessage(error, "Failed to remove member"));
     } finally {
       setIsRemoving(false);
+    }
+  };
+
+  const handleRoleChange = async (newRole: "admin" | "member") => {
+    if (!selectedMember || isChangingRole) return;
+    setIsChangingRole(true);
+    try {
+      await chatApi.updateMemberRole(chat.id, selectedMember.userId, newRole);
+      const updatedChat = await chatApi.getChat(chat.id);
+      const { chats, setChats, activeChat, setActiveChat } = useChatStore.getState();
+      setChats(chats.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
+      if (activeChat?.id === updatedChat.id) setActiveChat(updatedChat);
+      // Keep the currently-open member detail view in sync too — it's a
+      // local snapshot, not derived from the store, so the "Group Admin"
+      // badge/button label wouldn't otherwise update until this view reopens.
+      setSelectedMember((prev) => (prev ? { ...prev, role: newRole } : prev));
+      toast.success(newRole === "admin" ? "Promoted to group admin" : "Removed as group admin");
+    } catch (error) {
+      console.error("Failed to update member role:", error);
+      toast.error(extractErrorMessage(error, "Failed to update member role"));
+    } finally {
+      setIsChangingRole(false);
     }
   };
 
@@ -170,6 +272,33 @@ export const GroupInfoModal = ({
               </p>
             </div>
 
+            {/* Promote/demote admin — admin only, can't change own role
+                (self-demotion when you're the only admin is also blocked
+                server-side, but the button stays visible either way; the
+                error toast explains it if that specific case is hit). */}
+            {isCurrentUserAdmin && selectedMember.userId !== currentUserId && (
+              <div style={{ padding: "8px 8px 0" }}>
+                <button
+                  onClick={() => void handleRoleChange(selectedMember.role === "admin" ? "member" : "admin")}
+                  disabled={isChangingRole}
+                  style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", padding: "14px 16px", backgroundColor: "transparent", border: "none", borderRadius: "8px", cursor: isChangingRole ? "not-allowed" : "pointer", color: "#e9edef" }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a3942")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  {isChangingRole ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : selectedMember.role === "admin" ? (
+                    <ShieldOff size={18} />
+                  ) : (
+                    <ShieldCheck size={18} />
+                  )}
+                  <span style={{ fontSize: "15px", fontWeight: 500 }}>
+                    {selectedMember.role === "admin" ? "Dismiss as admin" : "Make group admin"}
+                  </span>
+                </button>
+              </div>
+            )}
+
             {/* Remove from group — admin only, can't remove self */}
             {isCurrentUserAdmin && selectedMember.userId !== currentUserId && (
               <div style={{ padding: "8px" }}>
@@ -193,6 +322,7 @@ export const GroupInfoModal = ({
 
   // ── Group info main view ───────────────────────────────────────────────────
   return (
+    <>
     <div style={overlayStyle} onClick={onClose}>
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
@@ -200,29 +330,36 @@ export const GroupInfoModal = ({
             <X size={24} />
           </button>
           <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#e9edef", margin: 0 }}>
-            Group Info
+            {isMeeting ? "Meeting Info" : "Group Info"}
           </h2>
         </div>
 
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
           {/* Avatar + name */}
           <div style={{ padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "10px solid #111b21" }}>
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleAvatarUpload}
-            />
-            {/* Avatar with dedicated camera button for group admins */}
+            {!isMeeting && (
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleAvatarFileSelected}
+              />
+            )}
+            {/* Avatar with dedicated camera button for group admins — a
+                meeting's identity is its link, not a photo, so no upload
+                affordance for it. */}
             <div style={{ position: "relative", width: "120px", height: "120px", marginBottom: "16px" }}>
               <div style={{ width: "120px", height: "120px", borderRadius: "50%", backgroundColor: "#2a3942", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {chat.avatarUrl ? (
                   <img src={chat.avatarUrl} alt={chat.name || "Group"} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : isMeeting ? (
+                  <Video size={60} color="#8696a0" />
                 ) : (
                   <Users size={60} color="#8696a0" />
                 )}
               </div>
+              {!isMeeting && isCurrentUserAdmin && (
               <button
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={isUploading}
@@ -242,21 +379,83 @@ export const GroupInfoModal = ({
                     : <Camera size={16} color="white" />
                   }
                 </button>
+              )}
             </div>
 
             <h3 style={{ fontSize: "22px", fontWeight: 600, color: "#e9edef", marginBottom: "4px", textAlign: "center" }}>
-              {chat.name || "Group Chat"}
+              {chat.name || (isMeeting ? "Meeting" : "Group Chat")}
             </h3>
             <p style={{ fontSize: "14px", color: "#8696a0" }}>
-              Group · {chat.members.length} participants
+              {isMeeting ? "Meeting" : "Group"} · {chat.members.length} participants
             </p>
           </div>
 
-          {/* Description */}
-          <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
-            <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "4px" }}>Description</p>
-            <p style={{ fontSize: "15px", color: "#e9edef" }}>Welcome to the group!</p>
-          </div>
+          {isMeeting ? (
+            /* Meeting link — the actual reason anyone opens this panel for a meeting chat */
+            <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
+              <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "8px" }}>Meeting link</p>
+              {isLoadingMeetingLink ? (
+                <p style={{ fontSize: "14px", color: "#8696a0" }}>Loading…</p>
+              ) : meetingLink?.revoked ? (
+                <p style={{ fontSize: "14px", color: "#8696a0" }}>This meeting link has been revoked.</p>
+              ) : meetingLink ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#2a3942", borderRadius: "8px", padding: "10px 12px" }}>
+                    <span style={{ flex: 1, fontSize: "13px", color: "#e9edef", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {window.location.origin}/meet/{meetingLink.slug}
+                    </span>
+                    <button
+                      onClick={handleCopyMeetingLink}
+                      title="Copy link"
+                      style={{ background: "none", border: "none", color: linkCopied ? "#00a884" : "#8696a0", cursor: "pointer", padding: "4px" }}
+                    >
+                      {linkCopied ? <Check size={18} /> : <Copy size={18} />}
+                    </button>
+                  </div>
+                  {meetingLink.isHost && (
+                    <button
+                      onClick={handleRevokeMeetingLink}
+                      disabled={isRevokingLink}
+                      style={{ display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "10px 0 0", fontSize: "13px" }}
+                    >
+                      {isRevokingLink ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      Revoke link
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p style={{ fontSize: "14px", color: "#8696a0" }}>No link found for this meeting.</p>
+              )}
+            </div>
+          ) : (
+            /* Description */
+            <div style={{ padding: "16px", borderBottom: "10px solid #111b21" }}>
+              <p style={{ fontSize: "14px", color: "#25d366", marginBottom: "4px" }}>Description</p>
+              <p style={{ fontSize: "15px", color: "#e9edef" }}>Welcome to the group!</p>
+            </div>
+          )}
+
+          {onOpenGallery && (
+            <button
+              onClick={onOpenGallery}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "14px 16px",
+                backgroundColor: "transparent",
+                border: "none",
+                borderBottom: "10px solid #111b21",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <ImageIcon size={18} color="#8696a0" />
+              <span style={{ flex: 1, fontSize: "14px", color: "#e9edef" }}>Media, links and docs</span>
+              <ChevronRight size={16} color="#8696a0" />
+            </button>
+          )}
 
           {/* Participants */}
           <div style={{ padding: "16px" }}>
@@ -321,5 +520,15 @@ export const GroupInfoModal = ({
         </div>
       </div>
     </div>
+    {cropSrc && (
+      <ImageCropModal
+        imageSrc={cropSrc}
+        cropShape="round"
+        fileName="group-photo.jpg"
+        onCropped={handleCroppedAvatarUpload}
+        onClose={handleCropCancel}
+      />
+    )}
+    </>
   );
 };
