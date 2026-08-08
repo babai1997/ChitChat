@@ -72,22 +72,22 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', color: '#e9edef' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg)', color: 'var(--color-text-primary)' }}>
       {/* Header */}
       <div style={{ 
         padding: '10px 16px', 
-        backgroundColor: '#202c33', 
+        backgroundColor: 'var(--color-surface)', 
         display: 'flex', 
         alignItems: 'end', 
         gap: '20px', 
         height: '108px', 
-        borderBottom: '1px solid #2a3942',
+        borderBottom: '1px solid var(--color-border)',
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingBottom: '4px' }}>
             <button 
                 onClick={onBack}
-                style={{ background: 'none', border: 'none', color: '#e9edef', cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', cursor: 'pointer', padding: 0 }}
             >
                 <ArrowLeft size={24} />
             </button>
@@ -103,7 +103,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                     width: '100%', 
                     height: '100%', 
                     borderRadius: '50%', 
-                    backgroundColor: '#202c33', 
+                    backgroundColor: 'var(--color-surface)', 
                     overflow: 'hidden',
                     display: 'flex',
                     alignItems: 'center',
@@ -113,7 +113,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                     {user?.profile?.avatarUrl ? (
                         <img src={user.profile.avatarUrl} alt="Profile" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <User size={100} color="#6a7f8a" />
+                        <User size={100} color="var(--color-text-tertiary)" />
                     )}
                      
                     {/* Overlay for upload - simplified version of AvatarUpload for this context */}
@@ -129,7 +129,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                             opacity: 0,
                             cursor: 'pointer',
                             transition: 'opacity 0.2s',
-                            color: '#e9edef'
+                            color: 'var(--color-text-primary)'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
@@ -153,7 +153,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
 
         {/* Name Section */}
         <div style={{ padding: '14px 30px', marginBottom: '10px' }}>
-            <div style={{ fontSize: '14px', color: '#00a884', marginBottom: '14px' }}>Your name</div>
+            <div style={{ fontSize: '14px', color: 'var(--color-accent)', marginBottom: '14px' }}>Your name</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 {isEditingName ? (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -165,29 +165,29 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                             style={{ 
                                 background: 'none', 
                                 border: 'none', 
-                                borderBottom: '2px solid #00a884', 
-                                color: '#e9edef', 
+                                borderBottom: '2px solid var(--color-accent)', 
+                                color: 'var(--color-text-primary)', 
                                 fontSize: '17px', 
                                 width: '100%',
                                 padding: '4px 0',
                                 outline: 'none'
                             }}
                         />
-                        <div style={{ display: 'flex', gap: '8px', color: '#8696a0' }}>
-                             <button onClick={handleNameSave} disabled={isLoading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8696a0' }}><Check size={20} /></button>
+                        <div style={{ display: 'flex', gap: '8px', color: 'var(--color-text-secondary)' }}>
+                             <button onClick={handleNameSave} disabled={isLoading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}><Check size={20} /></button>
                         </div>
                     </div>
                 ) : (
                     <>
-                        <div style={{ fontSize: '17px', color: '#e9edef', flex: 1 }}>{user?.profile?.displayName}</div>
-                        <button onClick={() => setIsEditingName(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8696a0' }}>
+                        <div style={{ fontSize: '17px', color: 'var(--color-text-primary)', flex: 1 }}>{user?.profile?.displayName}</div>
+                        <button onClick={() => setIsEditingName(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
                             <Edit2 size={20} />
                         </button>
                     </>
                 )}
             </div>
             {!isEditingName && (
-                <div style={{ fontSize: '14px', color: '#8696a0', lineHeight: '20px' }}>
+                <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: '20px' }}>
                     This is not your username or pin. This name will be visible to your ChitChat contacts.
                 </div>
             )}
@@ -195,7 +195,7 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
 
         {/* About Section */}
         <div style={{ padding: '14px 30px' }}>
-            <div style={{ fontSize: '14px', color: '#00a884', marginBottom: '14px' }}>About</div>
+            <div style={{ fontSize: '14px', color: 'var(--color-accent)', marginBottom: '14px' }}>About</div>
              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 {isEditingAbout ? (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -206,22 +206,22 @@ export const ProfileSidebar = ({ onBack }: ProfileSidebarProps) => {
                             style={{ 
                                 background: 'none', 
                                 border: 'none', 
-                                borderBottom: '2px solid #00a884', 
-                                color: '#e9edef', 
+                                borderBottom: '2px solid var(--color-accent)', 
+                                color: 'var(--color-text-primary)', 
                                 fontSize: '17px', 
                                 width: '100%',
                                 padding: '4px 0',
                                 outline: 'none'
                             }}
                         />
-                        <div style={{ display: 'flex', gap: '8px', color: '#8696a0' }}>
-                             <button onClick={handleAboutSave} disabled={isLoading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8696a0' }}><Check size={20} /></button>
+                        <div style={{ display: 'flex', gap: '8px', color: 'var(--color-text-secondary)' }}>
+                             <button onClick={handleAboutSave} disabled={isLoading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}><Check size={20} /></button>
                         </div>
                     </div>
                 ) : (
                     <>
-                        <div style={{ fontSize: '17px', color: '#e9edef', flex: 1 }}>{user?.profile?.about || 'Hey there! I am using ChitChat'}</div>
-                        <button onClick={() => setIsEditingAbout(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8696a0' }}>
+                        <div style={{ fontSize: '17px', color: 'var(--color-text-primary)', flex: 1 }}>{user?.profile?.about || 'Hey there! I am using ChitChat'}</div>
+                        <button onClick={() => setIsEditingAbout(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
                             <Edit2 size={20} />
                         </button>
                     </>

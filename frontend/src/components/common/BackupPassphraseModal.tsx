@@ -59,12 +59,12 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: '#202c33',
+          backgroundColor: 'var(--color-surface)',
           borderRadius: '12px',
           padding: '24px',
           maxWidth: '360px',
           width: '90%',
-          color: '#e9edef',
+          color: 'var(--color-text-primary)',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
@@ -79,10 +79,10 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
             display: 'flex',
             gap: '8px',
             padding: '10px 12px',
-            backgroundColor: '#2a1f1f',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
             borderRadius: '8px',
             fontSize: '12.5px',
-            color: '#d9a5a5',
+            color: 'var(--color-danger)',
           }}
         >
           <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
@@ -101,11 +101,11 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
           placeholder={`Passphrase (min ${MIN_PASSPHRASE_LENGTH} characters)`}
           disabled={isBusy}
           style={{
-            backgroundColor: '#2a3942',
+            backgroundColor: 'var(--color-border)',
             border: 'none',
             borderRadius: '8px',
             padding: '10px 12px',
-            color: '#e9edef',
+            color: 'var(--color-text-primary)',
             fontSize: '15px',
             outline: 'none',
           }}
@@ -119,18 +119,18 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
             placeholder="Confirm passphrase"
             disabled={isBusy}
             style={{
-              backgroundColor: '#2a3942',
+              backgroundColor: 'var(--color-border)',
               border: 'none',
               borderRadius: '8px',
               padding: '10px 12px',
-              color: '#e9edef',
+              color: 'var(--color-text-primary)',
               fontSize: '15px',
               outline: 'none',
             }}
           />
         )}
 
-        {error && <p style={{ color: '#ff5252', fontSize: '13px', margin: 0 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--color-danger)', fontSize: '13px', margin: 0 }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
           <button
@@ -139,8 +139,8 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
             style={{
               flex: 1,
               background: 'none',
-              border: '1px solid #8696a0',
-              color: '#e9edef',
+              border: '1px solid var(--color-text-secondary)',
+              color: 'var(--color-text-primary)',
               borderRadius: '8px',
               padding: '10px',
               cursor: isBusy ? 'default' : 'pointer',
@@ -157,9 +157,9 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              background: '#00a884',
+              background: 'var(--color-accent)',
               border: 'none',
-              color: '#0b141a',
+              color: 'var(--color-bg-deepest)',
               borderRadius: '8px',
               padding: '10px',
               cursor: isBusy || !canSubmit ? 'default' : 'pointer',
@@ -172,7 +172,7 @@ export const BackupPassphraseModal = ({ mode, onSubmit, onClose }: BackupPassphr
           </button>
         </div>
         {isBusy && (
-          <p style={{ fontSize: '12.5px', color: '#8696a0', margin: 0, textAlign: 'center' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', margin: 0, textAlign: 'center' }}>
             Deriving encryption key — this can take a second…
           </p>
         )}

@@ -30,16 +30,16 @@ export const UnapprovedDeviceBanner = () => {
           alignItems: 'center',
           gap: '10px',
           padding: '12px 16px',
-          backgroundColor: '#1f2c34',
-          borderBottom: '1px solid #202c33',
+          backgroundColor: 'var(--color-surface-elevated)',
+          borderBottom: '1px solid var(--color-surface)',
         }}
       >
-        <Lock size={18} color="#00a884" style={{ flexShrink: 0 }} />
+        <Lock size={18} color="var(--color-accent)" style={{ flexShrink: 0 }} />
         <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate('/settings/linked-devices')}>
-          <div style={{ fontSize: '14px', color: '#e9edef', fontWeight: 500 }}>
+          <div style={{ fontSize: '14px', color: 'var(--color-text-primary)', fontWeight: 500 }}>
             This device needs approval
           </div>
-          <div style={{ fontSize: '12.5px', color: '#8696a0' }}>
+          <div style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>
             Open Linked Devices on another device you're logged into and approve this one to load
             your chat history — tap to check status
           </div>
@@ -51,7 +51,7 @@ export const UnapprovedDeviceBanner = () => {
             style={{
               background: 'none',
               border: 'none',
-              color: '#00a884',
+              color: 'var(--color-accent)',
               fontSize: '12.5px',
               fontWeight: 500,
               padding: 0,

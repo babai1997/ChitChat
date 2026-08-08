@@ -7,5 +7,9 @@
       "@chitchat/e2ee": ["../packages/e2ee/src/index.ts"]
     }
   },
-  "include": [".", "../packages/types", "../packages/e2ee/src"]
+  "include": [".", "../packages/types", "../packages/e2ee/src"],
+  // packages/e2ee's own test suite (vitest) is that package's concern, run
+  // via its own `npm test` — no reason for this app's typecheck to depend
+  // on whether vitest happens to be installed there.
+  "exclude": ["../packages/e2ee/src/__tests__"]
 }

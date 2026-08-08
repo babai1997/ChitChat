@@ -6,4 +6,6 @@ export { SettingsPage } from './SettingsPage';
 export { LinkedDevicesPage } from './LinkedDevicesPage';
 export { MeetingJoinPage } from './MeetingJoinPage';
 export { DocsPage } from './DocsPage';
+export { TermsPage } from './TermsPage';
+export { PrivacyPolicyPage } from './PrivacyPolicyPage';
 

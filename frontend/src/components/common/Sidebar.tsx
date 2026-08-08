@@ -42,7 +42,7 @@ const NavItem = ({ id, icon: Icon, isActive, onClick }: NavItemProps) => (
       background: 'none',
       border: 'none',
       cursor: 'pointer',
-      color: isActive ? '#00a884' : '#8696a0'
+      color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)'
     }}
   >
     {isActive && (
@@ -52,7 +52,7 @@ const NavItem = ({ id, icon: Icon, isActive, onClick }: NavItemProps) => (
         bottom: '6px',
         left: '0',
         width: '3px',
-        backgroundColor: '#00a884',
+        backgroundColor: 'var(--color-accent)',
         borderTopRightRadius: '4px',
         borderBottomRightRadius: '4px'
       }} />
@@ -74,8 +74,8 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
   return (
     <div style={{ 
       width: '60px', 
-      backgroundColor: '#202c33', 
-      borderRight: '1px solid #2a3942',
+      backgroundColor: 'var(--color-surface)', 
+      borderRight: '1px solid var(--color-border)',
       display: 'flex', 
       flexDirection: 'column', 
       alignItems: 'center', 
@@ -108,7 +108,7 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            color: '#8696a0',
+            color: 'var(--color-text-secondary)',
             background: 'none',
             border: 'none',
             cursor: 'pointer'
@@ -128,7 +128,7 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
               cursor: 'pointer',
               border: '2px solid transparent',
               padding: 0,
-              backgroundColor: '#6a7f8a',
+              backgroundColor: 'var(--color-text-tertiary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -137,7 +137,7 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
              {userProfile?.avatarUrl ? (
                 <img src={userProfile.avatarUrl} alt="Profile" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
              ) : (
-                <div style={{ width: '100%', height: '100%', backgroundColor: '#6a7f8a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <User size={18} color="white" />
                 </div>
              )}
@@ -156,16 +156,16 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
                 left: '100%',
                 marginBottom: '10px',
                 marginLeft: '10px',
-                backgroundColor: '#202c33',
+                backgroundColor: 'var(--color-surface)',
                 borderRadius: '8px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                border: '1px solid #2a3942',
+                border: '1px solid var(--color-border)',
                 zIndex: 40,
                 minWidth: '200px',
                 overflow: 'hidden'
               }}>
-                 <div style={{ padding: '16px', borderBottom: '1px solid #2a3942' }}>
-                    <div style={{ color: '#e9edef', fontWeight: 500 }}>
+                 <div style={{ padding: '16px', borderBottom: '1px solid var(--color-border)' }}>
+                    <div style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
                       {userProfile?.displayName || 'User'}
                     </div>
                  </div>
@@ -186,12 +186,12 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
                       gap: '12px',
                       background: 'none',
                       border: 'none',
-                      color: '#e9edef',
+                      color: 'var(--color-text-primary)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       fontSize: '14px'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#111b21'}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg)'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <Settings size={18} />
@@ -207,12 +207,12 @@ export const Sidebar = ({ activeTab, onTabChange, userProfile, onSettingsClick }
                       gap: '12px',
                       background: 'none',
                       border: 'none',
-                      color: '#f87171',
+                      color: 'var(--color-danger)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       fontSize: '14px'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#111b21'}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg)'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <LogOut size={18} />

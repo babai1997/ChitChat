@@ -76,7 +76,7 @@ function MediaThumb({ message, onClick }: { message: Message; onClick: () => voi
         padding: 0,
         borderRadius: "6px",
         overflow: "hidden",
-        backgroundColor: "#202c33",
+        backgroundColor: "var(--color-surface)",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
@@ -90,7 +90,7 @@ function MediaThumb({ message, onClick }: { message: Message; onClick: () => voi
           <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         )
       ) : (
-        <Loader2 size={18} color="#8696a0" style={{ animation: "spin 1s linear infinite" }} />
+        <Loader2 size={18} color="var(--color-text-secondary)" style={{ animation: "spin 1s linear infinite" }} />
       )}
     </button>
   );
@@ -109,7 +109,7 @@ function DocRow({ message, onClick }: { message: Message; onClick: () => void })
         padding: "10px 4px",
         background: "none",
         border: "none",
-        borderBottom: "1px solid #202c33",
+        borderBottom: "1px solid var(--color-surface)",
         cursor: "pointer",
         textAlign: "left",
       }}
@@ -119,20 +119,20 @@ function DocRow({ message, onClick }: { message: Message; onClick: () => void })
           width: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: "#202c33",
+          backgroundColor: "var(--color-surface)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
         }}
       >
-        <FileText size={20} color="#8696a0" />
+        <FileText size={20} color="var(--color-text-secondary)" />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "14px", color: "#e9edef", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: "14px", color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {info.fileName}
         </div>
-        <div style={{ fontSize: "12px", color: "#8696a0" }}>
+        <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
           {new Date(message.createdAt).toLocaleDateString()}
           {info.size > 0 ? ` · ${formatBytes(info.size)}` : ""}
         </div>
@@ -276,7 +276,7 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
           maxWidth: "480px",
           height: "600px",
           maxHeight: "85vh",
-          backgroundColor: "#111b21",
+          backgroundColor: "var(--color-bg)",
           borderRadius: "12px",
           overflow: "hidden",
           display: "flex",
@@ -284,14 +284,14 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
           boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", borderBottom: "1px solid #202c33" }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#e9edef", cursor: "pointer", padding: "4px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", borderBottom: "1px solid var(--color-surface)" }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--color-text-primary)", cursor: "pointer", padding: "4px" }}>
             <X size={20} />
           </button>
-          <span style={{ fontSize: "16px", fontWeight: 600, color: "#e9edef" }}>Media, links and docs</span>
+          <span style={{ fontSize: "16px", fontWeight: 600, color: "var(--color-text-primary)" }}>Media, links and docs</span>
         </div>
 
-        <div style={{ display: "flex", borderBottom: "1px solid #202c33" }}>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--color-surface)" }}>
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -301,8 +301,8 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
                 padding: "12px",
                 background: "none",
                 border: "none",
-                borderBottom: tab === t.key ? "2px solid #00a884" : "2px solid transparent",
-                color: tab === t.key ? "#00a884" : "#8696a0",
+                borderBottom: tab === t.key ? "2px solid var(--color-accent)" : "2px solid transparent",
+                color: tab === t.key ? "var(--color-accent)" : "var(--color-text-secondary)",
                 fontWeight: 500,
                 fontSize: "14px",
                 cursor: "pointer",
@@ -317,7 +317,7 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
           {tab === "media" && (
             <>
               {mediaMessages.length === 0 && !isLoadingMedia && (
-                <EmptyState icon={<ImageIcon size={32} color="#8696a0" />} text="No media in this chat yet" />
+                <EmptyState icon={<ImageIcon size={32} color="var(--color-text-secondary)" />} text="No media in this chat yet" />
               )}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
                 {mediaMessages.map((m) => (
@@ -333,7 +333,7 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
           {tab === "docs" && (
             <>
               {docMessages.length === 0 && !isLoadingDocs && (
-                <EmptyState icon={<FileText size={32} color="#8696a0" />} text="No documents in this chat yet" />
+                <EmptyState icon={<FileText size={32} color="var(--color-text-secondary)" />} text="No documents in this chat yet" />
               )}
               {docMessages.map((m) => (
                 <DocRow key={m.id} message={m} onClick={() => onJumpToMessage(m.id)} />
@@ -347,14 +347,14 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
           {tab === "links" && (
             <>
               {links.length === 0 && (
-                <EmptyState icon={<Link2 size={32} color="#8696a0" />} text="No links found in loaded messages" />
+                <EmptyState icon={<Link2 size={32} color="var(--color-text-secondary)" />} text="No links found in loaded messages" />
               )}
               {links.map((link, i) => (
                 <div
                   key={`${link.messageId}-${i}`}
-                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 4px", borderBottom: "1px solid #202c33" }}
+                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 4px", borderBottom: "1px solid var(--color-surface)" }}
                 >
-                  <Link2 size={18} color="#8696a0" style={{ flexShrink: 0 }} />
+                  <Link2 size={18} color="var(--color-text-secondary)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <a
                       href={link.url}
@@ -362,7 +362,7 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
                       rel="noopener noreferrer"
                       style={{
                         fontSize: "13.5px",
-                        color: "#53bdeb",
+                        color: "var(--color-info)",
                         textDecoration: "none",
                         display: "block",
                         overflow: "hidden",
@@ -372,14 +372,14 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
                     >
                       {link.url}
                     </a>
-                    <div style={{ fontSize: "12px", color: "#8696a0" }}>
+                    <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
                       {link.senderName} · {new Date(link.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <button
                     onClick={() => onJumpToMessage(link.messageId)}
                     title="Jump to message"
-                    style={{ background: "none", border: "none", color: "#8696a0", cursor: "pointer", padding: "4px", flexShrink: 0 }}
+                    style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", padding: "4px", flexShrink: 0 }}
                   >
                     <ExternalLink size={16} />
                   </button>
@@ -395,7 +395,7 @@ export function ChatGalleryModal({ chat, isOpen, onClose, onJumpToMessage }: Cha
 
 function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "48px 16px", color: "#8696a0" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "48px 16px", color: "var(--color-text-secondary)" }}>
       {icon}
       <span style={{ fontSize: "14px" }}>{text}</span>
     </div>
@@ -412,9 +412,9 @@ function LoadMoreButton({ isLoading, onClick }: { isLoading: boolean; onClick: (
         marginTop: "12px",
         padding: "10px",
         background: "none",
-        border: "1px solid #2a3942",
+        border: "1px solid var(--color-border)",
         borderRadius: "8px",
-        color: "#00a884",
+        color: "var(--color-accent)",
         cursor: isLoading ? "default" : "pointer",
         fontSize: "13px",
         display: "flex",

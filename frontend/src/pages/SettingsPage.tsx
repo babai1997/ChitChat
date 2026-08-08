@@ -36,22 +36,22 @@ export const SettingsPage = () => {
   ];
 
   return (
-    <div style={{ backgroundColor: '#0b141a', minHeight: '100vh', color: '#e9edef' }}>
+    <div style={{ backgroundColor: 'var(--color-bg-deepest)', minHeight: '100vh', color: 'var(--color-text-primary)' }}>
       {/* Header */}
       <div style={{ 
         padding: '12px 16px', 
         display: 'flex', 
         alignItems: 'center', 
         gap: '20px', 
-        borderBottom: '1px solid #202c33',
-        backgroundColor: '#0b141a',
+        borderBottom: '1px solid var(--color-surface)',
+        backgroundColor: 'var(--color-bg-deepest)',
         position: 'sticky',
         top: 0,
         zIndex: 10
       }}>
         <button 
           onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', color: '#e9edef', cursor: 'pointer', padding: 0 }}
+          style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', cursor: 'pointer', padding: 0 }}
         >
           <ArrowLeft size={24} />
         </button>
@@ -69,10 +69,10 @@ export const SettingsPage = () => {
             display: 'flex', 
             alignItems: 'center', 
             padding: '20px 16px', 
-            borderBottom: '1px solid #202c33',
+            borderBottom: '1px solid var(--color-surface)',
             cursor: 'pointer'
           }}
-          className="hover:bg-[#202c33] transition-colors"
+          className="hover:bg-[var(--color-surface)] transition-colors"
         >
           <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '16px' }}>
              <img 
@@ -86,13 +86,13 @@ export const SettingsPage = () => {
             <h2 style={{ fontSize: '18px', fontWeight: 400, margin: '0 0 4px 0' }}>
               {user?.profile?.displayName || 'User'}
             </h2>
-            <p style={{ fontSize: '14px', color: '#8696a0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.profile?.about || 'Hey there! I am using ChitChat'}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '16px', color: '#00a884' }}>
+          <div style={{ display: 'flex', gap: '16px', color: 'var(--color-accent)' }}>
              <QrCode size={24} />
-             <div style={{ border: '1px solid #00a884', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+             <div style={{ border: '1px solid var(--color-accent)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CheckCircle size={14} />
              </div>
           </div>
@@ -113,17 +113,17 @@ export const SettingsPage = () => {
                 width: '100%',
                 textAlign: 'left',
                 cursor: 'pointer',
-                color: '#e9edef'
+                color: 'var(--color-text-primary)'
               }}
-              className="hover:bg-[#202c33] transition-colors"
+              className="hover:bg-[var(--color-surface)] transition-colors"
             >
-              <div style={{ color: '#8696a0', marginRight: '24px' }}>
+              <div style={{ color: 'var(--color-text-secondary)', marginRight: '24px' }}>
                 <item.icon size={24} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '16px', marginBottom: '4px' }}>{item.label}</div>
                 {item.subLabel && (
-                  <div style={{ fontSize: '14px', color: '#8696a0' }}>{item.subLabel}</div>
+                  <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>{item.subLabel}</div>
                 )}
               </div>
             </button>
@@ -131,10 +131,10 @@ export const SettingsPage = () => {
           
            {/* Logout (Custom Addition) */}
            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ height: '1px', backgroundColor: '#202c33', marginBottom: '8px' }}></div>
-              <div style={{ fontSize: '14px', color: '#8696a0', textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ height: '1px', backgroundColor: 'var(--color-surface)', marginBottom: '8px' }}></div>
+              <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)', textAlign: 'center', marginBottom: '16px' }}>
                  from <br/>
-                 <span style={{ fontWeight: 'bold', color: '#e9edef', letterSpacing: '1px' }}>Meta</span>
+                 <span style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', letterSpacing: '1px' }}>Meta</span>
               </div>
            </div>
         </div>

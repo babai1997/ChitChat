@@ -128,15 +128,15 @@ export const LinkedDevicesPage = () => {
   const active = devices.filter((d) => d.approved && !d.revoked);
 
   return (
-    <div style={{ backgroundColor: '#0b141a', minHeight: '100vh', color: '#e9edef' }}>
+    <div style={{ backgroundColor: 'var(--color-bg-deepest)', minHeight: '100vh', color: 'var(--color-text-primary)' }}>
       <div
         style={{
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
           gap: '20px',
-          borderBottom: '1px solid #202c33',
-          backgroundColor: '#0b141a',
+          borderBottom: '1px solid var(--color-surface)',
+          backgroundColor: 'var(--color-bg-deepest)',
           position: 'sticky',
           top: 0,
           zIndex: 10,
@@ -144,7 +144,7 @@ export const LinkedDevicesPage = () => {
       >
         <button
           onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', color: '#e9edef', cursor: 'pointer', padding: 0 }}
+          style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', cursor: 'pointer', padding: 0 }}
         >
           <ArrowLeft size={24} />
         </button>
@@ -153,12 +153,12 @@ export const LinkedDevicesPage = () => {
 
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
         {isLoading ? (
-          <div style={{ color: '#8696a0', textAlign: 'center', padding: '32px' }}>Loading…</div>
+          <div style={{ color: 'var(--color-text-secondary)', textAlign: 'center', padding: '32px' }}>Loading…</div>
         ) : (
           <>
             {pending.length > 0 && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#8696a0', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
                   Waiting for approval
                 </div>
                 {pending.map((device) => {
@@ -171,18 +171,18 @@ export const LinkedDevicesPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         padding: '12px',
-                        backgroundColor: '#202c33',
+                        backgroundColor: 'var(--color-surface)',
                         borderRadius: '8px',
                         marginBottom: '8px',
                         gap: '12px',
                       }}
                     >
-                      <Icon size={24} color="#8696a0" />
+                      <Icon size={24} color="var(--color-text-secondary)" />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '15px' }}>
                           {isSelf ? 'This device' : platformLabel(device.platform)}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#8696a0' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                           {isSelf
                             ? 'Waiting for approval from another device'
                             : `Requested ${new Date(device.createdAt).toLocaleString()}`}
@@ -197,8 +197,8 @@ export const LinkedDevicesPage = () => {
                           alignItems: 'center',
                           gap: '6px',
                           background: 'none',
-                          border: '1px solid #8696a0',
-                          color: '#e9edef',
+                          border: '1px solid var(--color-text-secondary)',
+                          color: 'var(--color-text-primary)',
                           borderRadius: '6px',
                           padding: '6px 12px',
                           cursor: actioningDeviceId === device.deviceId ? 'default' : 'pointer',
@@ -219,9 +219,9 @@ export const LinkedDevicesPage = () => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
-                          background: '#00a884',
+                          background: 'var(--color-accent)',
                           border: 'none',
-                          color: '#0b141a',
+                          color: 'var(--color-bg-deepest)',
                           borderRadius: '6px',
                           padding: '6px 12px',
                           cursor: actioningDeviceId === device.deviceId ? 'default' : 'pointer',
@@ -241,11 +241,11 @@ export const LinkedDevicesPage = () => {
               </div>
             )}
 
-            <div style={{ color: '#8696a0', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
               Active devices
             </div>
             {active.length === 0 ? (
-              <div style={{ color: '#8696a0', padding: '16px 0' }}>No active devices</div>
+              <div style={{ color: 'var(--color-text-secondary)', padding: '16px 0' }}>No active devices</div>
             ) : (
               active.map((device) => {
                 const Icon = platformIcon(device.platform);
@@ -256,14 +256,14 @@ export const LinkedDevicesPage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       padding: '12px',
-                      borderBottom: '1px solid #202c33',
+                      borderBottom: '1px solid var(--color-surface)',
                       gap: '12px',
                     }}
                   >
-                    <Icon size={24} color="#00a884" />
+                    <Icon size={24} color="var(--color-accent)" />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '15px' }}>{platformLabel(device.platform)}</div>
-                      <div style={{ fontSize: '13px', color: '#8696a0' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                         Last active {new Date(device.lastActiveAt).toLocaleString()}
                       </div>
                     </div>
@@ -273,7 +273,7 @@ export const LinkedDevicesPage = () => {
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: '#ff5252',
+                        color: 'var(--color-danger)',
                         cursor: 'pointer',
                         padding: '6px',
                       }}
@@ -286,8 +286,8 @@ export const LinkedDevicesPage = () => {
               })
             )}
 
-            <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #202c33' }}>
-              <div style={{ color: '#8696a0', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+            <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid var(--color-surface)' }}>
+              <div style={{ color: 'var(--color-text-secondary)', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
                 Chat Backup
               </div>
               <div
@@ -295,17 +295,17 @@ export const LinkedDevicesPage = () => {
                   display: 'flex',
                   alignItems: 'center',
                   padding: '12px',
-                  backgroundColor: '#202c33',
+                  backgroundColor: 'var(--color-surface)',
                   borderRadius: '8px',
                   gap: '12px',
                 }}
               >
-                <Lock size={22} color={backupInfo?.exists ? '#00a884' : '#8696a0'} />
+                <Lock size={22} color={backupInfo?.exists ? 'var(--color-accent)' : 'var(--color-text-secondary)'} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '15px' }}>
                     {backupInfo?.exists ? 'Backup created' : 'No backup yet'}
                   </div>
-                  <div style={{ fontSize: '13px', color: '#8696a0' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                     {backupInfo?.exists
                       ? `Updated ${new Date(backupInfo.updatedAt!).toLocaleString()}`
                       : "Encrypt a copy of your recent chats with a passphrase — a fallback if no other device is online to sync from"}
@@ -315,7 +315,7 @@ export const LinkedDevicesPage = () => {
                   <button
                     disabled={isBackupActionBusy}
                     onClick={handleDeleteBackup}
-                    style={{ background: 'none', border: 'none', color: '#ff5252', cursor: 'pointer', padding: '6px' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '6px' }}
                     title="Delete backup"
                   >
                     <Trash2 size={18} />
@@ -325,9 +325,9 @@ export const LinkedDevicesPage = () => {
                   disabled={isBackupActionBusy}
                   onClick={() => setBackupModalMode('create')}
                   style={{
-                    background: '#00a884',
+                    background: 'var(--color-accent)',
                     border: 'none',
-                    color: '#0b141a',
+                    color: 'var(--color-bg-deepest)',
                     borderRadius: '6px',
                     padding: '6px 12px',
                     cursor: 'pointer',
@@ -342,8 +342,8 @@ export const LinkedDevicesPage = () => {
                   onClick={() => setBackupModalMode('restore')}
                   style={{
                     background: 'none',
-                    border: '1px solid #8696a0',
-                    color: '#e9edef',
+                    border: '1px solid var(--color-text-secondary)',
+                    color: 'var(--color-text-primary)',
                     borderRadius: '6px',
                     padding: '6px 12px',
                     cursor: 'pointer',

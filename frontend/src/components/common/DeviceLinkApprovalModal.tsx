@@ -66,12 +66,12 @@ export const DeviceLinkApprovalModal = () => {
     >
       <div
         style={{
-          backgroundColor: '#202c33',
+          backgroundColor: 'var(--color-surface)',
           borderRadius: '12px',
           padding: '24px',
           maxWidth: '360px',
           width: '90%',
-          color: '#e9edef',
+          color: 'var(--color-text-primary)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -79,9 +79,9 @@ export const DeviceLinkApprovalModal = () => {
           textAlign: 'center',
         }}
       >
-        <Icon size={40} color="#00a884" />
+        <Icon size={40} color="var(--color-accent)" />
         <h2 style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>New device wants to link</h2>
-        <p style={{ fontSize: '14px', color: '#8696a0', margin: 0 }}>
+        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', margin: 0 }}>
           {platformLabel(pendingLinkRequest.platform)} is asking to link to your account. Approving
           will let it receive your recent chat history.
         </p>
@@ -96,8 +96,8 @@ export const DeviceLinkApprovalModal = () => {
               justifyContent: 'center',
               gap: '6px',
               background: 'none',
-              border: '1px solid #8696a0',
-              color: '#e9edef',
+              border: '1px solid var(--color-text-secondary)',
+              color: 'var(--color-text-primary)',
               borderRadius: '8px',
               padding: '10px',
               cursor: isBusy ? 'default' : 'pointer',
@@ -116,9 +116,9 @@ export const DeviceLinkApprovalModal = () => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              background: '#00a884',
+              background: 'var(--color-accent)',
               border: 'none',
-              color: '#0b141a',
+              color: 'var(--color-bg-deepest)',
               borderRadius: '8px',
               padding: '10px',
               cursor: isBusy ? 'default' : 'pointer',
@@ -131,7 +131,7 @@ export const DeviceLinkApprovalModal = () => {
           </button>
         </div>
         {busyAction === 'approve' && (
-          <p style={{ fontSize: '12.5px', color: '#8696a0', margin: 0 }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', margin: 0 }}>
             Syncing recent chat history to the new device — this can take a few seconds…
           </p>
         )}

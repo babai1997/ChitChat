@@ -44,27 +44,27 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => (
     left: 0,
     right: 0,
     height: '60px',
-    backgroundColor: '#202c33',
+    backgroundColor: 'var(--color-surface)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-around',
-    borderTop: '1px solid #2a3942',
+    borderTop: '1px solid var(--color-border)',
     zIndex: 20
   }}>
     <button 
       onClick={() => setActiveTab('chats')}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'chats' ? '#00a884' : '#8696a0', flex: 1 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'chats' ? 'var(--color-accent)' : 'var(--color-text-secondary)', flex: 1 }}
     >
       <div style={{ position: 'relative' }}>
         <MessageCircle size={24} strokeWidth={activeTab === 'chats' ? 2.5 : 2} />
-        {activeTab === 'chats' && <div style={{ position: 'absolute', top: -2, right: -2, width: '8px', height: '8px', backgroundColor: '#00a884', borderRadius: '50%' }} />}
+        {activeTab === 'chats' && <div style={{ position: 'absolute', top: -2, right: -2, width: '8px', height: '8px', backgroundColor: 'var(--color-accent)', borderRadius: '50%' }} />}
       </div>
       <span style={{ fontSize: '12px', fontWeight: 500 }}>Chats</span>
     </button>
     
     <button 
       onClick={() => setActiveTab('status')}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'status' ? '#00a884' : '#8696a0', flex: 1 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'status' ? 'var(--color-accent)' : 'var(--color-text-secondary)', flex: 1 }}
     >
        <CircleDashed size={24} strokeWidth={activeTab === 'status' ? 2.5 : 2} />
        <span style={{ fontSize: '12px', fontWeight: 500 }}>Updates</span>
@@ -72,7 +72,7 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => (
 
     <button 
       onClick={() => setActiveTab('communities')}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'communities' ? '#00a884' : '#8696a0', flex: 1 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'communities' ? 'var(--color-accent)' : 'var(--color-text-secondary)', flex: 1 }}
     >
       <Users size={24} strokeWidth={activeTab === 'communities' ? 2.5 : 2} />
       <span style={{ fontSize: '12px', fontWeight: 500 }}>Communities</span>
@@ -80,7 +80,7 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => (
 
     <button 
       onClick={() => setActiveTab('calls')}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'calls' ? '#00a884' : '#8696a0', flex: 1 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: activeTab === 'calls' ? 'var(--color-accent)' : 'var(--color-text-secondary)', flex: 1 }}
     >
       <Phone size={24} strokeWidth={activeTab === 'calls' ? 2.5 : 2} />
       <span style={{ fontSize: '12px', fontWeight: 500 }}>Calls</span>
@@ -230,18 +230,18 @@ export const HomePage = () => {
   });
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: '#111b21', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg)', overflow: 'hidden' }}>
       {/* Desktop Top Navigation Bar */}
       {!isMobile && (
         <div style={{
           height: '48px',
-          backgroundColor: '#202c33',
+          backgroundColor: 'var(--color-surface)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingLeft: '16px',
           paddingRight: '24px',
-          borderBottom: '1px solid #2a3942',
+          borderBottom: '1px solid var(--color-border)',
           flexShrink: 0
         }}>
           {/* Logo and Name */}
@@ -250,18 +250,18 @@ export const HomePage = () => {
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #00a884 0%, #25d366 100%)',
+              background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-secondary) 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0, 168, 132, 0.3)'
+              boxShadow: '0 2px 8px rgba(108, 93, 216, 0.3)'
             }}>
-              <MessageCircle size={18} color="#ffffff" strokeWidth={2.5} />
+              <MessageCircle size={18} color="var(--color-white)" strokeWidth={2.5} />
             </div>
             <span style={{ 
               fontSize: '18px', 
               fontWeight: 600, 
-              color: '#e9edef',
+              color: 'var(--color-text-primary)',
               letterSpacing: '-0.3px'
             }}>
               ChitChat
@@ -270,7 +270,7 @@ export const HomePage = () => {
 
           {/* Right side - could add user actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ fontSize: '13px', color: '#8696a0' }}>
+            <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
               {user?.profile?.displayName && `Welcome, ${user.profile.displayName}`}
             </span>
           </div>
@@ -297,9 +297,9 @@ export const HomePage = () => {
           maxWidth: isMobile ? '100%' : '400px', 
           display: isMobile && activeChat ? 'none' : 'flex',
           flexDirection: 'column', 
-          borderRight: '1px solid #2a3942',
+          borderRight: '1px solid var(--color-border)',
           height: '100%',
-          backgroundColor: '#111b21',
+          backgroundColor: 'var(--color-bg)',
           position: 'relative', // Ensure tabs can be positioned if needed
           zIndex: 10
         }}
@@ -313,21 +313,21 @@ export const HomePage = () => {
             {isMobile && (
               <div style={{ 
                 padding: '10px 16px', 
-                backgroundColor: '#202c33', 
+                backgroundColor: 'var(--color-surface)', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between', 
                 height: '40px', // Decreased height
-                borderBottom: '1px solid #2a3942'
+                borderBottom: '1px solid var(--color-border)'
               }}>
-                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8696a0' }}>ChitChat</h1>
+                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-text-secondary)' }}>ChitChat</h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                   <button style={{ background: 'none', border: 'none', color: '#aebac1', padding: 0 }}><Camera size={22} /></button>
+                   <button style={{ background: 'none', border: 'none', color: 'var(--color-text-tertiary)', padding: 0 }}><Camera size={22} /></button>
                    <div style={{ position: 'relative' }}>
                      <button 
                         onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                        style={{ background: 'none', border: 'none', color: '#aebac1', padding: 0, cursor: 'pointer' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--color-text-tertiary)', padding: 0, cursor: 'pointer' }}
                      >
                        <MoreVertical size={22} />
                      </button>
@@ -337,7 +337,7 @@ export const HomePage = () => {
                           position: 'absolute',
                           top: '100%',
                           right: 0,
-                          backgroundColor: '#233138',
+                          backgroundColor: 'var(--color-surface-hover)',
                           borderRadius: '4px',
                           padding: '8px 0',
                           minWidth: '180px',
@@ -345,8 +345,8 @@ export const HomePage = () => {
                           zIndex: 50,
                           marginTop: '8px'
                         }}>
-                        <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[#111b21]"><Settings size={18} color="#8696a0" />Settings</button>
-                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[#111b21]"><LogOut size={18} color="#ea4335" />Log out</button>
+                        <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[var(--color-bg)]"><Settings size={18} color="var(--color-text-secondary)" />Settings</button>
+                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '12px 20px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} className="hover:bg-[var(--color-bg)]"><LogOut size={18} color="var(--color-danger)" />Log out</button>
                         </div>
                      )}
                    </div>
@@ -358,26 +358,26 @@ export const HomePage = () => {
             {!isMobile && (
               <div style={{ 
                 padding: '10px 16px', 
-                backgroundColor: '#111b21', 
+                backgroundColor: 'var(--color-bg)', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between', 
                 height: '60px' 
               }}>
-                <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#e9edef' }}>Chats</h1>
+                <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>Chats</h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button 
                     onClick={() => setIsNewChatModalOpen(true)}
                     title="New Chat"
-                    style={{ padding: '8px', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: '#aebac1' }}
+                    style={{ padding: '8px', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}
                   >
                     <MessageSquarePlus size={20} />
                   </button>
                   <div style={{ position: 'relative' }}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                      style={{ padding: '8px', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: '#aebac1' }}
+                      style={{ padding: '8px', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}
                     >
                       <MoreVertical size={20} />
                     </button>
@@ -387,7 +387,7 @@ export const HomePage = () => {
                           position: 'absolute',
                           top: '100%',
                           right: 0,
-                          backgroundColor: '#233138',
+                          backgroundColor: 'var(--color-surface-hover)',
                           borderRadius: '4px',
                           padding: '8px 0',
                           minWidth: '200px',
@@ -395,10 +395,10 @@ export const HomePage = () => {
                           zIndex: 50,
                           marginTop: '4px'
                         }}>
-                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '14px', cursor: 'pointer' }}>New group</button>
-                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '14px', cursor: 'pointer' }}>Starred messages</button>
-                          <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '14px', cursor: 'pointer' }}>Settings</button>
-                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: '#e9edef', fontSize: '14px', cursor: 'pointer' }}>Log out</button>
+                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>New group</button>
+                          <button style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Starred messages</button>
+                          <button onClick={() => setSettingsOpen(true)} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Settings</button>
+                          <button onClick={() => { logout(); navigate('/login'); }} style={{ width: '100%', padding: '10px 24px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', cursor: 'pointer' }}>Log out</button>
                         </div>
                      )}
                   </div>
@@ -407,7 +407,7 @@ export const HomePage = () => {
             )}
 
             {/* Search (Desktop/Tablet or Mobile sub-header) */}
-            <div style={{ padding: '10px 16px', backgroundColor: '#111b21' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: 'var(--color-bg)' }}>
               <div style={{ 
                 position: 'relative',
                 transition: 'all 0.2s ease'
@@ -422,7 +422,7 @@ export const HomePage = () => {
                     background: 'none',
                     border: 'none',
                     padding: 0,
-                    color: isSearchFocused || searchQuery ? '#00a884' : '#8696a0',
+                    color: isSearchFocused || searchQuery ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -444,16 +444,16 @@ export const HomePage = () => {
                   placeholder="Search or start new chat"
                   style={{
                     width: '100%',
-                    backgroundColor: '#202c33',
-                    border: isSearchFocused ? '1px solid #00a884' : '1px solid transparent',
+                    backgroundColor: 'var(--color-surface)',
+                    border: isSearchFocused ? '1px solid var(--color-accent)' : '1px solid transparent',
                     borderRadius: '10px',
                     padding: '14px 20px 14px 50px',
-                    color: '#e9edef',
+                    color: 'var(--color-text-primary)',
                     fontSize: '15px',
                     outline: 'none',
                     height: '48px',
                     transition: 'all 0.2s ease',
-                    boxShadow: isSearchFocused ? '0 2px 8px rgba(0, 168, 132, 0.15)' : 'none'
+                    boxShadow: isSearchFocused ? '0 2px 8px rgba(108, 93, 216, 0.15)' : 'none'
                   }}
                 />
               </div>
@@ -470,7 +470,7 @@ export const HomePage = () => {
                   width: '56px',
                   height: '56px',
                   borderRadius: '50%',
-                  backgroundColor: '#00a884',
+                  backgroundColor: 'var(--color-accent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -497,7 +497,7 @@ export const HomePage = () => {
                   currentUserId={user?.id || ''}
                 />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '256px', color: '#8696a0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '256px', color: 'var(--color-text-secondary)' }}>
                   <MessageCircle size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
                   <p>{searchQuery ? 'No chats found' : 'No conversations yet'}</p>
                 </div>
@@ -513,7 +513,7 @@ export const HomePage = () => {
         {/* Status Tab Placeholder */}
         {!settingsOpen && activeTab === 'status' && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>
+             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>
                <p>Status updates coming soon</p>
              </div>
               {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -523,7 +523,7 @@ export const HomePage = () => {
         {/* Communities Tab Placeholder */}
         {!settingsOpen && activeTab === 'communities' && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8696a0' }}>
+             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>
                <p>Communities coming soon</p>
              </div>
              {isMobile && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -536,13 +536,13 @@ export const HomePage = () => {
              {/* Header */}
              <div style={{
                padding: '10px 16px',
-               backgroundColor: '#111b21',
+               backgroundColor: 'var(--color-bg)',
                display: 'flex',
                alignItems: 'center',
                justifyContent: 'space-between',
                height: '60px'
              }}>
-               <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#e9edef' }}>Calls</h1>
+               <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>Calls</h1>
              </div>
              <div style={{ flex: 1, overflowY: 'auto', paddingBottom: isMobile ? '60px' : 0 }}>
                <MeetingsPanel />
@@ -560,7 +560,7 @@ export const HomePage = () => {
           display: isMobile && !((activeTab === 'chats' && activeChat) || (activeTab === 'calls' && activeCallInfoId)) ? 'none' : 'flex',
           flexDirection: 'column', 
           height: '100%',
-          backgroundColor: '#0b141a',
+          backgroundColor: 'var(--color-bg-deepest)',
           position: 'relative'
         }}
       >

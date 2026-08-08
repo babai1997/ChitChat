@@ -162,8 +162,8 @@ export const MeetingJoinPage = () => {
   if (state === 'error') {
     return (
       <div style={pageStyle}>
-        <Video size={40} color="#8696a0" />
-        <p style={{ fontSize: '15px', color: '#8696a0', maxWidth: '320px' }}>{errorMessage}</p>
+        <Video size={40} color="var(--color-text-secondary)" />
+        <p style={{ fontSize: '15px', color: 'var(--color-text-secondary)', maxWidth: '320px' }}>{errorMessage}</p>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={() => navigate('/', { replace: true })} style={secondaryButtonStyle}>
             Go to ChitChat
@@ -179,8 +179,8 @@ export const MeetingJoinPage = () => {
   if (state === 'loading') {
     return (
       <div style={pageStyle}>
-        <Loader2 size={40} color="#00a884" style={{ animation: 'spin 1s linear infinite' }} />
-        <p style={{ fontSize: '15px', color: '#8696a0' }}>Getting ready…</p>
+        <Loader2 size={40} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
+        <p style={{ fontSize: '15px', color: 'var(--color-text-secondary)' }}>Getting ready…</p>
       </div>
     );
   }
@@ -188,10 +188,10 @@ export const MeetingJoinPage = () => {
   return (
     <div style={pageStyle}>
       <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-        <div style={{ fontSize: '20px', fontWeight: 600, color: '#e9edef' }}>
+        <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
           {meetingInfo?.name || 'Meeting'}
         </div>
-        <div style={{ fontSize: '14px', color: '#8696a0', marginTop: '4px' }}>
+        <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
           Hosted by {meetingInfo?.hostName ?? 'Unknown'}
         </div>
       </div>
@@ -202,7 +202,7 @@ export const MeetingJoinPage = () => {
           maxWidth: '480px',
           aspectRatio: '4 / 3',
           borderRadius: '16px',
-          backgroundColor: '#202c33',
+          backgroundColor: 'var(--color-surface)',
           position: 'relative',
           overflow: 'hidden',
           display: 'flex',
@@ -229,14 +229,14 @@ export const MeetingJoinPage = () => {
             ) : (
               <div
                 style={{
-                  width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#2a3942',
+                  width: '88px', height: '88px', borderRadius: '50%', backgroundColor: 'var(--color-border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <User size={40} color="#8696a0" />
+                <User size={40} color="var(--color-text-secondary)" />
               </div>
             )}
-            <span style={{ fontSize: '14px', color: '#8696a0' }}>{localUserName}</span>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>{localUserName}</span>
           </div>
         )}
 
@@ -244,9 +244,9 @@ export const MeetingJoinPage = () => {
           <button
             onClick={toggleMic}
             title={isMicOn ? 'Turn off microphone' : 'Turn on microphone'}
-            style={{ ...circleButtonStyle, backgroundColor: isMicOn ? 'rgba(255,255,255,0.15)' : '#ef4444' }}
+            style={{ ...circleButtonStyle, backgroundColor: isMicOn ? 'rgba(255,255,255,0.15)' : 'var(--color-danger)' }}
           >
-            {isMicOn ? <Mic size={20} color="#fff" /> : <MicOff size={20} color="#fff" />}
+            {isMicOn ? <Mic size={20} color="var(--color-white)" /> : <MicOff size={20} color="var(--color-white)" />}
           </button>
           <button
             onClick={toggleCamera}
@@ -254,12 +254,12 @@ export const MeetingJoinPage = () => {
             title={!gotVideo ? 'No camera available' : isCameraOn ? 'Turn off camera' : 'Turn on camera'}
             style={{
               ...circleButtonStyle,
-              backgroundColor: isCameraOn ? 'rgba(255,255,255,0.15)' : '#ef4444',
+              backgroundColor: isCameraOn ? 'rgba(255,255,255,0.15)' : 'var(--color-danger)',
               opacity: gotVideo ? 1 : 0.5,
               cursor: gotVideo ? 'pointer' : 'default',
             }}
           >
-            {isCameraOn ? <Video size={20} color="#fff" /> : <VideoOff size={20} color="#fff" />}
+            {isCameraOn ? <Video size={20} color="var(--color-white)" /> : <VideoOff size={20} color="var(--color-white)" />}
           </button>
         </div>
       </div>
@@ -272,9 +272,9 @@ export const MeetingJoinPage = () => {
 };
 
 const pageStyle: React.CSSProperties = {
-  backgroundColor: '#0b141a',
+  backgroundColor: 'var(--color-bg-deepest)',
   minHeight: '100vh',
-  color: '#e9edef',
+  color: 'var(--color-text-primary)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -285,9 +285,9 @@ const pageStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  background: '#00a884',
+  background: 'var(--color-accent)',
   border: 'none',
-  color: '#0b141a',
+  color: 'var(--color-bg-deepest)',
   borderRadius: '8px',
   padding: '10px 20px',
   cursor: 'pointer',
@@ -300,8 +300,8 @@ const primaryButtonStyle: React.CSSProperties = {
 
 const secondaryButtonStyle: React.CSSProperties = {
   background: 'none',
-  border: '1px solid #8696a0',
-  color: '#e9edef',
+  border: '1px solid var(--color-text-secondary)',
+  color: 'var(--color-text-primary)',
   borderRadius: '8px',
   padding: '10px 20px',
   cursor: 'pointer',

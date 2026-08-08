@@ -28,5 +28,12 @@
       "@chitchat/e2ee": ["../packages/e2ee/src/index.ts"]
     }
   },
-  "include": ["src", "../packages/types", "../packages/e2ee/src"]
+  "include": ["src", "../packages/types", "../packages/e2ee/src"],
+  // packages/e2ee's own test suite (vitest) is that package's concern, run
+  // via its own `npm test` — pulling it into the app's build coupled a
+  // frontend build failure to whether `vitest` happened to be installed in
+  // packages/e2ee/node_modules, which is exactly what broke the Render
+  // deploy (see the prebuild script in package.json for the actual fix to
+  // that; this exclude just stops re-typechecking unrelated test code here).
+  "exclude": ["../packages/e2ee/src/__tests__"]
 }

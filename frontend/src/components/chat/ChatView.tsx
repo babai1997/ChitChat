@@ -691,7 +691,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#8696a0",
+    color: "var(--color-text-secondary)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -707,11 +707,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
       <div
         style={{
           padding: "10px 16px",
-          backgroundColor: "#202c33",
+          backgroundColor: "var(--color-surface)",
           display: "flex",
           alignItems: "center",
           gap: "12px",
-          borderBottom: "1px solid #2a3942",
+          borderBottom: "1px solid var(--color-border)",
           height: "60px",
         }}
       >
@@ -740,7 +740,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               width: "40px",
               height: "40px",
               borderRadius: "50%",
-              backgroundColor: "#2a3942",
+              backgroundColor: "var(--color-border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -755,7 +755,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
-              <User size={20} color="#8696a0" />
+              <User size={20} color="var(--color-text-secondary)" />
             )}
           </div>
 
@@ -763,7 +763,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             <h2
               style={{
                 fontWeight: 500,
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
                 fontSize: "16px",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -773,7 +773,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             >
               {getChatName()}
             </h2>
-            <p style={{ fontSize: "12px", color: "#8696a0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <p style={{ fontSize: "12px", color: "var(--color-text-secondary)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {getTypingText() || getOnlineStatus()}
             </p>
           </div>
@@ -808,15 +808,15 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 />
                 <div style={{
                   position: 'absolute', top: '40px', right: 0, zIndex: 99,
-                  backgroundColor: '#233138', borderRadius: '8px',
+                  backgroundColor: 'var(--color-surface-hover)', borderRadius: '8px',
                   boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
                   minWidth: '180px', overflow: 'hidden',
                 }}>
                   {(chat.type === 'group' || chat.type === 'meeting') && (
                     <button
                       onClick={() => { setIsContactInfoOpen(true); setShowChatMenu(false); }}
-                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-border)'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       {chat.type === 'meeting' ? 'Meeting Info' : 'Group Info'}
@@ -825,8 +825,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   {(chat.type === 'group' || chat.type === 'meeting') && isCurrentUserAdmin && (
                     <button
                       onClick={() => { setShowAddMember(true); setShowChatMenu(false); }}
-                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-border)'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       Add Member
@@ -835,8 +835,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   {chat.type === 'direct' && (
                     <button
                       onClick={() => { setIsContactInfoOpen(true); setShowChatMenu(false); }}
-                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#e9edef', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a3942'}
+                      style={{ display: 'block', width: '100%', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: 'var(--color-text-primary)', fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-border)'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       Contact Info
@@ -858,7 +858,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             onClick={() => joinOngoingCall(chat.id, ongoing.type)}
             style={{
               display: 'flex', alignItems: 'center', gap: '12px',
-              backgroundColor: '#00a884', padding: '10px 16px', cursor: 'pointer',
+              backgroundColor: 'var(--color-accent)', padding: '10px 16px', cursor: 'pointer',
               userSelect: 'none',
             }}
           >
@@ -867,10 +867,10 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               backgroundColor: 'rgba(0,0,0,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              {ongoing.type === 'video' ? <Video size={16} color="#fff" /> : <Phone size={16} color="#fff" />}
+              {ongoing.type === 'video' ? <Video size={16} color="var(--color-white)" /> : <Phone size={16} color="var(--color-white)" />}
             </div>
             <div>
-              <div style={{ color: '#fff', fontWeight: 600, fontSize: '13px' }}>
+              <div style={{ color: 'var(--color-white)', fontWeight: 600, fontSize: '13px' }}>
                 {ongoing.type === 'video' ? 'Ongoing video call' : 'Ongoing voice call'}
               </div>
               <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px' }}>
@@ -911,7 +911,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   }}
                   disabled={isFetchingNextPage}
                   style={{
-                    color: "#25d366",
+                    color: "var(--color-accent-secondary)",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
@@ -944,10 +944,10 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   <span
                     style={{
                       padding: "6px 12px",
-                      backgroundColor: "#1f2c34",
+                      backgroundColor: "var(--color-surface-elevated)",
                       borderRadius: "8px",
                       fontSize: "12px",
-                      color: "#8696a0",
+                      color: "var(--color-text-secondary)",
                       boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
                     }}
                   >
@@ -989,11 +989,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
       <div
         style={{
           padding: "8px 16px",
-          backgroundColor: "#202c33",
+          backgroundColor: "var(--color-surface)",
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          borderTop: "1px solid #2a3942",
+          borderTop: "1px solid var(--color-border)",
           position: "relative",
           flexDirection: "column",
         }}
@@ -1003,8 +1003,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             style={{
               width: "100%",
               padding: "8px 12px",
-              backgroundColor: "#1f2c34",
-              borderLeft: "4px solid #00a884",
+              backgroundColor: "var(--color-surface-elevated)",
+              borderLeft: "4px solid var(--color-accent)",
               borderRadius: "4px",
               marginBottom: "4px",
               display: "flex",
@@ -1015,7 +1015,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             <div>
               <p
                 style={{
-                  color: "#00a884",
+                  color: "var(--color-accent)",
                   fontSize: "12px",
                   fontWeight: 500,
                   margin: 0,
@@ -1025,7 +1025,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               </p>
               <p
                 style={{
-                  color: "#8696a0",
+                  color: "var(--color-text-secondary)",
                   fontSize: "12px",
                   margin: 0,
                   whiteSpace: "nowrap",
@@ -1042,7 +1042,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               style={{
                 background: "none",
                 border: "none",
-                color: "#8696a0",
+                color: "var(--color-text-secondary)",
                 cursor: "pointer",
               }}
             >
@@ -1056,8 +1056,8 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             style={{
               width: "100%",
               padding: "8px 12px",
-              backgroundColor: "#1f2c34",
-              borderLeft: "4px solid #06cf9c",
+              backgroundColor: "var(--color-surface-elevated)",
+              borderLeft: "4px solid var(--color-accent-hover)",
               borderRadius: "4px",
               marginBottom: "4px",
               display: "flex",
@@ -1068,7 +1068,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
             <div>
               <p
                 style={{
-                  color: "#06cf9c",
+                  color: "var(--color-accent-hover)",
                   fontSize: "12px",
                   fontWeight: 500,
                   margin: 0,
@@ -1093,7 +1093,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               style={{
                 background: "none",
                 border: "none",
-                color: "#8696a0",
+                color: "var(--color-text-secondary)",
                 cursor: "pointer",
               }}
             >
@@ -1138,7 +1138,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 bottom: "70px",
                 left: "60px",
                 zIndex: 10,
-                backgroundColor: "#233138",
+                backgroundColor: "var(--color-surface-hover)",
                 borderRadius: "8px",
                 padding: "8px",
                 display: "flex",
@@ -1157,7 +1157,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   width: "100%",
                 }}
               >
-                <Image size={20} color="#007bff" /> Photos & Videos
+                <Image size={20} color="var(--color-info)" /> Photos & Videos
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -1169,7 +1169,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   width: "100%",
                 }}
               >
-                <FileText size={20} color="#7f66ff" /> Document
+                <FileText size={20} color="var(--color-accent)" /> Document
               </button>
             </div>
           )}
@@ -1188,12 +1188,12 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 display: "flex",
                 alignItems: "center",
                 gap: "12px",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
               }}
             >
               <span
                 style={{
-                  color: "#ff5252",
+                  color: "var(--color-danger)",
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
@@ -1204,20 +1204,20 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                     width: "10px",
                     height: "10px",
                     borderRadius: "50%",
-                    backgroundColor: "#ff5252",
+                    backgroundColor: "var(--color-danger)",
                     animation: isRecordingPaused ? "none" : "pulse 1s infinite",
                     opacity: isRecordingPaused ? 0.5 : 1,
                   }}
                 />
                 {formatDuration(recordingDuration)}
               </span>
-              <span style={{ flex: 1, color: "#8696a0", fontSize: "14px" }}>
+              <span style={{ flex: 1, color: "var(--color-text-secondary)", fontSize: "14px" }}>
                 {isRecordingPaused ? "Paused" : "Recording..."}
               </span>
               <button
                 onClick={() => stopRecording(true)}
                 style={{
-                  color: "#ff5252",
+                  color: "var(--color-danger)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
@@ -1228,7 +1228,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               <button
                 onClick={togglePauseRecording}
                 style={{
-                  color: "#8696a0",
+                  color: "var(--color-text-secondary)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
@@ -1239,7 +1239,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               <button
                 onClick={() => stopRecording(false)}
                 style={{
-                  color: "#25d366",
+                  color: "var(--color-accent-secondary)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
@@ -1254,7 +1254,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 style={{
                   ...buttonStyle,
-                  color: showEmojiPicker ? "#25d366" : "#8696a0",
+                  color: showEmojiPicker ? "var(--color-accent-secondary)" : "var(--color-text-secondary)",
                 }}
               >
                 <Smile size={24} />
@@ -1263,7 +1263,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 onClick={() => setShowAttachMenu(!showAttachMenu)}
                 style={{
                   ...buttonStyle,
-                  color: showAttachMenu ? "#25d366" : "#8696a0",
+                  color: showAttachMenu ? "var(--color-accent-secondary)" : "var(--color-text-secondary)",
                 }}
                 disabled={!!editingMessage}
               >
@@ -1283,11 +1283,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 }
                 style={{
                   flex: 1,
-                  backgroundColor: "#2a3942",
+                  backgroundColor: "var(--color-border)",
                   border: "none",
                   borderRadius: "8px",
                   padding: "10px 16px",
-                  color: "#e9edef",
+                  color: "var(--color-text-primary)",
                   fontSize: "15px",
                   outline: "none",
                   height: "42px",
@@ -1302,14 +1302,14 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                   height: "40px",
                   borderRadius: "50%",
                   backgroundColor:
-                    message.trim() || isRecording ? "#25d366" : "#2a3942", // Changing this logic to show green only for send
+                    message.trim() || isRecording ? "var(--color-accent-secondary)" : "var(--color-border)", // Changing this logic to show green only for send
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.2s ease",
-                  color: message.trim() ? "white" : "#8696a0",
+                  color: message.trim() ? "white" : "var(--color-text-secondary)",
                 }}
               >
                 {message.trim() ? (
@@ -1340,7 +1340,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
         <div style={{
           position: "fixed",
           top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: "rgba(11,20,26,0.85)",
+          backgroundColor: "rgba(13, 11, 22,0.85)",
           zIndex: 1000,
           display: "flex",
           flexDirection: "column"
@@ -1354,7 +1354,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
           }}>
             <button
               onClick={cancelPreview}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-white)" }}
             >
               <X size={28} />
             </button>
@@ -1382,7 +1382,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
           {/* Footer (Caption Input & Send) */}
           <div style={{
             padding: "16px 24px",
-            backgroundColor: "#202c33",
+            backgroundColor: "var(--color-surface)",
             display: "flex",
             alignItems: "center",
             gap: "16px"
@@ -1397,11 +1397,11 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
               }}
               style={{
                 flex: 1,
-                backgroundColor: "#2a3942",
+                backgroundColor: "var(--color-border)",
                 border: "none",
                 borderRadius: "8px",
                 padding: "12px 16px",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
                 fontSize: "15px",
                 outline: "none"
               }}
@@ -1414,7 +1414,7 @@ export const ChatView = ({ chat, onBack, currentUserId, isMobile = false }: Chat
                 width: "48px",
                 height: "48px",
                 borderRadius: "50%",
-                backgroundColor: "#00a884",
+                backgroundColor: "var(--color-accent)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

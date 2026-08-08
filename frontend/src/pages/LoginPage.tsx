@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageCircle, Loader2 } from 'lucide-react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { MessageCircle, Loader2, Lock } from 'lucide-react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { authApi } from '../api';
@@ -51,7 +51,7 @@ export const LoginPage = () => {
         alignItems: 'center', 
         justifyContent: 'center', 
         padding: '24px',
-        background: 'linear-gradient(135deg, #0b141a 0%, #111b21 100%)',
+        background: 'linear-gradient(135deg, var(--color-bg-deepest) 0%, var(--color-bg) 100%)',
         position: 'relative',
         overflow: 'hidden',
         fontFamily: "'Inter', sans-serif"
@@ -64,7 +64,7 @@ export const LoginPage = () => {
         left: '-10%',
         width: '500px',
         height: '500px',
-        background: 'radial-gradient(circle, rgba(37, 211, 102, 0.15) 0%, rgba(0,0,0,0) 70%)',
+        background: 'radial-gradient(circle, rgba(139, 127, 234, 0.15) 0%, rgba(0,0,0,0) 70%)',
         borderRadius: '50%',
         filter: 'blur(60px)',
         zIndex: 0
@@ -75,7 +75,7 @@ export const LoginPage = () => {
         right: '-10%',
         width: '400px',
         height: '400px',
-        background: 'radial-gradient(circle, rgba(18, 140, 126, 0.15) 0%, rgba(0,0,0,0) 70%)',
+        background: 'radial-gradient(circle, rgba(86, 71, 199, 0.15) 0%, rgba(0,0,0,0) 70%)',
         borderRadius: '50%',
         filter: 'blur(60px)',
         zIndex: 0
@@ -86,7 +86,7 @@ export const LoginPage = () => {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(11, 20, 26, 0.85)',
+          background: 'rgba(13, 11, 22, 0.85)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           flexDirection: 'column',
@@ -95,8 +95,8 @@ export const LoginPage = () => {
           zIndex: 50,
           transition: 'all 0.3s ease'
         }}>
-          <Loader2 size={48} style={{ animation: 'spin 1s linear infinite', color: '#25d366' }} />
-          <p style={{ color: '#e9edef', marginTop: '20px', fontSize: '18px', fontWeight: '500', letterSpacing: '0.5px' }}>
+          <Loader2 size={48} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-accent-secondary)' }} />
+          <p style={{ color: 'var(--color-text-primary)', marginTop: '20px', fontSize: '18px', fontWeight: '500', letterSpacing: '0.5px' }}>
             Authenticating securely...
           </p>
         </div>
@@ -108,7 +108,7 @@ export const LoginPage = () => {
         style={{ 
           width: '100%', 
           maxWidth: '420px',
-          background: 'rgba(31, 44, 52, 0.6)',
+          background: 'rgba(32, 28, 56, 0.6)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderRadius: '24px',
@@ -128,12 +128,12 @@ export const LoginPage = () => {
               width: '88px', 
               height: '88px', 
               borderRadius: '24px', 
-              background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)', 
+              background: 'linear-gradient(135deg, var(--color-accent-secondary) 0%, var(--color-accent-deep) 100%)', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center', 
               margin: '0 auto 24px',
-              boxShadow: '0 8px 24px rgba(37, 211, 102, 0.3)',
+              boxShadow: '0 8px 24px rgba(139, 127, 234, 0.3)',
               transform: 'rotate(-4deg)',
               transition: 'transform 0.3s ease'
             }}
@@ -145,13 +145,13 @@ export const LoginPage = () => {
           <h1 style={{ 
             fontSize: '32px', 
             fontWeight: '800', 
-            color: '#e9edef', 
+            color: 'var(--color-text-primary)', 
             marginBottom: '8px',
             letterSpacing: '-0.5px'
           }}>
             ChitChat
           </h1>
-          <p style={{ color: '#8696a0', fontSize: '15px', lineHeight: '1.5' }}>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px', lineHeight: '1.5' }}>
             Connect instantly with the people who matter most.
           </p>
         </div>
@@ -178,15 +178,20 @@ export const LoginPage = () => {
           </div>
           
           <div style={{
-            background: 'rgba(37, 211, 102, 0.1)',
-            border: '1px solid rgba(37, 211, 102, 0.2)',
+            background: 'rgba(139, 127, 234, 0.1)',
+            border: '1px solid rgba(139, 127, 234, 0.2)',
             borderRadius: '12px',
             padding: '16px',
             textAlign: 'center'
           }}>
-            <p style={{ color: '#25d366', fontSize: '13px', fontWeight: '500' }}>
+            <p style={{ color: 'var(--color-accent-secondary)', fontSize: '13px', fontWeight: '500' }}>
               ✨ Quick, secure, and passwordless entry.
             </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+            <Lock size={14} />
+            <span>Your messages are end-to-end encrypted</span>
           </div>
         </div>
       </div>
@@ -195,15 +200,15 @@ export const LoginPage = () => {
       <div style={{ 
         position: 'absolute', 
         bottom: '32px', 
-        color: '#8696a0', 
+        color: 'var(--color-text-secondary)', 
         fontSize: '13px', 
         textAlign: 'center',
         zIndex: 10
       }}>
         By continuing, you agree to our{' '}
-        <a href="#" style={{ color: '#25d366', textDecoration: 'none', fontWeight: '500' }}>Terms</a>
+        <Link to="/terms" style={{ color: 'var(--color-accent-secondary)', textDecoration: 'none', fontWeight: '500' }}>Terms</Link>
         {' '}and{' '}
-        <a href="#" style={{ color: '#25d366', textDecoration: 'none', fontWeight: '500' }}>Privacy Policy</a>
+        <Link to="/privacy" style={{ color: 'var(--color-accent-secondary)', textDecoration: 'none', fontWeight: '500' }}>Privacy Policy</Link>
       </div>
     </div>
   );

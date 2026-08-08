@@ -9,7 +9,7 @@ export const ChatViewSkeleton = () => {
             100% { background-position: 200% 0; }
           }
           .skeleton-message {
-            background: linear-gradient(90deg, #202c33 25%, #2a3942 50%, #202c33 75%);
+            background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-border) 50%, var(--color-surface) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
           }

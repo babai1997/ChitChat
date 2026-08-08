@@ -3,7 +3,7 @@ import { resolvePostLoginRedirect } from './utils/postLoginRedirect';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
-import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage, LinkedDevicesPage, MeetingJoinPage, DocsPage } from './pages';
+import { LoginPage, VerifyOtpPage, SetupProfilePage, HomePage, SettingsPage, LinkedDevicesPage, MeetingJoinPage, DocsPage, TermsPage, PrivacyPolicyPage } from './pages';
 import { ProtectedRoute, DeviceLinkApprovalModal } from './components/common';
 import { useAuthStore } from './stores';
 import { SocketProvider } from './contexts/SocketContext';
@@ -83,6 +83,8 @@ const AppContent = () => {
             }
           />
           <Route path="/docs" element={<DocsPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
 
           {/* Protected routes */}
           <Route 
@@ -143,11 +145,11 @@ function ReconnectBanner() {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
-      background: '#2a3942', color: '#e9edef',
+      background: 'var(--color-border)', color: 'var(--color-text-primary)',
       fontSize: 13, textAlign: 'center', padding: '6px 12px',
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0a500', display: 'inline-block', animation: 'pulse 1.2s ease-in-out infinite' }} />
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-warning)', display: 'inline-block', animation: 'pulse 1.2s ease-in-out infinite' }} />
       Reconnecting…
     </div>
   );
@@ -169,20 +171,20 @@ function App() {
               toastOptions={{
               duration: 3000,
               style: {
-                  background: '#202C33',
-                  color: '#E9EDEF',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text-primary)',
                   borderRadius: '8px',
               },
               success: {
                   iconTheme: {
-                  primary: '#25D366',
-                  secondary: '#fff',
+                  primary: 'var(--color-accent-secondary)',
+                  secondary: 'var(--color-white)',
                   },
               },
               error: {
                   iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                  primary: 'var(--color-danger)',
+                  secondary: 'var(--color-white)',
                   },
               },
               }}

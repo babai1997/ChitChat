@@ -167,19 +167,19 @@ export const MessageBubble = ({
         icon = (
           <Clock
             size={14}
-            color="#8696a0"
+            color="var(--color-text-secondary)"
             style={{ opacity: showClock ? 1 : 0, transition: "opacity 0.2s" }}
           />
         );
         break;
       case "sent":
-        icon = <Check size={14} color="#8696a0" />;
+        icon = <Check size={14} color="var(--color-text-secondary)" />;
         break;
       case "delivered":
-        icon = <CheckCheck size={14} color="#8696a0" />;
+        icon = <CheckCheck size={14} color="var(--color-text-secondary)" />;
         break;
       case "read":
-        icon = <CheckCheck size={14} color="#53bdeb" />;
+        icon = <CheckCheck size={14} color="var(--color-info)" />;
         break;
     }
 
@@ -289,7 +289,7 @@ export const MessageBubble = ({
           style={{
             maxWidth: "80%",
             padding: "6px 14px",
-            backgroundColor: "#182229",
+            backgroundColor: "var(--color-bg-deepest)",
             borderRadius: "8px",
             cursor: isApprovalPrompt ? "pointer" : "default",
           }}
@@ -299,7 +299,7 @@ export const MessageBubble = ({
               display: "block",
               fontSize: "12.5px",
               fontStyle: "italic",
-              color: "#8696a0",
+              color: "var(--color-text-secondary)",
               textAlign: "center",
               textDecoration: isApprovalPrompt ? "underline" : "none",
             }}
@@ -326,19 +326,19 @@ export const MessageBubble = ({
           style={{
             maxWidth: "85%",
             padding: "6px 12px 8px 12px",
-            backgroundColor: isOwn ? "#005c4b" : "#202c33",
+            backgroundColor: isOwn ? "var(--color-accent-strong)" : "var(--color-surface)",
             borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
-            boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+            boxShadow: "0 1px 0.5px rgba(13, 11, 22,.13)",
             opacity: 0.6,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Ban size={14} color="#8696a0" />
+            <Ban size={14} color="var(--color-text-secondary)" />
             <span
               style={{
                 fontSize: "14px",
                 fontStyle: "italic",
-                color: "#8696a0",
+                color: "var(--color-text-secondary)",
               }}
             >
               This message was deleted
@@ -388,16 +388,16 @@ export const MessageBubble = ({
     let AudioIcon: typeof Phone;
 
     if (ended) {
-      iconColor = "#25d366";
-      iconBg    = "rgba(37,211,102,0.12)";
+      iconColor = "var(--color-accent-secondary)";
+      iconBg    = "rgba(139, 127, 234,0.12)";
       AudioIcon = isOwn ? PhoneOutgoing : PhoneIncoming;
     } else if (isOwn) {
-      iconColor = "rgba(233,237,239,0.65)";
+      iconColor = "rgba(240, 238, 247,0.65)";
       iconBg    = "rgba(255,255,255,0.07)";
       AudioIcon = PhoneOutgoing;
     } else {
-      iconColor = "#ea4335";
-      iconBg    = "rgba(234,67,53,0.12)";
+      iconColor = "var(--color-danger)";
+      iconBg    = "rgba(239, 68, 68,0.12)";
       AudioIcon = PhoneIncoming;
     }
 
@@ -406,9 +406,9 @@ export const MessageBubble = ({
         <div style={{
           display: "flex", alignItems: "center", gap: "10px",
           padding: "8px 14px 8px 10px",
-          backgroundColor: isOwn ? "#005c4b" : "#202c33",
+          backgroundColor: isOwn ? "var(--color-accent-strong)" : "var(--color-surface)",
           borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
-          boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+          boxShadow: "0 1px 0.5px rgba(13, 11, 22,.13)",
           maxWidth: "280px",
         }}>
           <div style={{
@@ -421,10 +421,10 @@ export const MessageBubble = ({
               : <AudioIcon size={17} color={iconColor} />}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
-            <span style={{ fontSize: "14px", fontWeight: 500, color: "#e9edef", lineHeight: "18px" }}>
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", lineHeight: "18px" }}>
               {title}
             </span>
-            <span style={{ fontSize: "11px", color: "rgba(233,237,239,0.5)" }}>
+            <span style={{ fontSize: "11px", color: "rgba(240, 238, 247,0.5)" }}>
               {subtitle} · {formatTime(message.createdAt)}
             </span>
           </div>
@@ -454,12 +454,12 @@ export const MessageBubble = ({
           maxWidth: "85%",
           padding: "6px 7px 8px 9px",
           backgroundColor: isHighlighted
-            ? "rgba(6,207,156,0.35)"
+            ? "rgba(125, 111, 224,0.35)"
             : isOwn
-              ? "#005c4b"
-              : "#202c33",
+              ? "var(--color-accent-strong)"
+              : "var(--color-surface)",
           borderRadius: isOwn ? "8px 8px 0 8px" : "8px 8px 8px 0",
-          boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+          boxShadow: "0 1px 0.5px rgba(13, 11, 22,.13)",
           position: "relative",
           cursor: "pointer",
           transition: "background-color 0.4s ease",
@@ -492,13 +492,13 @@ export const MessageBubble = ({
               flexDirection: "column",
               padding: "6px 8px",
               marginBottom: "4px",
-              borderLeft: "3px solid #06cf9c",
+              borderLeft: "3px solid var(--color-accent-hover)",
               backgroundColor: "rgba(255,255,255,0.06)",
               borderRadius: "4px",
               cursor: message.replyTo.isDeleted ? "default" : "pointer",
             }}
           >
-            <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#06cf9c" }}>
+            <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--color-accent-hover)" }}>
               {message.replyTo.senderName}
             </span>
             <ReplyPreviewLine chatId={message.chatId} replyTo={message.replyTo} />
@@ -571,7 +571,7 @@ export const MessageBubble = ({
                     borderRadius: "8px",
                   }}
                 >
-                  <FileText size={24} color={isOwn ? "#e9edef" : "#8696a0"} />
+                  <FileText size={24} color={isOwn ? "var(--color-text-primary)" : "var(--color-text-secondary)"} />
                   <a
                     href={att.url}
                     target="_blank"
@@ -603,7 +603,7 @@ export const MessageBubble = ({
               style={{
                 fontSize: "14px",
                 lineHeight: "19px",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
                 marginRight: "8px",
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
@@ -627,7 +627,7 @@ export const MessageBubble = ({
               <span
                 style={{
                   fontSize: "11px",
-                  color: "rgba(233, 237, 239, 0.6)",
+                  color: "rgba(240, 238, 247, 0.6)",
                   marginRight: "3px",
                 }}
               >
@@ -637,7 +637,7 @@ export const MessageBubble = ({
             <span
               style={{
                 fontSize: "11px",
-                color: "rgba(233, 237, 239, 0.6)",
+                color: "rgba(240, 238, 247, 0.6)",
                 lineHeight: "15px",
               }}
             >
@@ -656,7 +656,7 @@ export const MessageBubble = ({
               top: menuPosition.y,
               left: isOwn ? "auto" : menuPosition.x,
               right: isOwn ? 0 : "auto",
-              backgroundColor: "#233138",
+              backgroundColor: "var(--color-surface-hover)",
               borderRadius: "8px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
               zIndex: 1000,
@@ -675,19 +675,19 @@ export const MessageBubble = ({
                 padding: "12px 16px",
                 border: "none",
                 background: "none",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
                 fontSize: "14px",
                 cursor: "pointer",
                 textAlign: "left",
               }}
               onMouseOver={(e) =>
-                (e.currentTarget.style.backgroundColor = "#2a3942")
+                (e.currentTarget.style.backgroundColor = "var(--color-border)")
               }
               onMouseOut={(e) =>
                 (e.currentTarget.style.backgroundColor = "transparent")
               }
             >
-              <Reply size={18} color="#8696a0" />
+              <Reply size={18} color="var(--color-text-secondary)" />
               Reply
             </button>
 
@@ -703,19 +703,19 @@ export const MessageBubble = ({
                   padding: "12px 16px",
                   border: "none",
                   background: "none",
-                  color: "#e9edef",
+                  color: "var(--color-text-primary)",
                   fontSize: "14px",
                   cursor: "pointer",
                   textAlign: "left",
                 }}
                 onMouseOver={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#2a3942")
+                  (e.currentTarget.style.backgroundColor = "var(--color-border)")
                 }
                 onMouseOut={(e) =>
                   (e.currentTarget.style.backgroundColor = "transparent")
                 }
               >
-                <Pencil size={18} color="#8696a0" />
+                <Pencil size={18} color="var(--color-text-secondary)" />
                 Edit
               </button>
             )}
@@ -731,19 +731,19 @@ export const MessageBubble = ({
                 padding: "12px 16px",
                 border: "none",
                 background: "none",
-                color: "#e9edef",
+                color: "var(--color-text-primary)",
                 fontSize: "14px",
                 cursor: "pointer",
                 textAlign: "left",
               }}
               onMouseOver={(e) =>
-                (e.currentTarget.style.backgroundColor = "#2a3942")
+                (e.currentTarget.style.backgroundColor = "var(--color-border)")
               }
               onMouseOut={(e) =>
                 (e.currentTarget.style.backgroundColor = "transparent")
               }
             >
-              <Trash2 size={18} color="#8696a0" />
+              <Trash2 size={18} color="var(--color-text-secondary)" />
               Delete for Me
             </button>
 
@@ -759,19 +759,19 @@ export const MessageBubble = ({
                   padding: "12px 16px",
                   border: "none",
                   background: "none",
-                  color: "#ea4335",
+                  color: "var(--color-danger)",
                   fontSize: "14px",
                   cursor: "pointer",
                   textAlign: "left",
                 }}
                 onMouseOver={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#2a3942")
+                  (e.currentTarget.style.backgroundColor = "var(--color-border)")
                 }
                 onMouseOut={(e) =>
                   (e.currentTarget.style.backgroundColor = "transparent")
                 }
               >
-                <Trash2 size={18} color="#ea4335" />
+                <Trash2 size={18} color="var(--color-danger)" />
                 Delete for Everyone
               </button>
             )}
@@ -806,7 +806,7 @@ export const MessageBubble = ({
           >
             <button
               onClick={() => setSelectedImage(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-white)" }}
             >
               <X size={28} />
             </button>
@@ -818,13 +818,13 @@ export const MessageBubble = ({
                   background: "none",
                   border: "none",
                   cursor: imageZoom <= IMAGE_ZOOM_MIN ? "default" : "pointer",
-                  color: "#fff",
+                  color: "var(--color-white)",
                   opacity: imageZoom <= IMAGE_ZOOM_MIN ? 0.4 : 1,
                 }}
               >
                 <ZoomOut size={22} />
               </button>
-              <span style={{ color: "#fff", fontSize: 13, minWidth: 40, textAlign: "center" }}>
+              <span style={{ color: "var(--color-white)", fontSize: 13, minWidth: 40, textAlign: "center" }}>
                 {Math.round(imageZoom * 100)}%
               </span>
               <button
@@ -834,7 +834,7 @@ export const MessageBubble = ({
                   background: "none",
                   border: "none",
                   cursor: imageZoom >= IMAGE_ZOOM_MAX ? "default" : "pointer",
-                  color: "#fff",
+                  color: "var(--color-white)",
                   opacity: imageZoom >= IMAGE_ZOOM_MAX ? 0.4 : 1,
                 }}
               >
@@ -842,13 +842,13 @@ export const MessageBubble = ({
               </button>
               <button
                 onClick={handleDownload}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-white)" }}
               >
                 <Download size={24} />
               </button>
               <button
                 onClick={() => setShowForward(true)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-white)" }}
               >
                 <Forward size={24} />
               </button>
@@ -895,7 +895,7 @@ export const MessageBubble = ({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(11,20,26,0.85)",
+            backgroundColor: "rgba(13, 11, 22,0.85)",
             zIndex: 3000,
             display: "flex",
             alignItems: "center",
@@ -905,7 +905,7 @@ export const MessageBubble = ({
         >
           <div
             style={{
-              backgroundColor: "#202c33",
+              backgroundColor: "var(--color-surface)",
               borderRadius: "8px",
               width: "400px",
               maxWidth: "90%",
@@ -916,14 +916,14 @@ export const MessageBubble = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: "1px solid #2a3942" }}>
+            <div style={{ padding: "20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: "1px solid var(--color-border)" }}>
               <button
                 onClick={() => setShowForward(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#aebac1" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)" }}
               >
                 <X size={24} />
               </button>
-              <h2 style={{ margin: 0, fontSize: "18px", color: "#e9edef", fontWeight: 500 }}>Forward to...</h2>
+              <h2 style={{ margin: 0, fontSize: "18px", color: "var(--color-text-primary)", fontWeight: 500 }}>Forward to...</h2>
             </div>
             
             <div style={{ flex: 1, overflowY: "auto" }}>
@@ -943,13 +943,13 @@ export const MessageBubble = ({
                       alignItems: "center",
                       background: "none",
                       border: "none",
-                      borderBottom: "1px solid #2a3942",
-                      color: "#e9edef",
+                      borderBottom: "1px solid var(--color-border)",
+                      color: "var(--color-text-primary)",
                       fontSize: "16px",
                       cursor: "pointer",
                       textAlign: "left",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#2a3942")}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-border)")}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     onClick={() => handleForward(c.id)}
                   >

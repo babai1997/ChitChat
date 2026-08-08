@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "qa": "vite --mode qa",
+    "postinstall": "npm install --prefix ../packages/e2ee",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
