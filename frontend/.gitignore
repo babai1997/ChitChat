@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+# Points at a local backend on this machine — not shared config like .env.qa.
+.env.localdev
 
 # Editor directories and files
 .vscode/*

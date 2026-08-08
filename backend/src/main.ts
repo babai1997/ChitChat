@@ -17,8 +17,10 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port') || 3000;
-  const frontendUrl =
-    configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
+  const allowedOrigins = configService.get<string[]>('app.frontendUrls') || [
+    'http://localhost:5173',
+  ];
+  logger.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 
   // ── Security headers ──────────────────────────────────────────────────────
   // Skip strict CSP for the Swagger UI path so its inline scripts/styles load.
@@ -27,12 +29,28 @@ async function bootstrap() {
     helmetMiddleware(req, res, next);
   });
 
-  // Enable CORS
+  // Enable CORS — FRONTEND_URL can list several allowed origins (custom
+  // domain, its www variant, Render's own default URL); a request from
+  // anything else is rejected, logged so a future mismatch is visible in
+  // the deploy logs instead of just failing silently in the browser.
   app.enableCors({
-    origin: frontendUrl,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn(`CORS rejected origin: ${origin}`);
+        callback(new Error(`Origin ${origin} not allowed by CORS`), false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // x-device-id is attached to every request by the frontend's axios
+    // interceptor (see frontend/src/api/client.ts) — missing it here fails
+    // the CORS preflight for every cross-origin request, not just some.
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
   });
 
   // Global prefix
@@ -67,7 +85,7 @@ async function bootstrap() {
   logger.log(`📚 API available at: http://localhost:${port}/api`);
   logger.log(`📖 Swagger docs at: http://localhost:${port}/docs`);
   logger.log(`🔌 WebSocket available at: ws://localhost:${port}/chat`);
-  logger.log(`🌐 Frontend URL: ${frontendUrl}`);
+  logger.log(`🌐 Frontend URL(s): ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap();

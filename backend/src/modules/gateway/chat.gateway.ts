@@ -27,6 +27,7 @@ import { SOCKET_EVENTS } from '../../shared/constants/socket-events';
 import { SendMessageDto, TypingDto, ReadMessagesDto } from './dto';
 import type { DistributeSenderKeyDto } from '../sender-keys/dto';
 import { User, Profile } from '@prisma/client';
+import { getAllowedOrigins } from '../../common/utils/allowed-origins';
 
 interface AuthenticatedSocket extends Socket {
   user: User & { profile: Profile | null };
@@ -36,7 +37,7 @@ interface AuthenticatedSocket extends Socket {
 @UseFilters(WsExceptionFilter)
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: getAllowedOrigins(),
     credentials: true,
   },
   namespace: '/chat',
